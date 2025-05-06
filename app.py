@@ -329,51 +329,56 @@ with col2:
 st.markdown('<div style="margin: 1em 0; width: 100%;"></div>', unsafe_allow_html=True)
 read_btn = st.button("データを読み込む", key="read", help="選択したファイルを読み込みます。", type="primary", use_container_width=True)
 
+# --- データ読み込み・クリーニング関数 ---
+def load_and_clean_csv(path):
+    # ymd, qtyだけ抽出（他カラムは無視）
+    df = pd.read_csv(path, usecols=lambda c: c.strip() in ['ymd', 'qty'])
+    df['ymd'] = df['ymd'].astype(str).str.zfill(8)
+    df['ymd'] = pd.to_datetime(df['ymd'], format='%Y%m%d', errors='coerce')
+    df = df.dropna(subset=['ymd'])
+    return df
+
+# --- ファイル選択後のデータ読み込み ---
 if read_btn:
     treatment_path = os.path.join(treatment_dir, treatment_file)
     control_path = os.path.join(control_dir, control_file)
-    df_treat = pd.read_csv(treatment_path)
-    df_ctrl = pd.read_csv(control_path)
-    
-    # 必要なカラムのみを抽出
-    if 'ymd' in df_treat.columns and 'qty' in df_treat.columns:
-        df_treat = df_treat[['ymd', 'qty']]
-    if 'ymd' in df_ctrl.columns and 'qty' in df_ctrl.columns:
-        df_ctrl = df_ctrl[['ymd', 'qty']]
-
+    df_treat = load_and_clean_csv(treatment_path)
+    df_ctrl = load_and_clean_csv(control_path)
+    treatment_name = os.path.splitext(treatment_file)[0]
+    control_name = os.path.splitext(control_file)[0]
+    # セッションに保存
+    st.session_state['df_treat'] = df_treat
+    st.session_state['df_ctrl'] = df_ctrl
+    st.session_state['treatment_name'] = treatment_name
+    st.session_state['control_name'] = control_name
+    st.session_state['data_loaded'] = True
     st.success("データを読み込みました。下記にプレビューと統計情報を表示します。")
 
+# --- データ読み込み済みなら表示（セッションから取得） ---
+if st.session_state.get('data_loaded', False):
+    df_treat = st.session_state['df_treat']
+    df_ctrl = st.session_state['df_ctrl']
+    treatment_name = st.session_state['treatment_name']
+    control_name = st.session_state['control_name']
     # --- データプレビュー ---
     st.markdown('<div class="section-title">読み込みデータのプレビュー（上位10件）</div>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
-    
-    # ファイル名から拡張子を除去
-    treatment_name = os.path.splitext(treatment_file)[0]
-    control_name = os.path.splitext(control_file)[0]
-    
     with col1:
         st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.1em;color:#1976d2;">処置群（{treatment_name}）</div>', unsafe_allow_html=True)
-        # インデックスを1から始める
         preview_df_treat = df_treat.head(10).copy()
         preview_df_treat.index = range(1, len(preview_df_treat) + 1)
         st.dataframe(preview_df_treat, use_container_width=True)
     with col2:
         st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.1em;color:#1976d2;">対照群（{control_name}）</div>', unsafe_allow_html=True)
-        # インデックスを1から始める
         preview_df_ctrl = df_ctrl.head(10).copy()
         preview_df_ctrl.index = range(1, len(preview_df_ctrl) + 1)
         st.dataframe(preview_df_ctrl, use_container_width=True)
-
     # --- 統計情報 ---
     st.markdown('<div class="section-title">データの統計情報</div>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
-    
-    # 日本語名を含む統計表示用の関数
     def format_stats_with_japanese(df):
         stats = df.describe().reset_index()
         stats.columns = ['統計項目', '数値']
-        
-        # 日本語名を追加
         stats['統計項目'] = stats['統計項目'].replace({
             'count': 'count（個数）',
             'mean': 'mean（平均）',
@@ -384,14 +389,10 @@ if read_btn:
             '75%': '75%（第3四分位数）',
             'max': 'max（最大値）'
         })
-        
-        # 小数点以下2桁に丸める（count以外）
         for i, row in stats.iterrows():
             if row['統計項目'] != 'count（個数）':
                 stats.at[i, '数値'] = round(row['数値'], 2)
-        
         return stats
-    
     with col1:
         st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.1em;color:#1976d2;">処置群（{treatment_name}）</div>', unsafe_allow_html=True)
         if 'qty' in df_treat.columns:
@@ -399,7 +400,6 @@ if read_btn:
             st.dataframe(stats_treat, use_container_width=True, hide_index=True)
         else:
             st.error("データに 'qty' カラムが見つかりません")
-    
     with col2:
         st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.1em;color:#1976d2;">対照群（{control_name}）</div>', unsafe_allow_html=True)
         if 'qty' in df_ctrl.columns:
@@ -407,81 +407,101 @@ if read_btn:
             st.dataframe(stats_ctrl, use_container_width=True, hide_index=True)
         else:
             st.error("データに 'qty' カラムが見つかりません")
-
-    # --- 日付をdatetime型に変換 ---
-    df_treat['ymd'] = pd.to_datetime(df_treat['ymd'], errors='coerce')
-    df_ctrl['ymd'] = pd.to_datetime(df_ctrl['ymd'], errors='coerce')
-
-    # 日付変換エラーをチェック
-    if df_treat['ymd'].isna().any() or df_ctrl['ymd'].isna().any():
-        st.warning("一部の日付データが正しく変換できませんでした。データ形式を確認してください。")
-
-    # --- 時系列プロット ---
-    st.markdown('<div class="section-title">時系列プロット</div>', unsafe_allow_html=True)
-    st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.1em;color:#1976d2;">処置群と対照群の時系列推移</div>', unsafe_allow_html=True)
-    
-    # 2つのY軸を持つサブプロットを作成
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-    
-    # 処置群のプロット（左軸）
-    fig.add_trace(
-        go.Scatter(
-            x=df_treat['ymd'], 
-            y=df_treat['qty'],
-            name=f"処置群（{treatment_name}）",
-            line=dict(color="#1976d2", width=3),
-            mode='lines'
-        ),
-        secondary_y=False
-    )
-    
-    # 対照群のプロット（右軸）
-    fig.add_trace(
-        go.Scatter(
-            x=df_ctrl['ymd'], 
-            y=df_ctrl['qty'],
-            name=f"対照群（{control_name}）",
-            line=dict(color="#ef5350", width=3),
-            mode='lines'
-        ),
-        secondary_y=True
-    )
-    
-    # 軸ラベルを更新
-    fig.update_xaxes(title_text="日付", gridcolor="#e0e0e0", tickformat="%Y-%m")
-    fig.update_yaxes(title_text=f"処置群の数量", secondary_y=False, 
-                     title_font=dict(color="#1976d2"), tickfont=dict(color="#1976d2"), gridcolor="#e0e0e0")
-    fig.update_yaxes(title_text=f"対照群の数量", secondary_y=True, 
-                     title_font=dict(color="#ef5350"), tickfont=dict(color="#ef5350"))
-    
-    # レイアウトを更新
-    fig.update_layout(
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
-        hovermode="x unified",
-        plot_bgcolor='white',
-        margin=dict(t=50, l=60, r=60, b=50),
-        height=500
-    )
-    
-    # グラフ表示の設定
-    config = {
-        'displayModeBar': True,
-        'scrollZoom': True,
-        'displaylogo': False,
-        'modeBarButtonsToAdd': ['drawline', 'drawopenpath', 'eraseshape'],
-        'toImageButtonOptions': {
-            'format': 'png',
-            'filename': 'time_series_plot',
-            'height': 500,
-            'width': 900,
-            'scale': 2
-        }
-    }
-    
-    st.plotly_chart(fig, use_container_width=True, config=config)
-    
-    with st.expander("Plotlyインタラクティブグラフの使い方ガイド"):
+    # --- 分析用データセット作成セクション ---
+    st.markdown('<div class="section-title">分析用データセットの作成</div>', unsafe_allow_html=True)
+    st.markdown("""
+<div style="background:#f5f5f5;border-radius:10px;padding:1.5em;margin-bottom:1.5em;">
+<div style="font-size:1.15em;font-weight:bold;color:#1976d2;margin-bottom:1em;">Causal Impact分析用データセットの作成</div>
+<div style="font-size:1.05em;margin-bottom:0.8em;">データ集計方法を選択</div>
+</div>
+    """, unsafe_allow_html=True)
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        freq_option = st.radio(
+            "データ集計方法",
+            options=["月次", "旬次"],
+            label_visibility="collapsed"
+        )
+    with col2:
         st.markdown("""
+<div style="font-size:0.98em;color:#1976d2;margin-top:0.5em;">
+<b>月次データ：</b>月単位で集計し、日付はその月の1日となります。<br>
+<b>旬次データ：</b>各月を3分割し、1日（上旬）、11日（中旬）、21日（下旬）の日付で集計します。<br>
+<b>※ 欠損値は自動で0埋めされます。</b>
+</div>
+        """, unsafe_allow_html=True)
+    create_btn = st.button("データセット作成", key="create", help="Causal Impact分析用データセットを作成します。", type="primary")
+    def make_period_key(dt, freq):
+        if freq == "月次":
+            return dt.strftime('%Y-%m-01')
+        elif freq == "旬次":
+            day = dt.day
+            if day <= 10:
+                return dt.strftime('%Y-%m-01')
+            elif day <= 20:
+                return dt.strftime('%Y-%m-11')
+            else:
+                return dt.strftime('%Y-%m-21')
+        else:
+            return dt.strftime('%Y-%m-%d')
+    def aggregate_df(df, freq):
+        df = df.copy()
+        df['period'] = df['ymd'].apply(lambda x: make_period_key(x, freq))
+        agg = df.groupby('period', as_index=False)['qty'].sum()
+        agg['period'] = pd.to_datetime(agg['period'])
+        return agg
+    def make_full_period_index(df1, df2, freq):
+        idx1 = set(df1['period'])
+        idx2 = set(df2['period'])
+        common_idx = sorted(list(idx1 & idx2))
+        return pd.to_datetime(common_idx)
+    if create_btn:
+        agg_treat = aggregate_df(df_treat, freq_option)
+        agg_ctrl = aggregate_df(df_ctrl, freq_option)
+        common_periods = make_full_period_index(agg_treat, agg_ctrl, freq_option)
+        agg_treat = agg_treat[agg_treat['period'].isin(common_periods)].set_index('period')
+        agg_ctrl = agg_ctrl[agg_ctrl['period'].isin(common_periods)].set_index('period')
+        all_periods = pd.DataFrame(index=common_periods)
+        agg_treat = all_periods.join(agg_treat).fillna(0)
+        agg_ctrl = all_periods.join(agg_ctrl).fillna(0)
+        dataset = pd.DataFrame({
+            'ymd': common_periods,
+            f'処置群（{treatment_name}）': agg_treat['qty'].values,
+            f'対照群（{control_name}）': agg_ctrl['qty'].values
+        })
+        st.markdown(f"""
+<div style="margin-bottom:1.5em;">
+<div><b>対象期間：</b>{dataset['ymd'].min().strftime('%Y/%m/%d')} ～ {dataset['ymd'].max().strftime('%Y/%m/%d')}</div>
+<div><b>データ数：</b>{len(dataset)} 件</div>
+</div>
+        """, unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;">データプレビュー（上位10件表示）</div>', unsafe_allow_html=True)
+            preview_df = dataset.head(10).copy()
+            preview_df['ymd'] = preview_df['ymd'].dt.strftime('%Y-%m-%d')
+            preview_df.index = range(1, len(preview_df) + 1)
+            st.dataframe(preview_df, use_container_width=True)
+        with col2:
+            st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;">統計情報</div>', unsafe_allow_html=True)
+            stats_df = pd.DataFrame({
+                '統計項目': ['count（個数）', 'mean（平均）', 'std（標準偏差）', 'min（最小値）', '25%（第1四分位数）', '50%（中央値）', '75%（第3四分位数）', 'max（最大値）'],
+                f'処置群（{treatment_name}）': [len(dataset), round(dataset[f'処置群（{treatment_name}）'].mean(),2), round(dataset[f'処置群（{treatment_name}）'].std(),2), dataset[f'処置群（{treatment_name}）'].min(), dataset[f'処置群（{treatment_name}）'].quantile(0.25), dataset[f'処置群（{treatment_name}）'].quantile(0.5), dataset[f'処置群（{treatment_name}）'].quantile(0.75), dataset[f'処置群（{treatment_name}）'].max()],
+                f'対照群（{control_name}）': [len(dataset), round(dataset[f'対照群（{control_name}）'].mean(),2), round(dataset[f'対照群（{control_name}）'].std(),2), dataset[f'対照群（{control_name}）'].min(), dataset[f'対照群（{control_name}）'].quantile(0.25), dataset[f'対照群（{control_name}）'].quantile(0.5), dataset[f'対照群（{control_name}）'].quantile(0.75), dataset[f'対照群（{control_name}）'].max()]
+            })
+            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+        st.markdown('<div class="section-title">時系列プロット</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.1em;color:#1976d2;">処置群と対照群の時系列推移</div>', unsafe_allow_html=True)
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        fig.add_trace(go.Scatter(x=dataset['ymd'], y=dataset[f'処置群（{treatment_name}）'], name=f"処置群（{treatment_name}）", line=dict(color="#1976d2", width=2), mode='lines', hovertemplate='日付: %{x|%Y-%m-%d}<br>数量: %{y}<extra></extra>'), secondary_y=False)
+        fig.add_trace(go.Scatter(x=dataset['ymd'], y=dataset[f'対照群（{control_name}）'], name=f"対照群（{control_name}）", line=dict(color="#ef5350", width=2), mode='lines', hovertemplate='日付: %{x|%Y-%m-%d}<br>数量: %{y}<extra></extra>'), secondary_y=True)
+        fig.update_xaxes(title_text="日付", type="date", tickformat="%Y-%m", showgrid=True, tickangle=-30)
+        fig.update_yaxes(title_text="処置群の数量", secondary_y=False, title_font=dict(color="#1976d2"), tickfont=dict(color="#1976d2"))
+        fig.update_yaxes(title_text="対照群の数量", secondary_y=True, title_font=dict(color="#ef5350"), tickfont=dict(color="#ef5350"))
+        fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5), hovermode="x unified", plot_bgcolor='white', margin=dict(t=50, l=60, r=60, b=60), height=500, autosize=True, xaxis_rangeslider_visible=True, dragmode="zoom")
+        st.plotly_chart(fig, use_container_width=True)
+        with st.expander("Plotlyインタラクティブグラフの使い方ガイド"):
+            st.markdown("""
 <div style="line-height:1.7;">
 <ul>
 <li><b>データ確認</b>：グラフ上の線やポイントにマウスを置くと、詳細値がポップアップ表示されます</li>
@@ -491,10 +511,9 @@ if read_btn:
 <li><b>系列表示切替</b>：凡例をクリックすると系列の表示/非表示を切り替えできます</li>
 </ul>
 </div>
-        """, unsafe_allow_html=True)
-    
-    with st.expander("分析期間設定のヒント"):
-        st.markdown("""
+            """, unsafe_allow_html=True)
+        with st.expander("分析期間設定のヒント"):
+            st.markdown("""
 <div style="line-height:1.7;">
 <ul>
 <li><b>介入前期間</b>：施策（介入）実施前の十分な長さのデータ期間を選択してください</li>
@@ -503,70 +522,7 @@ if read_btn:
 <li><b>イレギュラー</b>：大きな外部要因の影響がある期間は介入前期間に含めないことをおすすめします</li>
 </ul>
 </div>
-        """, unsafe_allow_html=True)
-
-    # --- 分析用データセット作成セクション ---
-    st.markdown('<div class="section-title">分析用データセットの作成</div>', unsafe_allow_html=True)
-    
-    st.markdown("""
-<div style="background:#f5f5f5;border-radius:10px;padding:1.5em;margin-bottom:1.5em;">
-<div style="font-size:1.15em;font-weight:bold;color:#1976d2;margin-bottom:1em;">Causal Impact分析用データセットの作成</div>
-<div style="font-size:1.05em;margin-bottom:0.8em;">データ集計方法を選択</div>
-</div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        freq_option = st.radio(
-            "データ集計方法",
-            options=["月次", "旬次"],
-            label_visibility="collapsed"
-        )
-    
-    # --- データセット作成ボタン ---
-    create_btn = st.button("データセット作成", key="create", help="Causal Impact分析用データセットを作成します。", type="primary")
-    
-    if create_btn:
-        st.success("データセットの作成が完了しました。分析設定を行いましょう。")
-        
-        # --- 作成データセットプレビュー ---
-        st.markdown('<div class="section-title">作成データセットのプレビュー</div>', unsafe_allow_html=True)
-        
-        # データセット作成処理（簡略版）
-        dataset_preview = pd.DataFrame({
-            'ymd': pd.date_range(start=df_treat['ymd'].min(), end=df_treat['ymd'].max(), freq='MS' if freq_option == "月次" else '10D'),
-            f'処置群（{treatment_name}）': range(len(pd.date_range(start=df_treat['ymd'].min(), end=df_treat['ymd'].max(), freq='MS' if freq_option == "月次" else '10D'))),
-            f'対照群（{control_name}）': range(100, 100 + len(pd.date_range(start=df_treat['ymd'].min(), end=df_treat['ymd'].max(), freq='MS' if freq_option == "月次" else '10D')))
-        })
-        
-        # データ期間情報
-        st.markdown(f"""
-<div style="margin-bottom:1.5em;">
-<div><b>対象期間：</b>{dataset_preview['ymd'].min().strftime('%Y-%m-%d')} 〜 {dataset_preview['ymd'].max().strftime('%Y-%m-%d')}</div>
-<div><b>データ数：</b>{len(dataset_preview)}件</div>
-</div>
-        """, unsafe_allow_html=True)
-        
-        # プレビューとデータ表示
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;">データプレビュー（上位10件表示）</div>', unsafe_allow_html=True)
-            preview_df = dataset_preview.head(10).copy()
-            preview_df['ymd'] = preview_df['ymd'].dt.strftime('%Y-%m-%d')
-            # インデックスを1から始める
-            preview_df.index = range(1, len(preview_df) + 1)
-            st.dataframe(preview_df, use_container_width=True)
-        
-        with col2:
-            st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;">統計情報</div>', unsafe_allow_html=True)
-            stats_df = pd.DataFrame({
-                '統計項目': ['count（個数）', 'mean（平均）', 'std（標準偏差）', 'min（最小値）', '25%（第1四分位数）', '50%（中央値）', '75%（第3四分位数）', 'max（最大値）'],
-                f'処置群（{treatment_name}）': [len(dataset_preview), 10.00, 5.00, 0.00, 5.00, 10.00, 15.00, 20.00],
-                f'対照群（{control_name}）': [len(dataset_preview), 110.00, 5.00, 100.00, 105.00, 110.00, 115.00, 120.00]
-            })
-            st.dataframe(stats_df, use_container_width=True, hide_index=True)
-        
-        # STEP 1完了表示
+            """, unsafe_allow_html=True)
         st.markdown("""
 <div style="background:#e8f5e9;border-radius:10px;padding:1em;margin-top:2em;margin-bottom:1em;">
 <div style="display:flex;align-items:center;">
@@ -575,6 +531,6 @@ if read_btn:
 </div>
 </div>
         """, unsafe_allow_html=True)
-        
+
 else:
     st.info("処置群・対照群のCSVファイルを選択し、「データを読み込む」ボタンを押してください。") 
