@@ -420,8 +420,8 @@ if st.session_state.get('data_loaded', False):
         if freq_option == "月次":
             st.markdown("""
 <div style="font-size:0.98em;margin-top:0.1em;padding-left:0;">
-<span style="font-weight:normal;color:#666;">月次集計：</span>月単位で集計し、日付はその月の1日になります<br>
-<span style="font-weight:bold;">旬次集計：</span>月を上旬・中旬・下旬に3分割して集計し、日付はそれぞれ1日（上旬）、11日（中旬）、21日（下旬）になります<br>
+<span style="font-weight:bold;">月次集計：</span>月単位で集計し、日付はその月の1日になります<br>
+<span style="font-weight:normal;color:#666;">旬次集計：</span>月を上旬・中旬・下旬に3分割して集計し、日付はそれぞれ1日（上旬）、11日（中旬）、21日（下旬）になります<br>
 　　　　　※欠損値は自動的に0で埋められます。
 </div>
             """, unsafe_allow_html=True)
