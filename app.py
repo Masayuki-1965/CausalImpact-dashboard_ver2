@@ -74,18 +74,18 @@ body, .main, .block-container {
     background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%);
     color: #fff;
     font-weight: bold;
-    font-size: 1.1em;
+    font-size: 1.2em;
     border-radius: 8px;
-    padding: 0.5em 2em;
+    padding: 0.6em 2em;
     margin: 0.8em 0;
-    box-shadow: 0 4px 10px rgba(25, 118, 210, 0.3);
+    box-shadow: 0 6px 15px rgba(25, 118, 210, 0.4);
     width: 100%;
     transition: all 0.2s ease;
 }
 .stButton>button:hover {
     background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
-    box-shadow: 0 6px 15px rgba(25, 118, 210, 0.4);
-    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(25, 118, 210, 0.5);
+    transform: translateY(-3px);
 }
 .stDataFrame, .stTable {
     font-size: 1.05em;
@@ -207,7 +207,6 @@ with st.sidebar:
 
     with st.expander("Causal Impactとは？", expanded=False):
         st.markdown("""
-<div class="sidebar-faq-title">Causal Impactとは？</div>
 <div class="sidebar-faq-body">
 <b>Causal Impactは、介入（施策）の効果を測定するための統計手法です。</b><br><br>
 介入前のデータから予測モデルを構築し、介入がなかった場合の予測値と実際の値を比較することで、介入の効果を推定します。
@@ -215,7 +214,6 @@ with st.sidebar:
 """, unsafe_allow_html=True)
     with st.expander("処置群と対照群について", expanded=False):
         st.markdown("""
-<div class="sidebar-faq-title">処置群と対照群について</div>
 <div class="sidebar-faq-body">
 <b>処置群</b>は、施策（介入）の影響を受けたグループです。<br><br>
 <b>対照群</b>は、施策の影響を受けていないグループであり、比較対象となります。
@@ -326,7 +324,7 @@ with col2:
     st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_ctrl}</div>', unsafe_allow_html=True)
 
 # --- データ読み込みボタン ---
-st.markdown('<div style="margin: 1em 0; width: 100%;"></div>', unsafe_allow_html=True)
+st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
 read_btn = st.button("データを読み込む", key="read", help="選択したファイルを読み込みます。", type="primary", use_container_width=True)
 
 # --- データ読み込み・クリーニング関数 ---
@@ -422,8 +420,8 @@ if st.session_state.get('data_loaded', False):
         if freq_option == "月次":
             st.markdown("""
 <div style="font-size:0.98em;margin-top:0.1em;padding-left:0;">
-<span style="font-weight:bold;">月次集計：</span>月単位で集計し、日付はその月の1日になります<br>
-<span style="font-weight:normal;color:#666;">旬次集計：</span>月を上旬・中旬・下旬に3分割して集計し、日付はそれぞれ1日（上旬）、11日（中旬）、21日（下旬）になります<br>
+<span style="font-weight:normal;color:#666;">月次集計：</span>月単位で集計し、日付はその月の1日になります<br>
+<span style="font-weight:bold;">旬次集計：</span>月を上旬・中旬・下旬に3分割して集計し、日付はそれぞれ1日（上旬）、11日（中旬）、21日（下旬）になります<br>
 　　　　　※欠損値は自動的に0で埋められます。
 </div>
             """, unsafe_allow_html=True)
@@ -435,6 +433,9 @@ if st.session_state.get('data_loaded', False):
 　　　　　※欠損値は自動的に0で埋められます。
 </div>
             """, unsafe_allow_html=True)
+    
+    # 「データセットを作成する」ボタンの上に余白を追加
+    st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
     create_btn = st.button("データセットを作成する", key="create", help="Causal Impact分析用データセットを作成します。", type="primary", use_container_width=True)
     def make_period_key(dt, freq):
         if freq == "月次":
@@ -584,10 +585,13 @@ if st.session_state.get('data_loaded', False):
             st.markdown("""
 <div style="line-height:1.7;">
 <ul>
-<li><b>介入前期間</b>：施策（介入）実施前の十分な長さのデータ期間を選択してください</li>
-<li><b>介入後期間</b>：施策（介入）実施後の効果測定期間を選択してください</li>
-<li><b>季節性</b>：データに季節性がある場合は、少なくとも2〜3周期分のデータがあることが望ましいです</li>
-<li><b>イレギュラー</b>：大きな外部要因の影響がある期間は介入前期間に含めないことをおすすめします</li>
+  <li><b>介入期間</b>：処置群（青線）において、施策（介入）実施後の効果を測定したい期間を設定してください</li>
+  <li><b>介入前期間</b>：施策（介入）実施前の期間として、十分な長さのデータを含めて設定してください
+    <ul>
+      <li><b>季節性</b>：介入前期間に季節性がある場合は、少なくとも2〜3周期分のデータを含めるのが望ましいです</li>
+      <li><b>イレギュラー要因</b>：外部要因による大きな影響がある期間は、介入前期間に含めないことをおすすめします</li>
+    </ul>
+  </li>
 </ul>
 </div>
             """, unsafe_allow_html=True)
