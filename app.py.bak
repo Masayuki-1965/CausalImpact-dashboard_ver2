@@ -691,7 +691,7 @@ if st.session_state.get('data_loaded', False):
   <li><b>介入期間の開始日</b>：介入前期間の終了日の翌日（データセットの後半部分の最初の日付）</li>
   <li><b>介入期間の終了日</b>：データセットの最後の日付</li>
 </ul>
-<p style="margin-top:0.8em;">必要に応じて各項目を調整してください。<b>論理的な整合性</b>として、介入前期間の終了日より後に介入期間の開始日を設定する必要があります（理想的には翌日）。</p>
+<p style="margin-top:0.8em;">必要に応じて各項目を調整してください。<b>介入前期間の終了日</b>を変更すると、自動的に<b>介入期間の開始日</b>も調整されます。</p>
 </div>
             """, unsafe_allow_html=True)
             
@@ -702,12 +702,24 @@ if st.session_state.get('data_loaded', False):
             # 介入前期間と介入期間の設定UI
             col1, col2 = st.columns(2)
             
+            # 介入前期間の終了日が変更されたときに介入期間の開始日を更新する関数
+            def update_post_start():
+                if 'pre_end' in st.session_state:
+                    pre_end_date = st.session_state['pre_end']
+                    # pre_endが有効な日付である場合のみpost_startを更新
+                    if pre_end_date is not None:
+                        # 翌日を計算（datetime.dateオブジェクトなので日数を直接加算）
+                        next_day = pre_end_date + pd.Timedelta(days=1)
+                        # 次の日がデータセットの範囲内かチェック
+                        if next_day <= dataset_max_date:
+                            st.session_state['post_start'] = next_day
+            
             with col1:
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">①介入前期間（Pre-Period）</div>', unsafe_allow_html=True)
                 
-                # 改善されたヘルプテキスト
+                # ヘルプテキスト
                 pre_start_help = "介入前期間の開始日を設定します。デフォルトはデータの最初の日付です。"
-                pre_end_help = "介入前期間の終了日を設定します。この日付の翌日以降に介入期間の開始日を設定することを推奨します。"
+                pre_end_help = "介入前期間の終了日を設定します。この日付を変更すると、介入期間の開始日が自動で翌日に設定されます。"
                 
                 # 介入前期間の開始日
                 pre_start = st.date_input(
@@ -719,21 +731,22 @@ if st.session_state.get('data_loaded', False):
                     help=pre_start_help
                 )
                 
-                # 介入前期間の終了日（自動更新機能を削除）
+                # 介入前期間の終了日（変更時に介入期間の開始日を連動させる）
                 pre_end = st.date_input(
                     "終了日", 
                     value=st.session_state['period_defaults']['pre_end'],
                     min_value=dataset_min_date, 
                     max_value=dataset_max_date, 
                     key="pre_end",
+                    on_change=update_post_start,
                     help=pre_end_help
                 )
             
             with col2:
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">②介入期間（Post-Period）</div>', unsafe_allow_html=True)
                 
-                # 改善されたヘルプテキスト
-                post_start_help = "介入期間の開始日を設定します。介入前期間の終了日の翌日以降に設定してください。理想的には翌日に設定するとよいでしょう。"
+                # ヘルプテキスト
+                post_start_help = "介入期間の開始日です。デフォルトは介入前期間終了日の翌日ですが、手動で調整できます。"
                 post_end_help = "介入期間の終了日を設定します。デフォルトはデータの最後の日付です。"
                 
                 # 介入期間の開始日
@@ -760,23 +773,17 @@ if st.session_state.get('data_loaded', False):
             date_error = False
             date_warnings = []
             
-            # 改善されたエラーメッセージを含む基本的なエラーチェック
+            # 基本的なエラーチェック
             if pre_start and pre_end and pre_start > pre_end:
-                st.error("①介入前期間の開始日は終了日より前である必要があります。開始日を終了日より前の日付に変更してください。")
+                st.error("①介入前期間の開始日は終了日より前である必要があります。")
                 date_error = True
 
             if post_start and post_end and post_start > post_end:
-                st.error("②介入期間の開始日は終了日より前である必要があります。開始日を終了日より前の日付に変更してください。")
+                st.error("②介入期間の開始日は終了日より前である必要があります。")
                 date_error = True
 
             if pre_end and post_start and pre_end >= post_start:
-                # より具体的なガイダンスを含むエラーメッセージ
-                suggested_date = pre_end + pd.Timedelta(days=1)
-                if suggested_date <= dataset_max_date:
-                    suggestion_text = f"推奨設定: 介入期間の開始日を {suggested_date.strftime('%Y年%m月%d日')} に設定してください。"
-                    st.error(f"①介入前期間の終了日は②介入期間の開始日より前である必要があります。\n{suggestion_text}")
-                else:
-                    st.error("①介入前期間の終了日は②介入期間の開始日より前である必要があります。介入前期間の終了日を早めるか、別の期間設定を検討してください。")
+                st.error("①介入前期間の終了日は②介入期間の開始日より前である必要があります。")
                 date_error = True
 
             # 期間の適切さに関する警告（エラーではない）
@@ -787,10 +794,6 @@ if st.session_state.get('data_loaded', False):
             min_post_days = 7  # 最低1週間
             if post_start and post_end and (post_end - post_start).days < min_post_days:
                 date_warnings.append(f"介入期間が{min_post_days}日より短いです。効果を適切に測定するため、十分な長さの介入後データを使用することをお勧めします。")
-
-            # 理想的な設定に関するガイダンス
-            if pre_end and post_start and (post_start - pre_end).days > 1:
-                date_warnings.append("理想的には、介入期間の開始日は介入前期間の終了日の翌日に設定することをお勧めします。現在は間隔が空いています。")
 
             # 警告表示
             for warning in date_warnings:
