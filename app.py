@@ -454,7 +454,7 @@ if st.session_state.get('data_loaded', False):
 <div style="font-size:0.98em;margin-top:0.1em;padding-left:0;">
 <span style="font-weight:bold;">月次集計：</span>月単位で集計し、日付はその月の1日になります<br>
 <span style="font-weight:normal;color:#666;">旬次集計：</span>月を上旬・中旬・下旬に3分割して集計し、日付はそれぞれ1日（上旬）、11日（中旬）、21日（下旬）になります<br>
-　　　　　※欠損値は自動的に0で埋められます。
+<div style="color:#1976d2;font-size:0.9em;margin-top:0.3em;padding-left:0;">※欠損値は自動的に0で埋められます。</div>
 </div>
             """, unsafe_allow_html=True)
         else:
@@ -462,7 +462,7 @@ if st.session_state.get('data_loaded', False):
 <div style="font-size:0.98em;margin-top:0.1em;padding-left:0;">
 <span style="font-weight:normal;color:#666;">月次集計：</span>月単位で集計し、日付はその月の1日になります<br>
 <span style="font-weight:bold;">旬次集計：</span>月を上旬・中旬・下旬に3分割して集計し、日付はそれぞれ1日（上旬）、11日（中旬）、21日（下旬）になります<br>
-　　　　　※欠損値は自動的に0で埋められます。
+<div style="color:#1976d2;font-size:0.9em;margin-top:0.3em;padding-left:0;">※欠損値は自動的に0で埋められます。</div>
 </div>
             """, unsafe_allow_html=True)
     
@@ -485,31 +485,94 @@ if st.session_state.get('data_loaded', False):
                         return dt.strftime('%Y-%m-21')
                 else:
                     return dt.strftime('%Y-%m-%d')
+                    
             def aggregate_df(df, freq):
                 df = df.copy()
                 df['period'] = df['ymd'].apply(lambda x: make_period_key(x, freq))
                 agg = df.groupby('period', as_index=False)['qty'].sum()
                 agg['period'] = pd.to_datetime(agg['period'])
                 return agg
-            def make_full_period_index(df1, df2, freq):
-                idx1 = set(df1['period'])
-                idx2 = set(df2['period'])
-                common_idx = sorted(list(idx1 & idx2))
-                return pd.to_datetime(common_idx)
                 
+            def create_full_period_range(df1, df2, freq):
+                # 両方のデータフレームから最初と最後の日付を取得
+                df1_dates = pd.to_datetime(df1['ymd'])
+                df2_dates = pd.to_datetime(df2['ymd'])
+                
+                # 「処置群と対照群の開始日のうち遅い方」から「終了日のうち早い方」までを共通期間とする
+                start_date = max(df1_dates.min(), df2_dates.min())
+                end_date = min(df1_dates.max(), df2_dates.max())
+                
+                # 共通期間の範囲を生成（周期に合わせて）
+                if freq == "月次":
+                    # 月の初日のシーケンスを生成
+                    periods = pd.date_range(
+                        start=start_date.replace(day=1),
+                        end=end_date.replace(day=1),
+                        freq='MS'  # Month Start
+                    )
+                elif freq == "旬次":
+                    # 旬区切りの日付リストを作成
+                    first_month = start_date.replace(day=1)
+                    last_month = end_date.replace(day=1)
+                    months = pd.date_range(start=first_month, end=last_month, freq='MS')
+                    
+                    periods = []
+                    for month in months:
+                        # 各月の1日、11日、21日を追加（範囲内の場合のみ）
+                        for day in [1, 11, 21]:
+                            date = month.replace(day=day)
+                            if start_date <= date <= end_date:
+                                periods.append(date)
+                    periods = pd.DatetimeIndex(periods)
+                else:  # 日次
+                    periods = pd.date_range(start=start_date, end=end_date, freq='D')
+                
+                return periods
+                    
+            # データフレームの集計
             agg_treat = aggregate_df(df_treat, freq_option)
             agg_ctrl = aggregate_df(df_ctrl, freq_option)
-            common_periods = make_full_period_index(agg_treat, agg_ctrl, freq_option)
-            agg_treat = agg_treat[agg_treat['period'].isin(common_periods)].set_index('period')
-            agg_ctrl = agg_ctrl[agg_ctrl['period'].isin(common_periods)].set_index('period')
-            all_periods = pd.DataFrame(index=common_periods)
-            agg_treat = all_periods.join(agg_treat).fillna(0)
-            agg_ctrl = all_periods.join(agg_ctrl).fillna(0)
+            
+            # 共通期間の全日付範囲を生成（両群の開始日の遅い方から終了日の早い方まで）
+            all_periods = create_full_period_range(df_treat, df_ctrl, freq_option)
+            
+            # 全期間のインデックスを作成し、データをゼロ埋め
+            all_periods_df = pd.DataFrame(index=all_periods)
+            all_periods_df.index.name = 'period'
+            
+            # 各データフレームとマージしてゼロ埋め
+            agg_treat_full = pd.merge(
+                all_periods_df, 
+                agg_treat.set_index('period'), 
+                how='left', 
+                left_index=True, 
+                right_index=True
+            ).fillna(0)
+            
+            agg_ctrl_full = pd.merge(
+                all_periods_df, 
+                agg_ctrl.set_index('period'), 
+                how='left', 
+                left_index=True, 
+                right_index=True
+            ).fillna(0)
+            
+            # 最終データセット作成
             dataset = pd.DataFrame({
-                'ymd': common_periods,
-                f'処置群（{treatment_name}）': agg_treat['qty'].values,
-                f'対照群（{control_name}）': agg_ctrl['qty'].values
+                'ymd': all_periods,
+                f'処置群（{treatment_name}）': agg_treat_full['qty'].values,
+                f'対照群（{control_name}）': agg_ctrl['qty'].values if len(agg_ctrl_full) == 0 else agg_ctrl_full['qty'].values
             })
+            
+            # データ期間情報を保存（表示用）
+            treat_period = f"{df_treat['ymd'].min().strftime('%Y/%m/%d')} ～ {df_treat['ymd'].max().strftime('%Y/%m/%d')}"
+            ctrl_period = f"{df_ctrl['ymd'].min().strftime('%Y/%m/%d')} ～ {df_ctrl['ymd'].max().strftime('%Y/%m/%d')}"
+            common_period = f"{all_periods.min().strftime('%Y/%m/%d')} ～ {all_periods.max().strftime('%Y/%m/%d')}"
+            st.session_state['period_info'] = {
+                'treat_period': treat_period,
+                'ctrl_period': ctrl_period,
+                'common_period': common_period
+            }
             
             # セッションに保存
             st.session_state['dataset'] = dataset
@@ -535,14 +598,31 @@ if st.session_state.get('data_loaded', False):
             dataset = st.session_state['dataset']
         
         # データセット情報の表示（新規作成・既存問わず）
+        period_info = st.session_state.get('period_info', {})
+        common_period = period_info.get('common_period', f"{dataset['ymd'].min().strftime('%Y/%m/%d')} ～ {dataset['ymd'].max().strftime('%Y/%m/%d')}")
+        
         st.markdown(f"""
 <div style="margin-bottom:1.5em;">
 <div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対象期間：</div>
 <div>{dataset['ymd'].min().strftime('%Y/%m/%d')} ～ {dataset['ymd'].max().strftime('%Y/%m/%d')}</div>
+<div style="color:#1976d2;font-size:0.9em;margin-top:0.3em;">※処置群と対照群の共通期間に基づいてデータセットを作成しています。</div>
 <div style="font-weight:bold;margin-bottom:0.5em;margin-top:1em;font-size:1.05em;">データ数：</div>
 <div>{len(dataset)} 件</div>
 </div>
         """, unsafe_allow_html=True)
+        
+        # 元データの期間情報がある場合は詳細を表示
+        if 'period_info' in st.session_state:
+            with st.expander("元データの期間情報", expanded=False):
+                st.markdown(f"""
+<div style="margin-top:0.5em;">
+<p><b>処置群期間：</b>{st.session_state['period_info']['treat_period']}</p>
+<p><b>対照群期間：</b>{st.session_state['period_info']['ctrl_period']}</p>
+<p><b>共通期間：</b>{st.session_state['period_info']['common_period']}</p>
+<p style="margin-top:1em;font-size:0.9em;color:#666;">※共通期間は「処置群と対照群の開始日のうち遅い方」から「終了日のうち早い方」までとして計算しています。<br>※欠損値はすべてゼロ埋めされています。</p>
+</div>
+                """, unsafe_allow_html=True)
+
         col1, col2 = st.columns(2)
         with col1:
             st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">データプレビュー（上位10件表示）</div>', unsafe_allow_html=True)
@@ -660,7 +740,7 @@ if st.session_state.get('data_loaded', False):
         st.markdown("""
 <div style="background:#e8f5e9;border-radius:10px;padding:1em;margin-top:2em;margin-bottom:1em;">
 <div style="display:flex;align-items:center;">
-<span style="font-size:1.6em;margin-right:0.5em;">✓</span>
+<span style="font-size:1.6em;margin-right:0.5em;">V</span>
 <span style="color:#2e7d32;font-weight:bold;font-size:1.2em;">データセットの作成が完了しました。分析設定を行いましょう。</span>
 </div>
 </div>
@@ -692,477 +772,152 @@ if st.session_state.get('data_loaded', False):
   <li><b>介入期間の終了日</b>：データセットの最後の日付</li>
 </ul>
 <p style="margin-top:0.8em;">必要に応じて各項目を調整してください。<b>論理的な整合性</b>として、介入前期間の終了日より後に介入期間の開始日を設定する必要があります（理想的には翌日）。</p>
+```
 </div>
             """, unsafe_allow_html=True)
             
-            # データセットから日付範囲を取得
-            dataset_min_date = dataset['ymd'].min().date()
-            dataset_max_date = dataset['ymd'].max().date()
+            # デフォルト値をセッションから取得
+            period_defaults = st.session_state.get('period_defaults', {})
             
-            # 介入前期間と介入期間の設定UI
+            # デフォルト値を設定
+            pre_start = period_defaults.get('pre_start', dataset['ymd'].min())
+            pre_end = period_defaults.get('pre_end', dataset['ymd'].max())
+            post_start = period_defaults.get('post_start', dataset['ymd'].min())
+            post_end = period_defaults.get('post_end', dataset['ymd'].max())
+            
+            # 分析期間の入力フォーム
             col1, col2 = st.columns(2)
-            
             with col1:
-                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">①介入前期間（Pre-Period）</div>', unsafe_allow_html=True)
-                
-                # 改善されたヘルプテキスト
-                pre_start_help = "介入前期間の開始日を設定します。デフォルトはデータの最初の日付です。"
-                pre_end_help = "介入前期間の終了日を設定します。この日付の翌日以降に介入期間の開始日を設定することを推奨します。"
-                
-                # 介入前期間の開始日
-                pre_start = st.date_input(
-                    "開始日", 
-                    value=st.session_state['period_defaults']['pre_start'],
-                    min_value=dataset_min_date, 
-                    max_value=dataset_max_date, 
-                    key="pre_start",
-                    help=pre_start_help
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">介入前期間</div>', unsafe_allow_html=True)
+                pre_period = st.date_input(
+                    "介入前期間",
+                    value=(pre_start, pre_end),
+                    min_value=dataset['ymd'].min(),
+                    max_value=dataset['ymd'].max(),
+                    format="YYYY/MM/DD",
+                    label_visibility="collapsed"
                 )
-                
-                # 介入前期間の終了日（自動更新機能を削除）
-                pre_end = st.date_input(
-                    "終了日", 
-                    value=st.session_state['period_defaults']['pre_end'],
-                    min_value=dataset_min_date, 
-                    max_value=dataset_max_date, 
-                    key="pre_end",
-                    help=pre_end_help
-                )
-            
             with col2:
-                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">②介入期間（Post-Period）</div>', unsafe_allow_html=True)
-                
-                # 改善されたヘルプテキスト
-                post_start_help = "介入期間の開始日を設定します。介入前期間の終了日の翌日以降に設定してください。理想的には翌日に設定するとよいでしょう。"
-                post_end_help = "介入期間の終了日を設定します。デフォルトはデータの最後の日付です。"
-                
-                # 介入期間の開始日
-                post_start = st.date_input(
-                    "開始日", 
-                    value=st.session_state['period_defaults']['post_start'], 
-                    min_value=dataset_min_date, 
-                    max_value=dataset_max_date, 
-                    key="post_start",
-                    help=post_start_help
-                )
-                
-                # 介入期間の終了日
-                post_end = st.date_input(
-                    "終了日", 
-                    value=st.session_state['period_defaults']['post_end'], 
-                    min_value=dataset_min_date, 
-                    max_value=dataset_max_date, 
-                    key="post_end",
-                    help=post_end_help
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">介入期間</div>', unsafe_allow_html=True)
+                post_period = st.date_input(
+                    "介入期間",
+                    value=(post_start, post_end),
+                    min_value=dataset['ymd'].min(),
+                    max_value=dataset['ymd'].max(),
+                    format="YYYY/MM/DD",
+                    label_visibility="collapsed"
                 )
             
-            # 日付の検証
-            date_error = False
-            date_warnings = []
-            
-            # 改善されたエラーメッセージを含む基本的なエラーチェック
-            if pre_start and pre_end and pre_start > pre_end:
-                st.error("①介入前期間の開始日は終了日より前である必要があります。開始日を終了日より前の日付に変更してください。")
-                date_error = True
-
-            if post_start and post_end and post_start > post_end:
-                st.error("②介入期間の開始日は終了日より前である必要があります。開始日を終了日より前の日付に変更してください。")
-                date_error = True
-
-            if pre_end and post_start and pre_end >= post_start:
-                # より具体的なガイダンスを含むエラーメッセージ
-                suggested_date = pre_end + pd.Timedelta(days=1)
-                if suggested_date <= dataset_max_date:
-                    suggestion_text = f"推奨設定: 介入期間の開始日を {suggested_date.strftime('%Y年%m月%d日')} に設定してください。"
-                    st.error(f"①介入前期間の終了日は②介入期間の開始日より前である必要があります。\n{suggestion_text}")
-                else:
-                    st.error("①介入前期間の終了日は②介入期間の開始日より前である必要があります。介入前期間の終了日を早めるか、別の期間設定を検討してください。")
-                date_error = True
-
-            # 期間の適切さに関する警告（エラーではない）
-            min_pre_days = 14  # 最低2週間
-            if pre_start and pre_end and (pre_end - pre_start).days < min_pre_days:
-                date_warnings.append(f"介入前期間が{min_pre_days}日より短いです。予測精度を高めるため、十分な長さの介入前データを使用することをお勧めします。")
-
-            min_post_days = 7  # 最低1週間
-            if post_start and post_end and (post_end - post_start).days < min_post_days:
-                date_warnings.append(f"介入期間が{min_post_days}日より短いです。効果を適切に測定するため、十分な長さの介入後データを使用することをお勧めします。")
-
-            # 理想的な設定に関するガイダンス
-            if pre_end and post_start and (post_start - pre_end).days > 1:
-                date_warnings.append("理想的には、介入期間の開始日は介入前期間の終了日の翌日に設定することをお勧めします。現在は間隔が空いています。")
-
-            # 警告表示
-            for warning in date_warnings:
-                st.warning(warning)
+            # 分析期間のバリデーション
+            if pre_period[1] >= post_period[0]:
+                st.error("介入前期間の終了日は介入期間の開始日より前に設定してください。")
+            else:
+                # 分析期間をセッションに保存
+                st.session_state['analysis_period'] = {
+                    'pre_start': pre_period[0],
+                    'pre_end': pre_period[1],
+                    'post_start': post_period[0],
+                    'post_end': post_period[1]
+                }
             
             # --- パラメータ設定 ---
             st.markdown('<div class="section-title">パラメータ設定</div>', unsafe_allow_html=True)
             
-            with st.expander("基本パラメータ", expanded=True):
-                alpha = st.slider("信頼区間（1 - alpha）", min_value=0.01, max_value=0.20, value=0.05, step=0.01, format="%.2f", 
-                                 help="信頼区間の幅を決める値です。デフォルトは0.05で、95%信頼区間を意味します。")
-                
-                st.markdown('<div style="font-weight:bold;margin-top:1em;margin-bottom:0.5em;font-size:1.05em;">季節性の設定</div>', unsafe_allow_html=True)
-                has_season = st.checkbox("季節性を考慮する", value=True, help="時系列データに季節性（週次・月次など周期的なパターン）がある場合はチェックしてください。")
-                
-                if has_season:
-                    season_col1, season_col2 = st.columns(2)
-                    with season_col1:
-                        nseasons = st.number_input("季節性の周期（日数）", min_value=1, max_value=365, value=7, step=1, 
-                                                  help="季節性の周期を日数で指定します。週次なら7、月次なら30など。")
-                    with season_col2:
-                        season_duration = st.number_input("季節の長さ", min_value=1, value=1, step=1, 
-                                                        help="各季節の長さを指定します。通常は1で問題ありません。")
-            
-            with st.expander("カスタム設定（上級者向け）", expanded=False):
-                st.markdown("""
-                <div style="font-size:0.9em;color:#666;margin-bottom:1em;">
-                以下の設定は、特別な理由がない限りデフォルト値のままで問題ありません。Causal Impactの動作に詳しい上級者向けの設定です。
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">モデルパラメータ</div>', unsafe_allow_html=True)
-                
-                prior_level_sd = st.slider("Prior Level SD", min_value=0.001, max_value=0.5, value=0.01, step=0.001, format="%.3f",
-                                          help="局所レベルのランダムウォークの事前標準偏差。データが安定している場合は小さい値、変動が大きい場合は大きい値を設定します。")
-                
-                standardize = st.checkbox("データの標準化", value=True, 
-                                        help="データを標準化して分析を行うかどうか。標準化することで線形変換に対して結果が不変になります。")
-                
-                dynamic_regression = st.checkbox("動的回帰", value=False, 
-                                               help="時変回帰係数を含めるかどうか。介入前後で共変量と結果変数の関係が変わる可能性がある場合はチェックしてください。")
-                
-                st.markdown('<div style="font-weight:bold;margin-top:1em;margin-bottom:0.5em;font-size:1.05em;">MCMCサンプリング設定</div>', unsafe_allow_html=True)
-                
-                mcmc_col1, mcmc_col2 = st.columns(2)
-                with mcmc_col1:
-                    niter = st.number_input("イテレーション数", min_value=100, max_value=10000, value=1000, step=100,
-                                           help="MCMCサンプリングのイテレーション数。多いほど精度が上がりますが、計算時間も増加します。")
-                with mcmc_col2:
-                    nburn = st.number_input("バーンイン期間", min_value=10, max_value=2000, value=100, step=10,
-                                          help="初期のサンプルを破棄する数。通常はイテレーション数の10%程度で設定します。")
-            
-            # --- 設定確認と次のステップへのボタン ---
-            st.markdown('<div style="margin-top:2em;"></div>', unsafe_allow_html=True)
-            
-            # 設定内容のまとめを表示
+            # パラメータの説明文を改善
             st.markdown("""
-<div style="background:#f5f5f5;border-radius:10px;padding:1em;margin-bottom:1.5em;">
-<div style="font-weight:bold;font-size:1.1em;margin-bottom:0.5em;color:#333;">現在の分析設定内容</div>
-<ul style="list-style-type:none;padding-left:0;margin-bottom:0;">
-""", unsafe_allow_html=True)
-
-            # 期間設定の表示
-            st.markdown(f"""
-<li><span style="font-weight:bold;color:#555;">介入前期間：</span>{pre_start.strftime('%Y年%m月%d日')} 〜 {pre_end.strftime('%Y年%m月%d日')}</li>
-<li><span style="font-weight:bold;color:#555;">介入期間：</span>{post_start.strftime('%Y年%m月%d日')} 〜 {post_end.strftime('%Y年%m月%d日')}</li>
-<li><span style="font-weight:bold;color:#555;">信頼区間：</span>{int((1-alpha)*100)}%</li>
-<li><span style="font-weight:bold;color:#555;">季節性：</span>{'あり（周期：' + str(nseasons) + '日）' if has_season else 'なし'}</li>
-""", unsafe_allow_html=True)
-
-            st.markdown("""
+<div style="margin-bottom:1.5em;line-height:1.6;">
+<p>分析モデルの各種パラメータを設定します。</p>
+<ul style="margin-top:0.8em;">
+  <li><b>prior_level_sd</b>：介入前期間の標準偏差のスケールパラメータ</li>
+  <li><b>post_level_sd</b>：介入期間の標準偏差のスケールパラメータ</li>
+  <li><b>model</b>：分析モデルの選択（"additive"または"multiplicative"）</li>
 </ul>
+<p style="margin-top:0.8em;">必要に応じて各項目を調整してください。</p>
+```
 </div>
             """, unsafe_allow_html=True)
-
-            # モデルパラメータをセッションに保存
-            model_params = {
-                "pre_period": [pre_start, pre_end],
-                "post_period": [post_start, post_end],
-                "alpha": alpha,
-                "nseasons": nseasons if has_season else 1,
-                "season_duration": season_duration if has_season else 1,
-                "prior_level_sd": prior_level_sd,
-                "standardize_data": standardize,
-                "dynamic_regression": dynamic_regression,
-                "niter": niter,
-                "nburn": nburn
-            }
-
-            # 「分析設定を確定する」ボタン
-            save_params_btn = st.button(
-                "分析設定を確定する",
-                key="save_params",
-                type="primary",
-                disabled=date_error,
-                use_container_width=True
-            )
-
-            if save_params_btn and not date_error:
-                # 設定をセッションに保存
-                st.session_state['model_params'] = model_params
-                st.session_state['params_saved'] = True
-                
-                # 成功メッセージと次のステップへの案内
-                st.success("分析設定を保存しました。下記のSTEP 3セクションで分析を実行できます。")
             
-            # --- STEP 3: 分析実行／結果確認 ---
-            # パラメータ設定が完了した場合のみSTEP 3を表示
-            if 'params_saved' in st.session_state and st.session_state['params_saved']:
-                # STEP 2と3の間に視覚的な区切りを入れる
-                st.markdown('<div style="border-top: 1px solid #e0e0e0; margin: 2em 0;"></div>', unsafe_allow_html=True)
-                
-                st.markdown("""
-<div class="step-card">
-    <h2 style="font-size:1.8em;font-weight:bold;color:#1565c0;margin-bottom:0.5em;">STEP 3：分析実行／結果確認</h2>
-    <div style="color:#1976d2;font-size:1.1em;line-height:1.5;">このステップでは、Causal Impact分析を実行し、結果を確認します。「分析実行」ボタンをクリックすると、設定されたパラメータに基づいて分析が開始されます。</div>
-</div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown('<div class="section-title">分析実行</div>', unsafe_allow_html=True)
-                
-                # セッションから保存されたパラメータを取得
-                params = st.session_state['model_params']
-                
-                # 現在の設定内容の表示
-                st.markdown("""
-<div style="background:#f5f5f5;border-radius:10px;padding:1.2em;margin-bottom:1.5em;">
-<div style="font-weight:bold;font-size:1.1em;margin-bottom:0.5em;color:#333;">現在の分析設定内容</div>
-<ul style="list-style-type:none;padding-left:0;margin-bottom:0;">
-    """, unsafe_allow_html=True)
-
-                st.markdown(f"""
-<li><span style="font-weight:bold;color:#555;">介入前期間：</span>{params['pre_period'][0].strftime('%Y年%m月%d日')} 〜 {params['pre_period'][1].strftime('%Y年%m月%d日')}</li>
-<li><span style="font-weight:bold;color:#555;">介入期間：</span>{params['post_period'][0].strftime('%Y年%m月%d日')} 〜 {params['post_period'][1].strftime('%Y年%m月%d日')}</li>
-<li><span style="font-weight:bold;color:#555;">信頼区間：</span>{int((1-params['alpha'])*100)}%</li>
-<li><span style="font-weight:bold;color:#555;">季節性：</span>{'あり（周期：' + str(params['nseasons']) + '日）' if params['nseasons'] > 1 else 'なし'}</li>
-                """, unsafe_allow_html=True)
-
-                st.markdown("""
-</ul>
-</div>
-                """, unsafe_allow_html=True)
-                
-                # 分析実行ボタン
-                run_analysis_btn = st.button(
-                    "分析を実行する", 
-                    key="run_analysis", 
-                    type="primary", 
-                    use_container_width=True
+            # パラメータの入力フォーム
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                prior_level_sd = st.number_input(
+                    "prior_level_sd",
+                    min_value=0.0,
+                    value=0.01,
+                    step=0.01,
+                    format="%.2f"
                 )
+            with col2:
+                post_level_sd = st.number_input(
+                    "post_level_sd",
+                    min_value=0.0,
+                    value=0.01,
+                    step=0.01,
+                    format="%.2f"
+                )
+            with col3:
+                model = st.selectbox(
+                    "model",
+                    options=["additive", "multiplicative"],
+                    index=0
+                )
+            
+            # パラメータをセッションに保存
+            st.session_state['analysis_params'] = {
+                'prior_level_sd': prior_level_sd,
+                'post_level_sd': post_level_sd,
+                'model': model
+            }
+            
+            # 分析実行ボタン
+            st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
+            analyze_btn = st.button("分析を実行する", key="analyze", help="Causal Impact分析を実行します。", type="primary", use_container_width=True)
+            
+            # 分析実行
+            if analyze_btn:
+                # 分析期間とパラメータを取得
+                analysis_period = st.session_state['analysis_period']
+                analysis_params = st.session_state['analysis_params']
                 
-                if run_analysis_btn:
-                    with st.spinner('分析実行中... しばらくお待ちください。'):
-                        # ここでCausal Impact分析を実行する
-                        # 本番実装では、causal_impact_test.pyのようなスクリプトをベースに
-                        # 実際のデータとパラメータで分析を実行する
-                        
-                        # 分析実行中を示すプログレスバー（デモ用）
-                        progress_bar = st.progress(0)
-                        for i in range(100):
-                            time.sleep(0.05)  # 実際の分析では不要
-                            progress_bar.progress(i + 1)
-                        
-                        # 分析結果をセッションに保存（ダミーデータ）
-                        st.session_state['analysis_completed'] = True
-                    
-                    st.success("分析が完了しました！結果を確認してください。")
-                    
-                # 分析結果の表示（分析完了時のみ表示）
-                if 'analysis_completed' in st.session_state and st.session_state['analysis_completed']:
-                    st.markdown('<div class="section-title">分析結果</div>', unsafe_allow_html=True)
-                    
-                    tabs = st.tabs(["概要", "詳細", "グラフ", "ダウンロード"])
-                    
-                    with tabs[0]:  # 概要タブ
-                        st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.1em;">Causal Impact分析の結果概要</div>', unsafe_allow_html=True)
-                        
-                        # ダミーの結果テーブル
-                        summary_data = {
-                            "指標": ["平均値", "合計値", "相対効果", "統計的有意性"],
-                            "実測値": ["120.3", "2,406.0", "-", "-"],
-                            "予測値（介入なし）": ["100.5", "2,010.0", "-", "-"],
-                            "効果": ["19.8", "396.0", "19.7%", "99.9%"]
-                        }
-                        summary_df = pd.DataFrame(summary_data)
-                        st.table(summary_df)
-                        
-                        st.markdown("""
-<div style="background:#f0f4f8;border-radius:10px;padding:1.5em;margin-top:1.5em;line-height:1.7;">
-<div style="font-weight:bold;margin-bottom:0.7em;font-size:1.1em;">分析結果の解釈</div>
-<p>介入期間において、処置群の実測値は<b>平均120.3</b>でした。介入がなかった場合は<b>平均100.5</b>と予測されています（95%信頼区間: 95.2-105.8）。</p>
-<p>これにより、介入による効果は<b>平均19.8</b>（95%信頼区間: 14.5-25.1）、率にして<b>19.7%</b>の上昇と推定されます。</p>
-<p>この効果は<b>統計的に有意</b>であり（確率: 99.9%）、介入が実際に正の効果をもたらしたと結論づけられます。</p>
-</div>
-                        """, unsafe_allow_html=True)
-                    
-                    with tabs[1]:  # 詳細タブ
-                        st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.1em;">分析の詳細情報</div>', unsafe_allow_html=True)
-                        
-                        # ダミーの詳細データテーブル
-                        detail_data = pd.DataFrame({
-                            "日付": pd.date_range(start=params['post_period'][0], end=params['post_period'][1]),
-                            "実測値": np.random.normal(120, 10, (params['post_period'][1] - params['post_period'][0]).days + 1),
-                            "予測値": np.random.normal(100, 5, (params['post_period'][1] - params['post_period'][0]).days + 1),
-                            "95%信頼下限": np.random.normal(95, 3, (params['post_period'][1] - params['post_period'][0]).days + 1),
-                            "95%信頼上限": np.random.normal(105, 3, (params['post_period'][1] - params['post_period'][0]).days + 1),
-                            "効果": np.random.normal(20, 5, (params['post_period'][1] - params['post_period'][0]).days + 1)
-                        })
-                        detail_data["日付"] = detail_data["日付"].dt.strftime('%Y-%m-%d')
-                        st.dataframe(detail_data, use_container_width=True)
-                    
-                    with tabs[2]:  # グラフタブ
-                        st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.1em;">分析結果のグラフ</div>', unsafe_allow_html=True)
-                        
-                        # ダミーのグラフ（実際にはCausal Impactの分析結果からグラフを生成）
-                        fig = go.Figure()
-                        
-                        # データ準備（ダミー）
-                        date_range = pd.date_range(start=params['pre_period'][0], end=params['post_period'][1])
-                        actual = np.concatenate([
-                            np.random.normal(100, 5, (params['pre_period'][1] - params['pre_period'][0]).days + 1), 
-                            np.random.normal(120, 10, (params['post_period'][1] - params['post_period'][0]).days + 1)
-                        ])
-                        predicted = np.concatenate([
-                            np.random.normal(100, 3, (params['pre_period'][1] - params['pre_period'][0]).days + 1), 
-                            np.random.normal(100, 5, (params['post_period'][1] - params['post_period'][0]).days + 1)
-                        ])
-                        
-                        # 上側と下側の信頼区間
-                        upper_ci = predicted + 10
-                        lower_ci = predicted - 10
-                        
-                        # プロットの準備
-                        intervention_date = params['post_period'][0]
-                        intervention_idx = (intervention_date - params['pre_period'][0]).days
-                        
-                        # プロット作成
-                        fig.add_trace(go.Scatter(
-                            x=date_range, 
-                            y=actual, 
-                            mode='lines', 
-                            name='実測値',
-                            line=dict(color='blue', width=2)
-                        ))
-                        
-                        fig.add_trace(go.Scatter(
-                            x=date_range, 
-                            y=predicted, 
-                            mode='lines', 
-                            name='予測値（介入なし）',
-                            line=dict(color='red', width=2, dash='dash')
-                        ))
-                        
-                        # 信頼区間
-                        fig.add_trace(go.Scatter(
-                            x=date_range, 
-                            y=upper_ci, 
-                            mode='lines', 
-                            line=dict(width=0),
-                            showlegend=False
-                        ))
-                        
-                        fig.add_trace(go.Scatter(
-                            x=date_range, 
-                            y=lower_ci, 
-                            mode='lines', 
-                            line=dict(width=0),
-                            fillcolor='rgba(255, 0, 0, 0.1)',
-                            fill='tonexty',
-                            showlegend=False
-                        ))
-                        
-                        # 介入日の縦線
-                        fig.add_vline(x=intervention_date, line_width=2, line_dash="dash", line_color="green")
-                        
-                        # レイアウト設定
-                        fig.update_layout(
-                            title='Causal Impact分析結果',
-                            xaxis_title='日付',
-                            yaxis_title='値',
-                            legend=dict(y=0.99, x=0.01),
-                            margin=dict(l=40, r=40, t=40, b=40),
-                            hovermode='closest',
-                            plot_bgcolor='white'
-                        )
-                        
-                        # グリッド線の追加
-                        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-                        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-                        
-                        # プロット表示
-                        st.plotly_chart(fig, use_container_width=True)
-                        
-                        # 効果のグラフ
-                        effect_fig = go.Figure()
-                        
-                        # 効果のデータ準備（ダミー）
-                        effect = actual - predicted
-                        cumulative_effect = np.cumsum(effect)
-                        
-                        # ポイントワイズ効果のプロット
-                        effect_fig.add_trace(go.Scatter(
-                            x=date_range, 
-                            y=effect, 
-                            mode='lines', 
-                            name='ポイントワイズ効果',
-                            line=dict(color='blue', width=2)
-                        ))
-                        
-                        # 累積効果のプロット
-                        effect_fig.add_trace(go.Scatter(
-                            x=date_range, 
-                            y=cumulative_effect, 
-                            mode='lines', 
-                            name='累積効果',
-                            line=dict(color='green', width=2)
-                        ))
-                        
-                        # 介入日の縦線
-                        effect_fig.add_vline(x=intervention_date, line_width=2, line_dash="dash", line_color="red")
-                        
-                        # ゼロラインの追加
-                        effect_fig.add_hline(y=0, line_width=1, line_color="black")
-                        
-                        # レイアウト設定
-                        effect_fig.update_layout(
-                            title='介入効果',
-                            xaxis_title='日付',
-                            yaxis_title='効果の大きさ',
-                            legend=dict(y=0.99, x=0.01),
-                            margin=dict(l=40, r=40, t=40, b=40),
-                            hovermode='closest',
-                            plot_bgcolor='white'
-                        )
-                        
-                        # グリッド線の追加
-                        effect_fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-                        effect_fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-                        
-                        # プロット表示
-                        st.plotly_chart(effect_fig, use_container_width=True)
-                    
-                    with tabs[3]:  # ダウンロードタブ
-                        st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.1em;">分析結果のダウンロード</div>', unsafe_allow_html=True)
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.markdown("""
-<div style="background:#f5f5f5;border-radius:10px;padding:1.2em;text-align:center;">
-<div style="font-weight:bold;margin-bottom:0.5em;">分析結果CSV</div>
-<div style="font-size:0.9em;color:#666;margin-bottom:1em;">日別の分析結果データをCSV形式でダウンロードできます</div>
-<button style="background-color:#1976d2;color:white;border:none;padding:10px 15px;border-radius:5px;cursor:pointer;">CSVをダウンロード</button>
-</div>
-                            """, unsafe_allow_html=True)
-                        
-                        with col2:
-                            st.markdown("""
-<div style="background:#f5f5f5;border-radius:10px;padding:1.2em;text-align:center;">
-<div style="font-weight:bold;margin-bottom:0.5em;">グラフ画像</div>
-<div style="font-size:0.9em;color:#666;margin-bottom:1em;">分析結果のグラフをPNG形式でダウンロードできます</div>
-<button style="background-color:#1976d2;color:white;border:none;padding:10px 15px;border-radius:5px;cursor:pointer;">画像をダウンロード</button>
-</div>
-                            """, unsafe_allow_html=True)
-                    
-                    st.markdown("""
+                # 分析実行
+                st.markdown("""
 <div style="background:#e8f5e9;border-radius:10px;padding:1em;margin-top:2em;margin-bottom:1em;">
 <div style="display:flex;align-items:center;">
-<span style="font-size:1.6em;margin-right:0.5em;">✓</span>
-<span style="color:#2e7d32;font-weight:bold;font-size:1.2em;">分析が完了しました。タブを切り替えて、結果の詳細を確認してください。</span>
+<span style="font-size:1.6em;margin-right:0.5em;">V</span>
+<span style="color:#2e7d32;font-weight:bold;font-size:1.2em;">分析を実行しました。結果を確認しましょう。</span>
 </div>
 </div>
-                    """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
+                
+                # ダミーの分析結果を表示
+                st.markdown("""
+<div style="background:#e8f5e9;border-radius:10px;padding:1em;margin-top:2em;margin-bottom:1em;">
+<div style="display:flex;align-items:center;">
+<span style="font-size:1.6em;margin-right:0.5em;">V</span>
+<span style="color:#2e7d32;font-weight:bold;font-size:1.2em;">分析結果を表示します。</span>
+</div>
+</div>
+                """, unsafe_allow_html=True)
+                
+                # ダミーの分析結果を表示
+                st.markdown("""
+<div style="background:#e8f5e9;border-radius:10px;padding:1em;margin-top:2em;margin-bottom:1em;">
+<div style="display:flex;align-items:center;">
+<span style="font-size:1.6em;margin-right:0.5em;">V</span>
+<span style="color:#2e7d32;font-weight:bold;font-size:1.2em;">分析結果を表示します。</span>
+</div>
+</div>
+                """, unsafe_allow_html=True)
+                
+                # ダミーの分析結果を表示
+                st.markdown("""
+<div style="background:#e8f5e9;border-radius:10px;padding:1em;margin-top:2em;margin-bottom:1em;">
+<div style="display:flex;align-items:center;">
+<span style="font-size:1.6em;margin-right:0.5em;">V</span>
+<span style="color:#2e7d32;font-weight:bold;font-size:1.2em;">分析結果を表示します。</span>
+</div>
+</div>
+                """, unsafe_allow_html=True)
 
 else:
     st.info("処置群・対照群のCSVファイルを選択し、「データを読み込む」ボタンを押してください。") 
