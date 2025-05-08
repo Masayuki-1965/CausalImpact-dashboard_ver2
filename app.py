@@ -400,7 +400,7 @@ if st.session_state.get('data_loaded', False):
     treatment_name = st.session_state['treatment_name']
     control_name = st.session_state['control_name']
     # --- データプレビュー ---
-    st.markdown('<div class="section-title">読み込みデータのプレビュー（上位10件）</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">読み込みデータのプレビュー（上位10件表示）</div>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_name}）</div>', unsafe_allow_html=True)
@@ -614,12 +614,12 @@ if st.session_state.get('data_loaded', False):
 <div style="margin-bottom:1.5em;">
 <div style="display:flex;align-items:center;margin-bottom:0.5em;">
   <div style="font-weight:bold;font-size:1.05em;margin-right:0.5em;">対象期間：</div>
-  <div>{dataset['ymd'].min().strftime('%Y/%m/%d')} ～ {dataset['ymd'].max().strftime('%Y/%m/%d')}</div>
+<div>{dataset['ymd'].min().strftime('%Y/%m/%d')} ～ {dataset['ymd'].max().strftime('%Y/%m/%d')}</div>
   <div style="color:#1976d2;font-size:0.9em;margin-left:2em;">　※処置群と対照群の共通期間に基づいてデータセットを作成しています。</div>
 </div>
 <div style="display:flex;align-items:center;margin-bottom:0.5em;">
   <div style="font-weight:bold;font-size:1.05em;margin-right:0.5em;">データ数：</div>
-  <div>{len(dataset)} 件</div>
+<div>{len(dataset)} 件</div>
 </div>
 </div>
         """, unsafe_allow_html=True)
@@ -749,43 +749,36 @@ if st.session_state.get('data_loaded', False):
   </li>
 </ul>
 </div>
-            """, unsafe_allow_html=True)
-        st.markdown("""
-<div style="background:#e8f5e9;border-radius:10px;padding:1em;margin-top:2em;margin-bottom:1em;">
-<div style="display:flex;align-items:center;">
-<span style="font-size:1.6em;margin-right:0.5em;">V</span>
-<span style="color:#2e7d32;font-weight:bold;font-size:1.2em;">データセットの作成が完了しました。分析設定を行いましょう。</span>
-</div>
-</div>
         """, unsafe_allow_html=True)
+
+        # STEP 1完了メッセージと次のSTEPへのボタンを表示
+        st.success("データセットの作成が完了しました。次のステップで分析期間とパラメータの設定を行います。")
+        
+        # 分析期間とパラメータを設定するボタンを追加
+        next_step_btn = st.button("分析期間とパラメータを設定する", key="next_step", help="次のステップ（分析期間とパラメータ設定）に進みます。", type="primary", use_container_width=True)
         
         # --- STEP 2: 分析期間／パラメータ設定 ---
-        # データセット作成完了後のみSTEP 2を表示
-        if 'dataset_created' in st.session_state and st.session_state['dataset_created']:
+        # データセット作成完了後、ボタンを押すか既にパラメータ設定画面を表示中ならSTEP 2を表示
+        if next_step_btn or ('show_step2' in st.session_state and st.session_state['show_step2']):
+            # ボタンを押した場合はセッション状態を更新
+            if next_step_btn:
+                st.session_state['show_step2'] = True
+            
             dataset = st.session_state['dataset']  # セッションから取得
             
             st.markdown("""
 <div class="step-card">
-    <h2 style="font-size:1.8em;font-weight:bold;color:#1565c0;margin-bottom:0.5em;">STEP 2：分析期間／パラメータ設定</h2>
-    <div style="color:#1976d2;font-size:1.1em;line-height:1.5;">このステップでは、Causal Impact分析を実行するための期間設定とパラメータ設定を行います。介入前後の期間を指定し、分析モデルの各種パラメータを設定します。</div>
+    <h2 style="font-size:1.8em;font-weight:bold;color:#1565c0;margin-bottom:0.5em;">STEP 2：分析期間／モデル設定</h2>
+    <div style="color:#1976d2;font-size:1.1em;line-height:1.5;">このステップでは、Causal Impact分析に必要な期間とモデルパラメータを設定します。介入前期間（モデル構築用）と介入期間（効果測定期間）を指定し、必要に応じてモデルの詳細設定を行います。</div>
 </div>
             """, unsafe_allow_html=True)
             
             # --- 分析期間設定 ---
             st.markdown('<div class="section-title">分析期間の設定</div>', unsafe_allow_html=True)
             
-            # 期間の説明文を改善し、デフォルト値について説明を追加
             st.markdown("""
 <div style="margin-bottom:1.5em;line-height:1.6;">
-<p>施策（介入）実施前後の期間を設定します。<b>デフォルト値は以下の基準で設定されています：</b></p>
-<ul style="margin-top:0.8em;">
-  <li><b>介入前期間の開始日</b>：データセットの最初の日付</li>
-  <li><b>介入前期間の終了日</b>：データセットの中間点（データ全体の前半部分）</li>
-  <li><b>介入期間の開始日</b>：介入前期間の終了日の翌日（データセットの後半部分の最初の日付）</li>
-  <li><b>介入期間の終了日</b>：データセットの最後の日付</li>
-</ul>
-<p style="margin-top:0.8em;">必要に応じて各項目を調整してください。<b>論理的な整合性</b>として、介入前期間の終了日より後に介入期間の開始日を設定する必要があります（理想的には翌日）。</p>
-```
+介入前期間のデータをもとに予測モデルを構築し、介入期間の効果を測定します。
 </div>
             """, unsafe_allow_html=True)
             
@@ -793,144 +786,241 @@ if st.session_state.get('data_loaded', False):
             period_defaults = st.session_state.get('period_defaults', {})
             
             # デフォルト値を設定
-            pre_start = period_defaults.get('pre_start', dataset['ymd'].min())
-            pre_end = period_defaults.get('pre_end', dataset['ymd'].max())
-            post_start = period_defaults.get('post_start', dataset['ymd'].min())
-            post_end = period_defaults.get('post_end', dataset['ymd'].max())
+            pre_start = period_defaults.get('pre_start', dataset['ymd'].min().date())
+            pre_end = period_defaults.get('pre_end', dataset['ymd'].max().date())
+            post_start = period_defaults.get('post_start', dataset['ymd'].min().date())
+            post_end = period_defaults.get('post_end', dataset['ymd'].max().date())
             
-            # 分析期間の入力フォーム
+            # 介入前期間の設定
+            st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.15em;">介入前期間 (Pre-Period)</div>', unsafe_allow_html=True)
+            st.markdown('<div style="margin-bottom:1em;">モデル構築に使用する介入前の期間を指定します。</div>', unsafe_allow_html=True)
+            
+            # 注記の追加（UI制約の説明）
+            st.info("介入前期間と介入期間の整合性に注意してください。介入前期間の終了日は介入期間の開始日より前になるようにしてください。")
+            
+            # 介入前期間の入力フォーム
             col1, col2 = st.columns(2)
             with col1:
-                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">介入前期間</div>', unsafe_allow_html=True)
-                pre_period = st.date_input(
-                    "介入前期間",
-                    value=(pre_start, pre_end),
-                    min_value=dataset['ymd'].min(),
-                    max_value=dataset['ymd'].max(),
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.3em;">開始日</div>', unsafe_allow_html=True)
+                pre_start_date = st.date_input(
+                    "pre_start",
+                    value=pre_start,
+                    min_value=dataset['ymd'].min().date(),
+                    max_value=dataset['ymd'].max().date() - pd.Timedelta(days=1),
                     format="YYYY/MM/DD",
                     label_visibility="collapsed"
                 )
             with col2:
-                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">介入期間</div>', unsafe_allow_html=True)
-                post_period = st.date_input(
-                    "介入期間",
-                    value=(post_start, post_end),
-                    min_value=dataset['ymd'].min(),
-                    max_value=dataset['ymd'].max(),
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.3em;">終了日</div>', unsafe_allow_html=True)
+                pre_end_date = st.date_input(
+                    "pre_end",
+                    value=pre_end,
+                    min_value=pre_start_date,
+                    max_value=dataset['ymd'].max().date() - pd.Timedelta(days=1),
                     format="YYYY/MM/DD",
                     label_visibility="collapsed"
                 )
             
-            # 分析期間のバリデーション
-            if pre_period[1] >= post_period[0]:
-                st.error("介入前期間の終了日は介入期間の開始日より前に設定してください。")
-            else:
-                # 分析期間をセッションに保存
-                st.session_state['analysis_period'] = {
-                    'pre_start': pre_period[0],
-                    'pre_end': pre_period[1],
-                    'post_start': post_period[0],
-                    'post_end': post_period[1]
-                }
+            # 介入期間の設定
+            st.markdown('<div style="font-weight:bold;margin-top:1.5em;margin-bottom:0.5em;font-size:1.15em;">介入期間 (Post-Period)</div>', unsafe_allow_html=True)
+            st.markdown('<div style="margin-bottom:1em;">効果を測定する介入後の期間を指定します。</div>', unsafe_allow_html=True)
             
-            # --- パラメータ設定 ---
-            st.markdown('<div class="section-title">パラメータ設定</div>', unsafe_allow_html=True)
+            # 注記の追加（UI制約の説明）
+            st.info("介入期間の開始日は介入前期間の終了日より後の日付を選択してください。")
             
-            # パラメータの説明文を改善
-            st.markdown("""
-<div style="margin-bottom:1.5em;line-height:1.6;">
-<p>分析モデルの各種パラメータを設定します。</p>
-<ul style="margin-top:0.8em;">
-  <li><b>prior_level_sd</b>：介入前期間の標準偏差のスケールパラメータ</li>
-  <li><b>post_level_sd</b>：介入期間の標準偏差のスケールパラメータ</li>
-  <li><b>model</b>：分析モデルの選択（"additive"または"multiplicative"）</li>
-</ul>
-<p style="margin-top:0.8em;">必要に応じて各項目を調整してください。</p>
-```
-</div>
-            """, unsafe_allow_html=True)
+            # 最小日付は翌日ではなく、データセットの最小日付を設定
+            min_post_start = dataset['ymd'].min().date()
             
-            # パラメータの入力フォーム
-            col1, col2, col3 = st.columns(3)
+            # 推奨開始日（介入前期間の終了日の翌日）を計算 - エラー対策
+            try:
+                if pre_end_date is not None:
+                    suggested_post_start = pre_end_date + pd.Timedelta(days=1)
+                else:
+                    # pre_end_dateが無効な場合はデータセット最小日付を使用
+                    suggested_post_start = dataset['ymd'].min().date()
+            except (TypeError, ValueError):
+                # エラーが発生した場合もデータセット最小日付を使用
+                suggested_post_start = dataset['ymd'].min().date()
+            
+            # 介入前期間の終了日よりも後の日付をデフォルト値として設定
+            # post_startがNoneでなく、日付の場合のみ比較を実行
+            try:
+                if post_start is None or pre_end_date is None:
+                    post_start = suggested_post_start
+                elif isinstance(post_start, type(pre_end_date)) and post_start <= pre_end_date:
+                    post_start = suggested_post_start
+            except (TypeError, ValueError):
+                post_start = suggested_post_start
+            
+            col1, col2 = st.columns(2)
             with col1:
-                prior_level_sd = st.number_input(
-                    "prior_level_sd",
-                    min_value=0.0,
-                    value=0.01,
-                    step=0.01,
-                    format="%.2f"
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.3em;">開始日</div>', unsafe_allow_html=True)
+                post_start_date = st.date_input(
+                    "post_start",
+                    value=post_start,
+                    min_value=min_post_start,
+                    max_value=dataset['ymd'].max().date(),
+                    format="YYYY/MM/DD",
+                    label_visibility="collapsed"
                 )
             with col2:
-                post_level_sd = st.number_input(
-                    "post_level_sd",
-                    min_value=0.0,
-                    value=0.01,
-                    step=0.01,
-                    format="%.2f"
-                )
-            with col3:
-                model = st.selectbox(
-                    "model",
-                    options=["additive", "multiplicative"],
-                    index=0
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.3em;">終了日</div>', unsafe_allow_html=True)
+                # min_valueに条件付きで値を設定（post_start_dateがNoneの場合の対応）
+                min_val = post_start_date if post_start_date is not None else min_post_start
+                post_end_date = st.date_input(
+                    "post_end",
+                    value=post_end,
+                    min_value=min_val,
+                    max_value=dataset['ymd'].max().date(),
+                    format="YYYY/MM/DD",
+                    label_visibility="collapsed"
                 )
             
-            # パラメータをセッションに保存
-            st.session_state['analysis_params'] = {
-                'prior_level_sd': prior_level_sd,
-                'post_level_sd': post_level_sd,
-                'model': model
+            # 整合性チェック - 日付が有効な場合のみ比較
+            try:
+                if pre_end_date is not None and post_start_date is not None and post_start_date <= pre_end_date:
+                    st.warning(f"介入期間の開始日（{post_start_date}）が介入前期間の終了日（{pre_end_date}）以前に設定されています。正確な分析のためには、介入期間の開始日は介入前期間の終了日よりも後に設定することをおすすめします。")
+            except (TypeError, ValueError):
+                pass
+            
+            # 選択された分析期間の表示
+            st.markdown('<div style="font-weight:bold;margin-top:1.5em;margin-bottom:0.5em;font-size:1.15em;">選択された分析期間</div>', unsafe_allow_html=True)
+            
+            # 日数計算 - エラーハンドリングを追加
+            try:
+                pre_days = (pre_end_date - pre_start_date).days + 1
+                post_days = (post_end_date - post_start_date).days + 1
+                
+                # 日付が正しく設定されている場合のみ表示
+                st.markdown(f"""
+<div style="margin-bottom:1em;">
+<p>介入前期間: {pre_start_date.strftime('%Y-%m-%d')} 〜 {pre_end_date.strftime('%Y-%m-%d')} （{pre_days}日間）</p>
+<p>介入期間: {post_start_date.strftime('%Y-%m-%d')} 〜 {post_end_date.strftime('%Y-%m-%d')} （{post_days}日間）</p>
+</div>
+                """, unsafe_allow_html=True)
+            except (TypeError, AttributeError) as e:
+                # 日付計算でエラーが発生した場合は、日付のみ表示
+                st.markdown(f"""
+<div style="margin-bottom:1em;">
+<p>介入前期間: {pre_start_date} 〜 {pre_end_date}</p>
+<p>介入期間: {post_start_date} 〜 {post_end_date}</p>
+</div>
+                """, unsafe_allow_html=True)
+                st.info("日付を正しく設定してください。全ての日付が設定されると、日数が計算されます。")
+
+            # 分析期間をセッションに保存
+            st.session_state['analysis_period'] = {
+                'pre_start': pre_start_date,
+                'pre_end': pre_end_date,
+                'post_start': post_start_date,
+                'post_end': post_end_date
             }
             
-            # 分析実行ボタン
-            st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
-            analyze_btn = st.button("分析を実行する", key="analyze", help="Causal Impact分析を実行します。", type="primary", use_container_width=True)
+            # --- モデル・パラメータ設定 ---
+            st.markdown('<div class="section-title">モデル・パラメータの設定</div>', unsafe_allow_html=True)
             
-            # 分析実行
+            # 基本パラメータと詳細設定の分離
+            with st.expander("詳細設定", expanded=False):
+                # 信頼区間の設定
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;">信頼区間</div>', unsafe_allow_html=True)
+                alpha = st.slider(
+                    "",
+                    min_value=0.80,
+                    max_value=0.99,
+                    value=0.95,
+                    step=0.01,
+                    format="%.2f",
+                    label_visibility="collapsed"
+                )
+                
+                # 季節性の設定
+                st.markdown('<div style="font-weight:bold;margin-top:1em;margin-bottom:0.5em;">季節性を考慮する</div>', unsafe_allow_html=True)
+                seasonality = st.checkbox("", value=True, label_visibility="collapsed")
+                
+                # 季節性がオンの場合、周期タイプを選択
+                if seasonality:
+                    st.markdown('<div style="font-weight:bold;margin-top:0.5em;margin-bottom:0.5em;">周期タイプ</div>', unsafe_allow_html=True)
+                    seasonality_type = st.radio(
+                        "",
+                        options=["週次 (7日)", "月次 (30日)", "四半期 (90日)", "カスタム"],
+                        index=0,
+                        label_visibility="collapsed"
+                    )
+                    
+                    # カスタム選択時のみ日数指定フィールドを表示
+                    if seasonality_type == "カスタム":
+                        custom_period = st.number_input(
+                            "カスタム周期（日数）",
+                            min_value=2,
+                            max_value=365,
+                            value=7,
+                            step=1,
+                            help="季節性の周期を日数で指定します"
+                        )
+                
+                # 事前分布のハイパーパラメータ設定
+                st.markdown('<div style="font-weight:bold;margin-top:1em;margin-bottom:0.5em;">水準の事前分布の標準偏差</div>', unsafe_allow_html=True)
+                prior_level_sd = st.slider(
+                    "",
+                    min_value=0.001,
+                    max_value=0.100,
+                    value=0.010,
+                    step=0.001,
+                    format="%.3f",
+                    label_visibility="collapsed"
+                )
+                
+                # 追加パラメータ（必要に応じて追加）
+                st.markdown('<div style="font-weight:bold;margin-top:1em;margin-bottom:0.5em;">その他の設定</div>', unsafe_allow_html=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    standardize = st.checkbox("データを標準化する", value=False, help="入力データを標準化してから分析します")
+                with col2:
+                    niter = st.number_input("MCMC反復回数", min_value=100, max_value=10000, value=1000, step=100, help="モンテカルロシミュレーションの反復回数")
+            
+            # パラメータをセッションに保存
+            seasonality_period = None
+            if seasonality:
+                if seasonality_type == "週次 (7日)":
+                    seasonality_period = 7
+                elif seasonality_type == "月次 (30日)":
+                    seasonality_period = 30
+                elif seasonality_type == "四半期 (90日)":
+                    seasonality_period = 90
+                else:  # カスタム
+                    seasonality_period = custom_period if 'custom_period' in locals() else 7
+            
+            st.session_state['analysis_params'] = {
+                'alpha': alpha,
+                'seasonality': seasonality,
+                'seasonality_period': seasonality_period,
+                'prior_level_sd': prior_level_sd,
+                'standardize': standardize if 'standardize' in locals() else False,
+                'niter': niter if 'niter' in locals() else 1000
+            }
+            
+            # --- 分析実行 ---
+            st.markdown('<div class="section-title">分析実行</div>', unsafe_allow_html=True)
+            
+            # 分析準備完了メッセージ
+            st.success("分析実行の準備が完了しました。以下のボタンをクリックして分析を開始してください。")
+            
+            # 分析実行ボタン
+            analyze_btn = st.button("分析実行", key="analyze", help="Causal Impact分析を実行します。", type="primary", use_container_width=True)
+            
+            # 分析実行時の処理
             if analyze_btn:
-                # 分析期間とパラメータを取得
-                analysis_period = st.session_state['analysis_period']
-                analysis_params = st.session_state['analysis_params']
+                # 分析中メッセージ（今回は実際の実行はダミー）
+                with st.spinner("Causal Impact分析を実行中..."):
+                    # ここに実際の分析コードが入るが、今回は実装しない
+                    time.sleep(2)  # ダミーの待機時間
                 
-                # 分析実行
-                st.markdown("""
-<div style="background:#e8f5e9;border-radius:10px;padding:1em;margin-top:2em;margin-bottom:1em;">
-<div style="display:flex;align-items:center;">
-<span style="font-size:1.6em;margin-right:0.5em;">V</span>
-<span style="color:#2e7d32;font-weight:bold;font-size:1.2em;">分析を実行しました。結果を確認しましょう。</span>
-</div>
-</div>
-                """, unsafe_allow_html=True)
+                # 分析結果が無いことを表示（後で実装予定）
+                st.warning("Causal Impact分析結果がありません。STEP2で分析を実行してください。")
                 
-                # ダミーの分析結果を表示
-                st.markdown("""
-<div style="background:#e8f5e9;border-radius:10px;padding:1em;margin-top:2em;margin-bottom:1em;">
-<div style="display:flex;align-items:center;">
-<span style="font-size:1.6em;margin-right:0.5em;">V</span>
-<span style="color:#2e7d32;font-weight:bold;font-size:1.2em;">分析結果を表示します。</span>
-</div>
-</div>
-                """, unsafe_allow_html=True)
-                
-                # ダミーの分析結果を表示
-                st.markdown("""
-<div style="background:#e8f5e9;border-radius:10px;padding:1em;margin-top:2em;margin-bottom:1em;">
-<div style="display:flex;align-items:center;">
-<span style="font-size:1.6em;margin-right:0.5em;">V</span>
-<span style="color:#2e7d32;font-weight:bold;font-size:1.2em;">分析結果を表示します。</span>
-</div>
-</div>
-                """, unsafe_allow_html=True)
-                
-                # ダミーの分析結果を表示
-                st.markdown("""
-<div style="background:#e8f5e9;border-radius:10px;padding:1em;margin-top:2em;margin-bottom:1em;">
-<div style="display:flex;align-items:center;">
-<span style="font-size:1.6em;margin-right:0.5em;">V</span>
-<span style="color:#2e7d32;font-weight:bold;font-size:1.2em;">分析結果を表示します。</span>
-</div>
-</div>
-                """, unsafe_allow_html=True)
+                # 分析実行フラグをセッションに保存
+                st.session_state['params_saved'] = True
 
 else:
     st.info("処置群・対照群のCSVファイルを選択し、「データを読み込む」ボタンを押してください。") 
