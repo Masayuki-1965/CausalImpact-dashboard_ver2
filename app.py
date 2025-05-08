@@ -122,9 +122,9 @@ hr {
 }
 .sidebar-title {
     font-size: 1.3em;
-    font-weight: bold;
+    font-weight: 600;
     color: #1976d2;
-    margin-bottom: 0.6em;
+    margin-bottom: 0.7em;
     letter-spacing: 0.02em;
 }
 .sidebar-step {
@@ -134,27 +134,36 @@ hr {
     margin-bottom: 0.7em;
 }
 .sidebar-step-active {
-    background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%);
+    background: linear-gradient(135deg, #2196f3 0%, #1565c0 100%);
     color: white;
     border-radius: 8px;
-    padding: 0.5em 1.2em;
-    margin-bottom: 0.7em;
+    padding: 0.6em 1.2em;
+    margin-bottom: 0.8em;
     display: inline-block;
-    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.2);
+    box-shadow: 0 3px 10px rgba(33, 150, 243, 0.25);
     width: 100%;
     font-size: 1.15em;
-    font-weight: 800;
+    font-weight: 600;
+    letter-spacing: 0.015em;
+    transition: all 0.2s ease;
 }
 .sidebar-step-inactive {
-    background: #e3f2fd;
-    color: #1565c0;
+    background: #e8f4fd;
+    color: #1976d2;
     border-radius: 8px;
-    padding: 0.5em 1.2em;
-    margin-bottom: 0.7em;
+    padding: 0.6em 1.2em;
+    margin-bottom: 0.8em;
     display: inline-block;
+    box-shadow: 0 1px 4px rgba(33, 150, 243, 0.1);
     width: 100%;
     font-size: 1.15em;
-    font-weight: bold;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    transition: all 0.2s ease;
+}
+.sidebar-step-inactive:hover {
+    background: #e1f0fd;
+    box-shadow: 0 2px 6px rgba(33, 150, 243, 0.15);
 }
 .sidebar-faq-title {
     font-size: 1.15em;
@@ -603,11 +612,15 @@ if st.session_state.get('data_loaded', False):
         
         st.markdown(f"""
 <div style="margin-bottom:1.5em;">
-<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対象期間：</div>
-<div>{dataset['ymd'].min().strftime('%Y/%m/%d')} ～ {dataset['ymd'].max().strftime('%Y/%m/%d')}</div>
-<div style="color:#1976d2;font-size:0.9em;margin-top:0.3em;">※処置群と対照群の共通期間に基づいてデータセットを作成しています。</div>
-<div style="font-weight:bold;margin-bottom:0.5em;margin-top:1em;font-size:1.05em;">データ数：</div>
-<div>{len(dataset)} 件</div>
+<div style="display:flex;align-items:center;margin-bottom:0.5em;">
+  <div style="font-weight:bold;font-size:1.05em;margin-right:0.5em;">対象期間：</div>
+  <div>{dataset['ymd'].min().strftime('%Y/%m/%d')} ～ {dataset['ymd'].max().strftime('%Y/%m/%d')}</div>
+  <div style="color:#1976d2;font-size:0.9em;margin-left:2em;">　※処置群と対照群の共通期間に基づいてデータセットを作成しています。</div>
+</div>
+<div style="display:flex;align-items:center;margin-bottom:0.5em;">
+  <div style="font-weight:bold;font-size:1.05em;margin-right:0.5em;">データ数：</div>
+  <div>{len(dataset)} 件</div>
+</div>
 </div>
         """, unsafe_allow_html=True)
         
