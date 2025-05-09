@@ -9,7 +9,7 @@
 - Python 3.13.x（仮想環境venvを利用）
 
 ## 2. 主要ライブラリ
-- causalimpact（import名は `from causalimpact import CausalImpact`）
+- pycausalimpact（WillianFuks版 causalimpact, import名は `from causalimpact import CausalImpact`）
 - pandas
 - matplotlib
 - statsmodels
@@ -17,8 +17,9 @@
 - その他 requirements.txt 参照
 
 ## 3. インストール手順のポイント
-- 公式PyPI版やGitHub版の `causalimpact`/`pycausalimpact` は環境によってimport名や挙動が異なるため注意。
-- 本環境では `pip install pycausalimpact` または `pip install git+https://github.com/WillianFuks/causalimpact.git` でインストールし、`from causalimpact import CausalImpact` で利用。
+- causalimpactはWillianFuks版（pycausalimpact）を利用し、以下でインストール：
+  - `pip install git+https://github.com/WillianFuks/causalimpact.git`
+  - または requirements.txt の `pycausalimpact @ git+https://github.com/WillianFuks/causalimpact.git`
 - 依存パッケージの競合やバージョン不整合が起きた場合は、`pip install --force-reinstall ...` で再インストール推奨。
 - Streamlitや他の可視化・分析系パッケージとのバージョン競合に注意。
 
