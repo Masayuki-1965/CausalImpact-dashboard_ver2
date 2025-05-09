@@ -6,6 +6,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import time
 import numpy as np
+import matplotlib.pyplot as plt
+from causalimpact import CausalImpact
 
 # --- 初期化コード（最初に実行）---
 if 'session_initialized' not in st.session_state:
@@ -1011,16 +1013,39 @@ if st.session_state.get('data_loaded', False):
             
             # 分析実行時の処理
             if analyze_btn:
-                # 分析中メッセージ（今回は実際の実行はダミー）
+                # 分析中メッセージ
                 with st.spinner("Causal Impact分析を実行中..."):
-                    # ここに実際の分析コードが入るが、今回は実装しない
-                    time.sleep(2)  # ダミーの待機時間
-                
-                # 分析結果が無いことを表示（後で実装予定）
-                st.warning("Causal Impact分析結果がありません。STEP2で分析を実行してください。")
-                
-                # 分析実行フラグをセッションに保存
-                st.session_state['params_saved'] = True
+                    try:
+                        # データセット取得
+                        dataset = st.session_state['dataset']
+                        treatment_col = [col for col in dataset.columns if '処置群' in col][0]
+                        control_col = [col for col in dataset.columns if '対照群' in col][0]
+                        data = dataset.set_index('ymd')[[treatment_col, control_col]]
+                        # 期間取得
+                        period = st.session_state['analysis_period']
+                        pre_period = [str(period['pre_start']), str(period['pre_end'])]
+                        post_period = [str(period['post_start']), str(period['post_end'])]
+                        # CausalImpact分析
+                        ci = CausalImpact(data, pre_period, post_period)
+                        # サマリー取得
+                        summary = ci.summary()
+                        report = ci.summary(output='report')
+                        # グラフ描画
+                        fig = ci.plot(figsize=(10, 6))
+                        plt.tight_layout()
+                        if fig is None:
+                            fig = plt.gcf()
+                        st.pyplot(fig)
+                        # サマリー表示
+                        st.markdown('<div class="section-title">Causal Impact分析サマリー</div>', unsafe_allow_html=True)
+                        st.text(summary)
+                        with st.expander("詳細レポート（report）"):
+                            st.text(report)
+                        st.success("Causal Impact分析が完了しました。グラフとサマリーを確認してください。")
+                        st.session_state['analysis_completed'] = True
+                    except Exception as e:
+                        st.error(f"Causal Impact分析中にエラーが発生しました: {e}")
+                        st.session_state['analysis_completed'] = False
 
 else:
     st.info("処置群・対照群のCSVファイルを選択し、「データを読み込む」ボタンを押してください。") 
