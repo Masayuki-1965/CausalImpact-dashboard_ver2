@@ -1025,24 +1025,34 @@ if st.session_state.get('data_loaded', False):
                         period = st.session_state['analysis_period']
                         pre_period = [str(period['pre_start']), str(period['pre_end'])]
                         post_period = [str(period['post_start']), str(period['post_end'])]
-                        # CausalImpact分析
-                        ci = CausalImpact(data, pre_period, post_period)
-                        # サマリー取得
-                        summary = ci.summary()
-                        report = ci.summary(output='report')
-                        # グラフ描画
-                        fig = ci.plot(figsize=(10, 6))
-                        plt.tight_layout()
-                        if fig is None:
-                            fig = plt.gcf()
-                        st.pyplot(fig)
-                        # サマリー表示
-                        st.markdown('<div class="section-title">Causal Impact分析サマリー</div>', unsafe_allow_html=True)
-                        st.text(summary)
-                        with st.expander("詳細レポート（report）"):
-                            st.text(report)
-                        st.success("Causal Impact分析が完了しました。グラフとサマリーを確認してください。")
-                        st.session_state['analysis_completed'] = True
+                        # --- 日付バリデーション ---
+                        all_index = set(str(d.date()) for d in data.index)
+                        invalid_dates = []
+                        for d in pre_period + post_period:
+                            if d not in all_index:
+                                invalid_dates.append(d)
+                        if invalid_dates:
+                            st.error("分析期間には、存在する日付を設定してください（例：月次データの場合は1日、旬次データの場合は1日・11日・21日）")
+                            st.session_state['analysis_completed'] = False
+                        else:
+                            # CausalImpact分析
+                            ci = CausalImpact(data, pre_period, post_period)
+                            # サマリー取得
+                            summary = ci.summary()
+                            report = ci.summary(output='report')
+                            # グラフ描画
+                            fig = ci.plot(figsize=(10, 6))
+                            plt.tight_layout()
+                            if fig is None:
+                                fig = plt.gcf()
+                            st.pyplot(fig)
+                            # サマリー表示
+                            st.markdown('<div class="section-title">Causal Impact分析サマリー</div>', unsafe_allow_html=True)
+                            st.text(summary)
+                            with st.expander("詳細レポート（report）"):
+                                st.text(report)
+                            st.success("Causal Impact分析が完了しました。グラフとサマリーを確認してください。")
+                            st.session_state['analysis_completed'] = True
                     except Exception as e:
                         st.error(f"Causal Impact分析中にエラーが発生しました: {e}")
                         st.session_state['analysis_completed'] = False
