@@ -1054,20 +1054,63 @@ if st.session_state.get('data_loaded', False):
                         else:
                             # CausalImpact分析
                             ci = CausalImpact(data, pre_period, post_period)
-                            # サマリー取得
+                            # 分析実行サマリー表示
+                            alpha = st.session_state['analysis_params']['alpha']
+                            treatment_name = st.session_state['treatment_name']
+                            period = st.session_state['analysis_period']
+                            st.markdown('<div class="section-title">分析実行サマリー</div>', unsafe_allow_html=True)
+                            col1, col2, col3 = st.columns([2,3,2])
+                            with col1:
+                                st.markdown(f'**分析対象**：{treatment_name}')
+                            with col2:
+                                st.markdown(f'**分析期間**：{period["post_start"].strftime("%Y-%m-%d")} 〜 {period["post_end"].strftime("%Y-%m-%d")}')
+                            with col3:
+                                st.markdown(f'**信頼水準**：{int(alpha*100)}%')
+                            # サマリーとレポート取得
                             summary = ci.summary()
                             report = ci.summary(output='report')
                             # グラフ描画
                             fig = ci.plot(figsize=(10, 6))
-                            plt.tight_layout()
+                            # figがNoneの場合は現在のFigureを利用
                             if fig is None:
                                 fig = plt.gcf()
+                            # タイトル追加
+                            axes = fig.axes
+                            if len(axes) >= 3:
+                                axes[0].set_title("予測値 vs 実測値の比較")
+                                axes[1].set_title("時点効果")
+                                axes[2].set_title("累積効果")
+                            plt.tight_layout()
                             st.pyplot(fig)
-                            # サマリー表示
-                            st.markdown('<div class="section-title">Causal Impact分析サマリー</div>', unsafe_allow_html=True)
-                            st.text(summary)
-                            with st.expander("詳細レポート（report）"):
-                                st.text(report)
+                            # 分析結果サマリー 表形式で表示
+                            import re
+                            # 数値部分のみ抽出してDataFrame化
+                            lines = [l for l in summary.split('\n') if l.strip()]
+                            data_lines = []
+                            for line in lines[1:]:
+                                parts = re.split(r'\s{2,}', line.strip())
+                                if len(parts) == 3:
+                                    # 平均と累積値を抽出
+                                    data_lines.append([parts[1], parts[2]])
+                            import pandas as pd
+                            df_summary = pd.DataFrame(data_lines, columns=['分析期間の平均値','分析期間の累積値'])
+                            # 日本語インデックス設定
+                            japanese_index = [
+                                '実測値',
+                                '予測値 (標準偏差)',
+                                '予測値 95% 信頼区間',
+                                '絶対効果 (標準偏差)',
+                                '絶対効果 95% 信頼区間',
+                                '相対効果 (標準偏差)',
+                                '相対効果 95% 信頼区間'
+                            ]
+                            df_summary.index = japanese_index[:len(df_summary)]
+                            st.dataframe(df_summary, use_container_width=True)
+                            # 詳細レポート（日本語訳）
+                            with st.expander("詳細レポート"):
+                                report_jp = report.replace("Posterior tail-area probability p:", "事後確率 p値:") \
+                                                  .replace("Posterior probability of a causal effect:", "因果効果の事後確率:")
+                                st.text(report_jp)
                             st.success("Causal Impact分析が完了しました。グラフとサマリーを確認してください。")
                             st.session_state['analysis_completed'] = True
                     except Exception as e:
