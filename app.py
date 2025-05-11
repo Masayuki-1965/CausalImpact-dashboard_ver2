@@ -238,6 +238,10 @@ with st.sidebar:
     # 分析設定済みならSTEP 3をアクティブに
     if 'params_saved' in st.session_state and st.session_state['params_saved']:
         step3_active = True
+    
+    # 分析実行済みならSTEP 3をアクティブに
+    if 'analysis_completed' in st.session_state and st.session_state['analysis_completed']:
+        step3_active = True
         
     st.markdown(f"""
     <div style="margin-top:0.5em;">
@@ -770,7 +774,7 @@ if st.session_state.get('data_loaded', False):
             
             st.markdown("""
 <div class="step-card">
-    <h2 style="font-size:1.8em;font-weight:bold;color:#1565c0;margin-bottom:0.5em;">STEP 2：分析期間／モデル設定</h2>
+    <h2 style="font-size:1.8em;font-weight:bold;color:#1565c0;margin-bottom:0.5em;">STEP 2：分析期間／パラメータ設定</h2>
     <div style="color:#1976d2;font-size:1.1em;line-height:1.5;">このステップでは、Causal Impact分析に必要な期間とモデルパラメータを設定します。介入前期間（モデル構築用）と介入期間（効果測定期間）を指定し、必要に応じてモデルの詳細設定を行います。</div>
 </div>
             """, unsafe_allow_html=True)
@@ -1001,6 +1005,8 @@ if st.session_state.get('data_loaded', False):
                 'standardize': standardize if 'standardize' in locals() else False,
                 'niter': niter if 'niter' in locals() else 1000
             }
+            # params_savedフラグをTrueに設定
+            st.session_state['params_saved'] = True
             
             # --- 分析実行 ---
             st.markdown('<div class="section-title">分析実行</div>', unsafe_allow_html=True)
@@ -1013,9 +1019,20 @@ if st.session_state.get('data_loaded', False):
             
             # 分析実行時の処理
             if analyze_btn:
+                # 分析パラメータが保存されたことを明示的に記録
+                st.session_state['params_saved'] = True
+                
                 # 分析中メッセージ
                 with st.spinner("Causal Impact分析を実行中..."):
                     try:
+                        # STEP 3の見出しと説明を追加
+                        st.markdown("""
+<div class="step-card">
+    <h2 style="font-size:1.8em;font-weight:bold;color:#1565c0;margin-bottom:0.5em;">STEP 3：分析実行／結果確認</h2>
+    <div style="color:#1976d2;font-size:1.1em;line-height:1.5;">このステップでは、設定した期間とパラメータに基づいてCausal Impact分析を実行し、結果を確認します。分析結果のグラフとサマリーから、処置群への介入効果を評価できます。</div>
+</div>
+                        """, unsafe_allow_html=True)
+                        
                         # データセット取得
                         dataset = st.session_state['dataset']
                         treatment_col = [col for col in dataset.columns if '処置群' in col][0]
