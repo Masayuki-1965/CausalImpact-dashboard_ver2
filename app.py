@@ -1056,6 +1056,8 @@ if st.session_state.get('data_loaded', False):
                             ci = CausalImpact(data, pre_period, post_period)
                             # 分析実行結果表示
                             alpha = st.session_state['analysis_params']['alpha']
+                            # 信頼区間をパーセント表示に変換（例：0.95 → 95%）
+                            alpha_percent = int(alpha * 100)
                             treatment_name = st.session_state['treatment_name']
                             period = st.session_state['analysis_period']
                             st.markdown('<div class="section-title">分析実行結果</div>', unsafe_allow_html=True)
@@ -1065,7 +1067,7 @@ if st.session_state.get('data_loaded', False):
                             with col2:
                                 st.markdown(f'**分析期間**：{period["post_start"].strftime("%Y-%m-%d")} 〜 {period["post_end"].strftime("%Y-%m-%d")}')
                             with col3:
-                                st.markdown(f'**信頼水準**：{int(alpha*100)}%')
+                                st.markdown(f'**信頼水準**：{alpha_percent}%')
                             # サマリーとレポート取得
                             summary = ci.summary()
                             report = ci.summary(output='report')
@@ -1109,21 +1111,21 @@ if st.session_state.get('data_loaded', False):
                                     data_lines.append([parts[1], parts[2]])
                             import pandas as pd
                             df_summary = pd.DataFrame(data_lines, columns=['分析期間の平均値','分析期間の累積値'])
-                            # 日本語インデックス設定
+                            # 日本語インデックス設定 - 信頼区間の値を動的に反映
                             japanese_index = [
                                 '実測値',
                                 '予測値 (標準偏差)',
-                                '予測値 95% 信頼区間',
+                                f'予測値 {alpha_percent}% 信頼区間',
                                 '絶対効果 (標準偏差)',
-                                '絶対効果 95% 信頼区間',
+                                f'絶対効果 {alpha_percent}% 信頼区間',
                                 '相対効果 (標準偏差)',
-                                '相対効果 95% 信頼区間'
+                                f'相対効果 {alpha_percent}% 信頼区間'
                             ]
                             df_summary.index = japanese_index[:len(df_summary)]
                             st.dataframe(df_summary, use_container_width=True)
                             # 詳細レポート（日本語訳）
                             with st.expander("詳細レポート"):
-                                # 詳細レポートの完全な日本語化
+                                # 詳細レポートの初期化 - エラー修正
                                 report_jp = report
                                 
                                 # 詳細レポートの構造的な日本語化（段落ごとに処理）
@@ -1150,15 +1152,32 @@ see below."""
                                     avg_value = re.search(r"average value of approx. ([0-9.]+)", first_para_match.group(0))
                                     exp_response = re.search(r"expected an average response of ([0-9.]+)", first_para_match.group(0))
                                     interval_pred = re.search(r"prediction is \[([0-9., -]+)\]", first_para_match.group(0))
-                                    effect = re.search(r"This effect is ([0-9.+]+) with", first_para_match.group(0))
+                                    effect = re.search(r"This effect is ([0-9.+\-]+) with", first_para_match.group(0))
                                     effect_interval = re.search(r"95% interval of\s+\[([0-9., -]+)\]", first_para_match.group(0))
                                     
                                     if avg_value and exp_response and interval_pred and effect and effect_interval:
-                                        # 数値を保持して日本語化
-                                        first_para_jp = f"""介入期間中、応答変数は平均値が約{avg_value.group(1)}でした。もし介入がなかった場合、予測される平均応答値は{exp_response.group(1)}でした。この反事実予測の95%信頼区間は[{interval_pred.group(1)}]です。この予測値を観測値から引くことで、介入が応答変数に与えた因果効果の推定値が得られます。この効果は{effect.group(1)}であり、95%信頼区間は[{effect_interval.group(1)}]です。この効果の有意性については以下を参照してください。"""
+                                        # 数値を保持して日本語化 - 信頼区間を動的に反映
+                                        first_para_jp = f"""介入期間中、応答変数は平均値が約{avg_value.group(1)}でした。もし介入がなかった場合、予測される平均応答値は{exp_response.group(1)}でした。この反事実予測の{alpha_percent}%信頼区間は[{interval_pred.group(1)}]です。この予測値を観測値から引くことで、介入が応答変数に与えた因果効果の推定値が得られます。この効果は{effect.group(1)}であり、{alpha_percent}%信頼区間は[{effect_interval.group(1)}]です。この効果の有意性については以下を参照してください。"""
                                         
                                         # 元のテキストを置換
                                         report_jp = report_jp.replace(first_para_match.group(0), first_para_jp)
+                                
+                                # 1b. 最初の段落の別パターン（"By contrast"を含む負の効果の場合）
+                                alt_first_para_match = re.search(r"During the post-intervention period.*?By contrast.*?see below\.", report_jp, re.DOTALL)
+                                if alt_first_para_match:
+                                    # 数値をキャプチャ
+                                    avg_value = re.search(r"average value of approx. ([0-9.]+)", alt_first_para_match.group(0))
+                                    exp_response = re.search(r"expected an average response of ([0-9.]+)", alt_first_para_match.group(0))
+                                    interval_pred = re.search(r"prediction is \[([0-9., -]+)\]", alt_first_para_match.group(0))
+                                    effect = re.search(r"This effect is (-[0-9.]+) with", alt_first_para_match.group(0))
+                                    effect_interval = re.search(r"95% interval of\s+\[([0-9., -]+)\]", alt_first_para_match.group(0))
+                                    
+                                    if avg_value and exp_response and interval_pred and effect and effect_interval:
+                                        # 数値を保持して日本語化 - 信頼区間を動的に反映
+                                        alt_first_para_jp = f"""介入期間中、応答変数は平均値が約{avg_value.group(1)}でした。対照的に、介入がなかった場合には、予測される平均応答値は{exp_response.group(1)}でした。この反事実予測の{alpha_percent}%信頼区間は[{interval_pred.group(1)}]です。この予測値を観測値から引くことで、介入が応答変数に与えた因果効果の推定値が得られます。この効果は{effect.group(1)}であり、{alpha_percent}%信頼区間は[{effect_interval.group(1)}]です。この効果の有意性については以下を参照してください。"""
+                                        
+                                        # 元のテキストを置換
+                                        report_jp = report_jp.replace(alt_first_para_match.group(0), alt_first_para_jp)
                                 
                                 # 2. 二番目の"Summing up the individual data points..."段落
                                 second_para_match = re.search(r"Summing up the individual data points.*?this prediction is \[[0-9., -]+\].", report_jp, re.DOTALL)
@@ -1169,8 +1188,8 @@ see below."""
                                     sum_interval = re.search(r"prediction is \[([0-9., -]+)\]", second_para_match.group(0))
                                     
                                     if overall_value and sum_expected and sum_interval:
-                                        # 数値を保持して日本語化
-                                        second_para_jp = f"""介入期間中の個々のデータポイントを合計すると（これが意味を持つ場合のみ）、応答変数の全体値は{overall_value.group(1)}でした。介入がなかった場合、予測される合計値は{sum_expected.group(1)}でした。この予測の95%信頼区間は[{sum_interval.group(1)}]です。"""
+                                        # 数値を保持して日本語化 - 信頼区間を動的に反映
+                                        second_para_jp = f"""介入期間中の個々のデータポイントを合計すると（これが意味を持つ場合のみ）、応答変数の全体値は{overall_value.group(1)}でした。介入がなかった場合、予測される合計値は{sum_expected.group(1)}でした。この予測の{alpha_percent}%信頼区間は[{sum_interval.group(1)}]です。"""
                                         
                                         # 元のテキストを置換
                                         report_jp = report_jp.replace(second_para_match.group(0), second_para_jp)
@@ -1183,11 +1202,25 @@ see below."""
                                     percentage_interval = re.search(r"percentage is \[([0-9.%, -]+)\]", third_para_match.group(0))
                                     
                                     if increase and percentage_interval:
-                                        # 数値を保持して日本語化
-                                        third_para_jp = f"""上記の結果は絶対値で示されています。相対的には、応答変数は{increase.group(1)}の増加を示しました。この割合の95%信頼区間は[{percentage_interval.group(1)}]です。"""
+                                        # 数値を保持して日本語化 - 信頼区間を動的に反映
+                                        third_para_jp = f"""上記の結果は絶対値で示されています。相対的には、応答変数は{increase.group(1)}の増加を示しました。この割合の{alpha_percent}%信頼区間は[{percentage_interval.group(1)}]です。"""
                                         
                                         # 元のテキストを置換
                                         report_jp = report_jp.replace(third_para_match.group(0), third_para_jp)
+                                
+                                # 3b. 三番目の段落の別パターン（"decrease"を含む場合 - 負の効果）
+                                alt_third_para_match = re.search(r"The above results are given in terms of absolute numbers.*?decrease of -[0-9.]+%.*?this percentage is \[[0-9.%, -]+\].", report_jp, re.DOTALL)
+                                if alt_third_para_match:
+                                    # 数値をキャプチャ
+                                    decrease = re.search(r"decrease of (-[0-9.]+%)", alt_third_para_match.group(0))
+                                    percentage_interval = re.search(r"percentage is \[([0-9.%, -]+)\]", alt_third_para_match.group(0))
+                                    
+                                    if decrease and percentage_interval:
+                                        # 数値を保持して日本語化 - 信頼区間を動的に反映
+                                        alt_third_para_jp = f"""上記の結果は絶対値で示されています。相対的には、応答変数は{decrease.group(1)}の減少を示しました。この割合の{alpha_percent}%信頼区間は[{percentage_interval.group(1)}]です。"""
+                                        
+                                        # 元のテキストを置換
+                                        report_jp = report_jp.replace(alt_third_para_match.group(0), alt_third_para_jp)
                                 
                                 # 4. 四番目の"This means that, although the intervention appears..."段落
                                 fourth_para_match = re.search(r"This means that, although the intervention appears.*?was above zero.", report_jp, re.DOTALL)
@@ -1195,19 +1228,43 @@ see below."""
                                     fourth_para_jp = """これは、介入が正の効果をもたらしたように見えるものの、介入期間全体を考慮するとこの効果は統計的に有意ではないことを意味します。介入期間内の個々の日や短い期間については（効果の時系列グラフの下限が0より上にある場合に示されるように）依然として有意な効果があった可能性があります。"""
                                     report_jp = report_jp.replace(fourth_para_match.group(0), fourth_para_jp)
                                 
+                                # 統計的に有意な場合の代替パターン（正の効果があり、統計的に有意である場合）
+                                alt_fourth_para_match = re.search(r"This means that the positive effect observed during the intervention.*?of the underlying intervention\.", report_jp, re.DOTALL)
+                                if alt_fourth_para_match:
+                                    # 効果値を抽出
+                                    effect_value = re.search(r"absolute effect \(([0-9.]+)\)", alt_fourth_para_match.group(0))
+                                    effect_str = effect_value.group(1) if effect_value else "X"
+                                    alt_fourth_para_jp = f"""これは、介入期間中に観察された正の効果が統計的に有意であり、ランダムな変動に起因する可能性が低いことを意味します。ただし、この増加が実質的な意味を持つかどうかという問題は、絶対効果（{effect_str}）を介入の本来の目標と比較することによってのみ答えることができることに注意すべきです。"""
+                                    report_jp = report_jp.replace(alt_fourth_para_match.group(0), alt_fourth_para_jp)
+                                
+                                # 統計的に有意な負の効果を持つ場合のパターン
+                                negative_fourth_para_match = re.search(r"This means that the negative effect observed during the intervention.*?in the absence of the intervention\.", report_jp, re.DOTALL)
+                                if negative_fourth_para_match:
+                                    negative_fourth_para_jp = """これは、介入期間中に観察された負の効果が統計的に有意であることを意味します。実験者が正の効果を期待していた場合は、制御変数の異常が、介入がない場合に応答変数で起こるはずだったことについて過度に楽観的な期待を引き起こした可能性があるかどうかを再確認することをお勧めします。"""
+                                    report_jp = report_jp.replace(negative_fourth_para_match.group(0), negative_fourth_para_jp)
+                                
                                 # 5. 五番目の"The apparent effect could be the result of random fluctuations..."段落
                                 fifth_para_match = re.search(r"The apparent effect could be the result of random fluctuations.*?during the learning period.", report_jp, re.DOTALL)
                                 if fifth_para_match:
                                     fifth_para_jp = """見かけ上の効果は、介入と無関係なランダムな変動の結果である可能性があります。これは、介入期間が非常に長く、効果が既に消失した時間の多くを含む場合によく起こります。また、介入期間が短すぎてシグナルとノイズを区別できない場合にも起こり得ます。最後に、有意な効果が見つからないのは、制御変数が十分でない場合や、これらの変数が学習期間中に応答変数とうまく相関していない場合にも起こることがあります。"""
                                     report_jp = report_jp.replace(fifth_para_match.group(0), fifth_para_jp)
                                 
-                                # 6. 最後の"The probability of obtaining this effect by chance..."段落
+                                # 6. 最後の"The probability of obtaining this effect by chance..."段落（有意でない場合）
                                 sixth_para_match = re.search(r"The probability of obtaining this effect by chance is p = [0-9]+%.*?considered statistically significant.", report_jp, re.DOTALL)
                                 if sixth_para_match:
                                     p_value = re.search(r"p = ([0-9]+%)", sixth_para_match.group(0))
                                     if p_value:
                                         sixth_para_jp = f"""この効果が偶然によって得られる確率はp = {p_value.group(1)}です。これは、この効果が見せかけのものである可能性があり、一般的には統計的に有意とはみなされないことを意味します。"""
                                         report_jp = report_jp.replace(sixth_para_match.group(0), sixth_para_jp)
+                                
+                                # 6b. 最後の段落の別パターン（効果が統計的に有意な場合）
+                                alt_sixth_para_match = re.search(r"The probability of obtaining this effect by chance is very small.*?considered statistically\s+significant\.", report_jp, re.DOTALL)
+                                if alt_sixth_para_match:
+                                    # p値を抽出
+                                    p_value = re.search(r"probability p = ([0-9.]+)", alt_sixth_para_match.group(0))
+                                    p_str = p_value.group(1) if p_value else "X"
+                                    alt_sixth_para_jp = f"""この効果が偶然によって得られる確率は非常に小さいです（ベイズ単側尾部確率 p = {p_str}）。これは、因果効果が統計的に有意であると考えられることを意味します。"""
+                                    report_jp = report_jp.replace(alt_sixth_para_match.group(0), alt_sixth_para_jp)
                                 
                                 # p値の行を日本語に置換
                                 p_line_match = re.search(r"Posterior tail-area probability p: [0-9.]+", report_jp)
