@@ -1054,11 +1054,11 @@ if st.session_state.get('data_loaded', False):
                         else:
                             # CausalImpact分析
                             ci = CausalImpact(data, pre_period, post_period)
-                            # 分析実行サマリー表示
+                            # 分析実行結果表示
                             alpha = st.session_state['analysis_params']['alpha']
                             treatment_name = st.session_state['treatment_name']
                             period = st.session_state['analysis_period']
-                            st.markdown('<div class="section-title">分析実行サマリー</div>', unsafe_allow_html=True)
+                            st.markdown('<div class="section-title">分析実行結果</div>', unsafe_allow_html=True)
                             col1, col2, col3 = st.columns([2,3,2])
                             with col1:
                                 st.markdown(f'**分析対象**：{treatment_name}')
@@ -1077,11 +1077,26 @@ if st.session_state.get('data_loaded', False):
                             # タイトル追加
                             axes = fig.axes
                             if len(axes) >= 3:
-                                axes[0].set_title("予測値 vs 実測値の比較")
-                                axes[1].set_title("時点効果")
-                                axes[2].set_title("累積効果")
+                                # 日本語のタイトルを設定（文字化け対策）
+                                axes[0].set_title("予測値 vs 実測値の比較", fontsize=12)
+                                axes[1].set_title("時点効果", fontsize=12)
+                                axes[2].set_title("累積効果", fontsize=12)
                             plt.tight_layout()
                             st.pyplot(fig)
+                            
+                            # グラフに関する注釈を追加
+                            st.markdown("""
+<div style="margin-top:0.5em;margin-bottom:1.5em;background:#f5f8fd;padding:1em;border-radius:8px;">
+<p style="font-size:0.9em;color:#444;margin-bottom:0.8em;"><b>グラフの見方：</b></p>
+<p style="font-size:0.9em;color:#444;margin-bottom:0.8em;"><b>上段（予測値 vs 実測値の比較）</b>：介入がなかった場合の予測値（青の破線）と実測値（黒の実線）を比較したグラフです。介入の影響を視覚的に確認できます。</p>
+<p style="font-size:0.9em;color:#444;margin-bottom:0.8em;"><b>中段（時点効果）</b>：各時点における介入の影響（効果）を示したグラフです。プラス・マイナスの変化から、影響の方向と大きさを把握できます。</p>
+<p style="font-size:0.9em;color:#444;"><b>下段（累積効果）</b>：分析期間を通じて蓄積された効果の合計を示しています。右肩上がりであれば、介入が継続的に効果を発揮していると判断できます。</p>
+</div>
+                            """, unsafe_allow_html=True)
+                            
+                            # 分析結果サマリーのセクションタイトルを追加
+                            st.markdown('<div class="section-title">分析結果サマリー</div>', unsafe_allow_html=True)
+                            
                             # 分析結果サマリー 表形式で表示
                             import re
                             # 数値部分のみ抽出してDataFrame化
@@ -1108,8 +1123,112 @@ if st.session_state.get('data_loaded', False):
                             st.dataframe(df_summary, use_container_width=True)
                             # 詳細レポート（日本語訳）
                             with st.expander("詳細レポート"):
-                                report_jp = report.replace("Posterior tail-area probability p:", "事後確率 p値:") \
-                                                  .replace("Posterior probability of a causal effect:", "因果効果の事後確率:")
+                                # 詳細レポートの完全な日本語化
+                                report_jp = report
+                                
+                                # 詳細レポートの構造的な日本語化（段落ごとに処理）
+                                # 先頭の「Analysis report {CausalImpact}」を置換
+                                report_jp = report_jp.replace("Analysis report {CausalImpact}", "分析レポート {CausalImpact}")
+                                
+                                # 最初の段落（介入期間と予測値の比較）
+                                first_para_en = """During the post-intervention period, the response variable had
+an average value of approx. [0-9.]+. In the absence of an
+intervention, we would have expected an average response of [0-9.]+.
+The 95% interval of this counterfactual prediction is \[[0-9., -]+\].
+Subtracting this prediction from the observed response yields
+an estimate of the causal effect the intervention had on the
+response variable. This effect is [0-9.+]+ with a 95% interval of
+\[[0-9., -]+\]. For a discussion of the significance of this effect,
+see below."""
+                                
+                                import re
+                                # 数値部分を正規表現でキャプチャしながら置換
+                                # 1. 最初の"During the post-intervention period..."段落
+                                first_para_match = re.search(r"During the post-intervention period.*?see below\.", report_jp, re.DOTALL)
+                                if first_para_match:
+                                    # 数値をキャプチャ
+                                    avg_value = re.search(r"average value of approx. ([0-9.]+)", first_para_match.group(0))
+                                    exp_response = re.search(r"expected an average response of ([0-9.]+)", first_para_match.group(0))
+                                    interval_pred = re.search(r"prediction is \[([0-9., -]+)\]", first_para_match.group(0))
+                                    effect = re.search(r"This effect is ([0-9.+]+) with", first_para_match.group(0))
+                                    effect_interval = re.search(r"95% interval of\s+\[([0-9., -]+)\]", first_para_match.group(0))
+                                    
+                                    if avg_value and exp_response and interval_pred and effect and effect_interval:
+                                        # 数値を保持して日本語化
+                                        first_para_jp = f"""介入期間中、応答変数は平均値が約{avg_value.group(1)}でした。もし介入がなかった場合、予測される平均応答値は{exp_response.group(1)}でした。この反事実予測の95%信頼区間は[{interval_pred.group(1)}]です。この予測値を観測値から引くことで、介入が応答変数に与えた因果効果の推定値が得られます。この効果は{effect.group(1)}であり、95%信頼区間は[{effect_interval.group(1)}]です。この効果の有意性については以下を参照してください。"""
+                                        
+                                        # 元のテキストを置換
+                                        report_jp = report_jp.replace(first_para_match.group(0), first_para_jp)
+                                
+                                # 2. 二番目の"Summing up the individual data points..."段落
+                                second_para_match = re.search(r"Summing up the individual data points.*?this prediction is \[[0-9., -]+\].", report_jp, re.DOTALL)
+                                if second_para_match:
+                                    # 数値をキャプチャ
+                                    overall_value = re.search(r"overall value of ([0-9.]+)", second_para_match.group(0))
+                                    sum_expected = re.search(r"expected\s+a sum of ([0-9.]+)", second_para_match.group(0))
+                                    sum_interval = re.search(r"prediction is \[([0-9., -]+)\]", second_para_match.group(0))
+                                    
+                                    if overall_value and sum_expected and sum_interval:
+                                        # 数値を保持して日本語化
+                                        second_para_jp = f"""介入期間中の個々のデータポイントを合計すると（これが意味を持つ場合のみ）、応答変数の全体値は{overall_value.group(1)}でした。介入がなかった場合、予測される合計値は{sum_expected.group(1)}でした。この予測の95%信頼区間は[{sum_interval.group(1)}]です。"""
+                                        
+                                        # 元のテキストを置換
+                                        report_jp = report_jp.replace(second_para_match.group(0), second_para_jp)
+                                
+                                # 3. 三番目の"The above results are given in terms of absolute numbers..."段落
+                                third_para_match = re.search(r"The above results are given in terms of absolute numbers.*?this percentage is \[[0-9.%, -]+\].", report_jp, re.DOTALL)
+                                if third_para_match:
+                                    # 数値をキャプチャ
+                                    increase = re.search(r"increase of \+?([0-9.%]+)", third_para_match.group(0))
+                                    percentage_interval = re.search(r"percentage is \[([0-9.%, -]+)\]", third_para_match.group(0))
+                                    
+                                    if increase and percentage_interval:
+                                        # 数値を保持して日本語化
+                                        third_para_jp = f"""上記の結果は絶対値で示されています。相対的には、応答変数は{increase.group(1)}の増加を示しました。この割合の95%信頼区間は[{percentage_interval.group(1)}]です。"""
+                                        
+                                        # 元のテキストを置換
+                                        report_jp = report_jp.replace(third_para_match.group(0), third_para_jp)
+                                
+                                # 4. 四番目の"This means that, although the intervention appears..."段落
+                                fourth_para_match = re.search(r"This means that, although the intervention appears.*?was above zero.", report_jp, re.DOTALL)
+                                if fourth_para_match:
+                                    fourth_para_jp = """これは、介入が正の効果をもたらしたように見えるものの、介入期間全体を考慮するとこの効果は統計的に有意ではないことを意味します。介入期間内の個々の日や短い期間については（効果の時系列グラフの下限が0より上にある場合に示されるように）依然として有意な効果があった可能性があります。"""
+                                    report_jp = report_jp.replace(fourth_para_match.group(0), fourth_para_jp)
+                                
+                                # 5. 五番目の"The apparent effect could be the result of random fluctuations..."段落
+                                fifth_para_match = re.search(r"The apparent effect could be the result of random fluctuations.*?during the learning period.", report_jp, re.DOTALL)
+                                if fifth_para_match:
+                                    fifth_para_jp = """見かけ上の効果は、介入と無関係なランダムな変動の結果である可能性があります。これは、介入期間が非常に長く、効果が既に消失した時間の多くを含む場合によく起こります。また、介入期間が短すぎてシグナルとノイズを区別できない場合にも起こり得ます。最後に、有意な効果が見つからないのは、制御変数が十分でない場合や、これらの変数が学習期間中に応答変数とうまく相関していない場合にも起こることがあります。"""
+                                    report_jp = report_jp.replace(fifth_para_match.group(0), fifth_para_jp)
+                                
+                                # 6. 最後の"The probability of obtaining this effect by chance..."段落
+                                sixth_para_match = re.search(r"The probability of obtaining this effect by chance is p = [0-9]+%.*?considered statistically significant.", report_jp, re.DOTALL)
+                                if sixth_para_match:
+                                    p_value = re.search(r"p = ([0-9]+%)", sixth_para_match.group(0))
+                                    if p_value:
+                                        sixth_para_jp = f"""この効果が偶然によって得られる確率はp = {p_value.group(1)}です。これは、この効果が見せかけのものである可能性があり、一般的には統計的に有意とはみなされないことを意味します。"""
+                                        report_jp = report_jp.replace(sixth_para_match.group(0), sixth_para_jp)
+                                
+                                # p値の行を日本語に置換
+                                p_line_match = re.search(r"Posterior tail-area probability p: [0-9.]+", report_jp)
+                                if p_line_match:
+                                    p_value = re.search(r"p: ([0-9.]+)", p_line_match.group(0))
+                                    if p_value:
+                                        p_line_jp = f"事後確率 p値: {p_value.group(1)}"
+                                        report_jp = report_jp.replace(p_line_match.group(0), p_line_jp)
+                                
+                                # 因果効果の確率の行を日本語に置換
+                                prob_line_match = re.search(r"Posterior probability of a causal effect: [0-9.]+%", report_jp)
+                                if prob_line_match:
+                                    prob_value = re.search(r": ([0-9.]+%)", prob_line_match.group(0))
+                                    if prob_value:
+                                        prob_line_jp = f"因果効果の事後確率: {prob_value.group(1)}"
+                                        report_jp = report_jp.replace(prob_line_match.group(0), prob_line_jp)
+                                
+                                # 改行の調整：連続する改行を1つに統一して段落間の余白を調整
+                                report_jp = re.sub(r'\n\s*\n\s*\n+', '\n\n', report_jp)
+                                
+                                # レポート表示
                                 st.text(report_jp)
                             st.success("Causal Impact分析が完了しました。グラフとサマリーを確認してください。")
                             st.session_state['analysis_completed'] = True
