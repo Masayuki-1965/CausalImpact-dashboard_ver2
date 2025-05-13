@@ -1079,10 +1079,20 @@ if st.session_state.get('data_loaded', False):
                             # タイトル追加
                             axes = fig.axes
                             if len(axes) >= 3:
-                                # 日本語のタイトルを設定（文字化け対策）
-                                axes[0].set_title("予測値 vs 実測値の比較", fontsize=12)
-                                axes[1].set_title("時点効果", fontsize=12)
-                                axes[2].set_title("累積効果", fontsize=12)
+                                # 英語のタイトルを設定（文字化け対策）
+                                axes[0].set_title("Graph 1: Predicted vs Actual", fontsize=12)
+                                axes[1].set_title("Graph 2: Point Effects", fontsize=12)
+                                axes[2].set_title("Graph 3: Cumulative Effect", fontsize=12)
+                                
+                                # 下部の"Note: The first 1 observations..."メッセージを削除
+                                # 各サブプロットの下部テキストを確認して削除
+                                for ax in axes:
+                                    # テキストオブジェクトを検索
+                                    for text in ax.texts:
+                                        # "Note:"で始まるテキストを削除
+                                        if "Note:" in text.get_text():
+                                            text.set_visible(False)
+                            
                             plt.tight_layout()
                             st.pyplot(fig)
                             
@@ -1090,9 +1100,9 @@ if st.session_state.get('data_loaded', False):
                             st.markdown("""
 <div style="margin-top:0.5em;margin-bottom:1.5em;background:#f5f8fd;padding:1em;border-radius:8px;">
 <p style="font-size:0.9em;color:#444;margin-bottom:0.8em;"><b>グラフの見方：</b></p>
-<p style="font-size:0.9em;color:#444;margin-bottom:0.8em;"><b>上段（予測値 vs 実測値の比較）</b>：介入がなかった場合の予測値（青の破線）と実測値（黒の実線）を比較したグラフです。介入の影響を視覚的に確認できます。</p>
-<p style="font-size:0.9em;color:#444;margin-bottom:0.8em;"><b>中段（時点効果）</b>：各時点における介入の影響（効果）を示したグラフです。プラス・マイナスの変化から、影響の方向と大きさを把握できます。</p>
-<p style="font-size:0.9em;color:#444;"><b>下段（累積効果）</b>：分析期間を通じて蓄積された効果の合計を示しています。右肩上がりであれば、介入が継続的に効果を発揮していると判断できます。</p>
+<p style="font-size:0.9em;color:#444;margin-bottom:0.8em;"><b>Graph 1（予測値 vs 実測値の比較）</b>：介入がなかった場合の予測値（青の破線）と実測値（黒の実線）を比較したグラフです。介入の影響を視覚的に確認できます。</p>
+<p style="font-size:0.9em;color:#444;margin-bottom:0.8em;"><b>Graph 2（時点効果）</b>：各時点における介入の影響（効果）を示したグラフです。プラス・マイナスの変化から、影響の方向と大きさを把握できます。</p>
+<p style="font-size:0.9em;color:#444;"><b>Graph 3（累積効果）</b>：分析期間を通じて蓄積された効果の合計を示しています。右肩上がりであれば、介入が継続的に効果を発揮していると判断できます。</p>
 </div>
                             """, unsafe_allow_html=True)
                             
