@@ -926,7 +926,7 @@ if st.session_state.get('data_loaded', False):
             st.markdown('<div class="section-title">モデル・パラメータの設定</div>', unsafe_allow_html=True)
             
             # 基本パラメータと詳細設定の分離
-            with st.expander("詳細設定", expanded=False):
+            with st.expander("詳細設定　（※デフォルト値での分析で十分な場合は設定不要です）", expanded=False):
                 # 信頼区間の設定
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;">信頼区間</div>', unsafe_allow_html=True)
                 alpha = st.slider(
@@ -941,15 +941,15 @@ if st.session_state.get('data_loaded', False):
                 
                 # 季節性の設定
                 st.markdown('<div style="font-weight:bold;margin-top:1em;margin-bottom:0.5em;">季節性を考慮する</div>', unsafe_allow_html=True)
-                seasonality = st.checkbox("", value=True, label_visibility="collapsed")
+                seasonality = st.checkbox("", value=False, label_visibility="collapsed")
                 
                 # 季節性がオンの場合、周期タイプを選択
                 if seasonality:
                     st.markdown('<div style="font-weight:bold;margin-top:0.5em;margin-bottom:0.5em;">周期タイプ</div>', unsafe_allow_html=True)
                     seasonality_type = st.radio(
                         "",
-                        options=["週次 (7日)", "月次 (30日)", "四半期 (90日)", "カスタム"],
-                        index=0,
+                        options=["週次 (7日)", "旬次 (10日)", "月次 (30日)", "四半期 (90日)", "年次 (365日)", "カスタム"],
+                        index=1,  # デフォルト値を「旬次 (10日)」に設定
                         label_visibility="collapsed"
                     )
                     
@@ -985,15 +985,68 @@ if st.session_state.get('data_loaded', False):
                 with col2:
                     niter = st.number_input("MCMC反復回数", min_value=100, max_value=10000, value=1000, step=100, help="モンテカルロシミュレーションの反復回数")
             
+            # パラメータの説明を別セクションとして表形式で追加（デフォルトで折りたたみ）
+            with st.expander("パラメータの説明", expanded=False):
+                st.markdown("""
+<table style="width:100%; border-collapse: collapse; margin-top:0.5em; font-size:0.9em;">
+  <tr style="background-color:#f0f5fa;">
+    <th style="padding:8px; text-align:left; border:1px solid #ddd; width:20%;">パラメータ名</th>
+    <th style="padding:8px; text-align:left; border:1px solid #ddd; width:65%;">意味</th>
+    <th style="padding:8px; text-align:left; border:1px solid #ddd; width:15%;">デフォルト値</th>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>信頼区間</b></td>
+    <td style="padding:8px; border:1px solid #ddd;">分析結果の不確実性を表現する範囲です。値が大きいほど信頼区間は広くなり、効果の推定に対する確信度が高まりますが、区間自体は広くなります。</td>
+    <td style="padding:8px; border:1px solid #ddd; text-align:center;">0.95</td>
+  </tr>
+  <tr style="background-color:#f9fbfd;">
+    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>季節性を考慮する</b></td>
+    <td style="padding:8px; border:1px solid #ddd;">時系列データに含まれる周期的なパターンを考慮するかどうかを指定します。曜日・月・季節などの影響がある場合はオンにします。</td>
+    <td style="padding:8px; border:1px solid #ddd; text-align:center;">オフ</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>周期タイプ</b></td>
+    <td style="padding:8px; border:1px solid #ddd;">
+      ・<b>週次 (7日)</b>: 週単位で繰り返すパターンがある場合（平日と週末の違いなど）<br>
+      ・<b>旬次 (10日)</b>: 上旬・中旬・下旬の周期がある場合<br>
+      ・<b>月次 (30日)</b>: 月単位で繰り返すパターンがある場合（月初・月末の変動など）<br>
+      ・<b>四半期 (90日)</b>: 四半期単位で繰り返すパターンがある場合（決算期の影響など）<br>
+      ・<b>年次 (365日)</b>: 年単位で繰り返すパターンがある場合（季節変動など）<br>
+      ・<b>カスタム</b>: 上記以外の特定の周期がある場合
+    </td>
+    <td style="padding:8px; border:1px solid #ddd; text-align:center;">旬次 (10日)</td>
+  </tr>
+  <tr style="background-color:#f9fbfd;">
+    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>水準の事前分布の<br>標準偏差</b></td>
+    <td style="padding:8px; border:1px solid #ddd;">ベイズモデルにおける事前分布のパラメータで、時系列の水準（レベル）の変動性をどの程度許容するかを指定します。値が大きいほど水準の変化に対して寛容になります。</td>
+    <td style="padding:8px; border:1px solid #ddd; text-align:center;">0.010</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>データを標準化する</b></td>
+    <td style="padding:8px; border:1px solid #ddd;">分析前にデータを平均0、標準偏差1になるように変換するかどうかを指定します。データのスケールが大きく異なる場合や、単位の影響を排除したい場合にオンにします。</td>
+    <td style="padding:8px; border:1px solid #ddd; text-align:center;">オフ</td>
+  </tr>
+  <tr style="background-color:#f9fbfd;">
+    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>MCMC反復回数</b></td>
+    <td style="padding:8px; border:1px solid #ddd;">モンテカルロマルコフ連鎖（MCMC）シミュレーションの反復回数を指定します。値が大きいほど推定精度が向上しますが、計算時間も長くなります。</td>
+    <td style="padding:8px; border:1px solid #ddd; text-align:center;">1000</td>
+  </tr>
+</table>
+                """, unsafe_allow_html=True)
+            
             # パラメータをセッションに保存
             seasonality_period = None
             if seasonality:
                 if seasonality_type == "週次 (7日)":
                     seasonality_period = 7
+                elif seasonality_type == "旬次 (10日)":
+                    seasonality_period = 10
                 elif seasonality_type == "月次 (30日)":
                     seasonality_period = 30
                 elif seasonality_type == "四半期 (90日)":
                     seasonality_period = 90
+                elif seasonality_type == "年次 (365日)":
+                    seasonality_period = 365
                 else:  # カスタム
                     seasonality_period = custom_period if 'custom_period' in locals() else 7
             
@@ -1060,7 +1113,7 @@ if st.session_state.get('data_loaded', False):
                             alpha_percent = int(alpha * 100)
                             treatment_name = st.session_state['treatment_name']
                             period = st.session_state['analysis_period']
-                            st.markdown('<div class="section-title">分析実行結果</div>', unsafe_allow_html=True)
+                            st.markdown('<div class="section-title">分析結果可視化</div>', unsafe_allow_html=True)
                             col1, col2, col3 = st.columns([2,3,2])
                             with col1:
                                 st.markdown(f'**分析対象**：{treatment_name}')
