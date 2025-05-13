@@ -1092,6 +1092,20 @@ if st.session_state.get('data_loaded', False):
                                         # "Note:"で始まるテキストを削除
                                         if "Note:" in text.get_text():
                                             text.set_visible(False)
+                                    
+                                    # フットノートとして表示されている場合は別の方法で削除
+                                    # _remove_annotationメソッドがあれば使用
+                                    if hasattr(ax, '_remove_annotation'):
+                                        ax._remove_annotation('Note')
+                                    
+                                    # 下部に余白がないように調整（メッセージが表示される領域を除外）
+                                    ax.set_xlabel('')
+                                    
+                                # 図全体のレイアウトを調整して下部のメッセージ領域を除外
+                                plt.subplots_adjust(bottom=0.1, hspace=0.3)
+                                
+                                # 図の下部に表示されるテキストを全て削除する別の方法
+                                fig.texts = []
                             
                             plt.tight_layout()
                             st.pyplot(fig)
