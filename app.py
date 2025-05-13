@@ -801,8 +801,8 @@ if st.session_state.get('data_loaded', False):
             st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.15em;">介入前期間 (Pre-Period)</div>', unsafe_allow_html=True)
             st.markdown('<div style="margin-bottom:1em;">モデル構築に使用する介入前の期間を指定します。</div>', unsafe_allow_html=True)
             
-            # 注記の追加（UI制約の説明）
-            st.info("介入前期間と介入期間の整合性に注意してください。介入前期間の終了日は介入期間の開始日より前になるようにしてください。")
+            # 警告メッセージを削除
+            # st.info("介入前期間と介入期間の整合性に注意してください。介入前期間の終了日は介入期間の開始日より前になるようにしてください。")
             
             # 介入前期間の入力フォーム
             col1, col2 = st.columns(2)
@@ -829,10 +829,12 @@ if st.session_state.get('data_loaded', False):
             
             # 介入期間の設定
             st.markdown('<div style="font-weight:bold;margin-top:1.5em;margin-bottom:0.5em;font-size:1.15em;">介入期間 (Post-Period)</div>', unsafe_allow_html=True)
-            st.markdown('<div style="margin-bottom:1em;">効果を測定する介入後の期間を指定します。</div>', unsafe_allow_html=True)
             
-            # 注記の追加（UI制約の説明）
-            st.info("介入期間の開始日は介入前期間の終了日より後の日付を選択してください。")
+            # 説明文と警告メッセージを統合
+            st.markdown('<div style="margin-bottom:1em;">効果を測定する介入後の期間を指定します。（※介入期間の開始日は介入前期間の終了日より後の日付を指定してください。）</div>', unsafe_allow_html=True)
+            
+            # 単独の警告メッセージを削除
+            # st.info("介入期間の開始日は介入前期間の終了日より後の日付を選択してください。")
             
             # 最小日付は翌日ではなく、データセットの最小日付を設定
             min_post_start = dataset['ymd'].min().date()
@@ -1113,7 +1115,7 @@ if st.session_state.get('data_loaded', False):
                             alpha_percent = int(alpha * 100)
                             treatment_name = st.session_state['treatment_name']
                             period = st.session_state['analysis_period']
-                            st.markdown('<div class="section-title">分析結果可視化</div>', unsafe_allow_html=True)
+                            st.markdown('<div class="section-title">分析結果グラフ</div>', unsafe_allow_html=True)
                             col1, col2, col3 = st.columns([2,3,2])
                             with col1:
                                 st.markdown(f'**分析対象**：{treatment_name}')
@@ -1364,7 +1366,7 @@ see below."""
                                 
                                 # レポート表示
                                 st.text(report_jp)
-                            st.success("Causal Impact分析が完了しました。グラフとサマリーを確認してください。")
+                            st.success("Causal Impact分析が完了しました。分析結果のグラフとサマリーを確認してください。")
                             st.session_state['analysis_completed'] = True
                     except Exception as e:
                         st.error(f"Causal Impact分析中にエラーが発生しました: {e}")
