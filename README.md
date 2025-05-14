@@ -18,11 +18,26 @@ CausalImpactによる介入効果の測定・分析を行うことができま�
 ## ファイル構成
 
 - `app.py`: メインアプリケーションファイル
+- `utils_step1.py`: データ取り込み・可視化（STEP1）用の補助関数モジュール
+- `utils_step2.py`: 分析期間・パラメータ設定（STEP2）用の補助関数モジュール
+- `utils_step3.py`: 分析実行・結果表示（STEP3）用の補助関数モジュール
 - `causal_impact_translator.py`: 分析レポートの日本語翻訳モジュール
 - `data/` : サンプルデータ格納ディレクトリ
   - `treatment_data/`: 処置群データCSVファイル
   - `control_data/`: 対照群データCSVファイル
 - `requirements.txt`: 必要パッケージリスト
+
+## モジュール分割について
+
+- `utils_step1.py`：
+  - データファイル取得、読み込み、集計、可視化用の関数を提供します。
+  - 例：`get_csv_files`, `load_and_clean_csv`, `aggregate_df` など
+- `utils_step2.py`：
+  - 分析期間・パラメータ設定、バリデーション、日数計算などの関数を提供します。
+  - 例：`get_period_defaults`, `validate_periods`, `build_analysis_params` など
+- `utils_step3.py`：
+  - CausalImpact分析実行、summary/report生成、グラフ・サマリーDataFrame生成などの関数を提供します。
+  - 例：`run_causal_impact_analysis`, `build_summary_dataframe`
 
 ## 翻訳モジュールについて
 

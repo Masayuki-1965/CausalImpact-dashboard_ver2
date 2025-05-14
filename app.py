@@ -1,16 +1,14 @@
-import streamlit as st
-import pandas as pd
 import os
-import glob
+import pandas as pd
+import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import time
-import numpy as np
 import matplotlib.pyplot as plt
-from causalimpact import CausalImpact
-import re
-# 新しく作成した翻訳モジュールをインポート
+# 必要な外部モジュールのみimport
 from causal_impact_translator import translate_causal_impact_report
+from utils_step1 import get_csv_files, load_and_clean_csv, make_period_key, aggregate_df, create_full_period_range, format_stats_with_japanese
+from utils_step2 import get_period_defaults, validate_periods, calc_period_days, build_analysis_params
+from utils_step3 import run_causal_impact_analysis, build_summary_dataframe
 
 # --- 初期化コード（最初に実行）---
 if 'session_initialized' not in st.session_state:
@@ -354,10 +352,6 @@ st.markdown('<div class="section-title">分析対象ファイルの選択</div>'
 treatment_dir = "data/treatment_data"
 control_dir = "data/control_data"
 
-def get_csv_files(directory):
-    files = glob.glob(os.path.join(directory, "*.csv"))
-    return [os.path.basename(f) for f in files]
-
 treatment_files = get_csv_files(treatment_dir)
 control_files = get_csv_files(control_dir)
 
@@ -424,23 +418,6 @@ if st.session_state.get('data_loaded', False):
     # --- 統計情報 ---
     st.markdown('<div class="section-title">データの統計情報</div>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
-    def format_stats_with_japanese(df):
-        stats = df.describe().reset_index()
-        stats.columns = ['統計項目', '数値']
-        stats['統計項目'] = stats['統計項目'].replace({
-            'count': 'count（個数）',
-            'mean': 'mean（平均）',
-            'std': 'std（標準偏差）',
-            'min': 'min（最小値）',
-            '25%': '25%（第1四分位数）',
-            '50%': '50%（中央値）',
-            '75%': '75%（第3四分位数）',
-            'max': 'max（最大値）'
-        })
-        for i, row in stats.iterrows():
-            if row['統計項目'] != 'count（個数）':
-                stats.at[i, '数値'] = round(row['数値'], 2)
-        return stats
     with col1:
         st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_name}）</div>', unsafe_allow_html=True)
         if 'qty' in df_treat.columns:
@@ -792,13 +769,7 @@ if st.session_state.get('data_loaded', False):
             """, unsafe_allow_html=True)
             
             # デフォルト値をセッションから取得
-            period_defaults = st.session_state.get('period_defaults', {})
-            
-            # デフォルト値を設定
-            pre_start = period_defaults.get('pre_start', dataset['ymd'].min().date())
-            pre_end = period_defaults.get('pre_end', dataset['ymd'].max().date())
-            post_start = period_defaults.get('post_start', dataset['ymd'].min().date())
-            post_end = period_defaults.get('post_end', dataset['ymd'].max().date())
+            pre_start, pre_end, post_start, post_end = get_period_defaults(st.session_state, dataset)
             
             # 介入前期間の設定
             st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.15em;">介入前期間 (Pre-Period)</div>', unsafe_allow_html=True)
@@ -1055,14 +1026,15 @@ if st.session_state.get('data_loaded', False):
                 else:  # カスタム
                     seasonality_period = custom_period if 'custom_period' in locals() else 7
             
-            st.session_state['analysis_params'] = {
-                'alpha': alpha,
-                'seasonality': seasonality,
-                'seasonality_period': seasonality_period,
-                'prior_level_sd': prior_level_sd,
-                'standardize': standardize if 'standardize' in locals() else False,
-                'niter': niter if 'niter' in locals() else 1000
-            }
+            st.session_state['analysis_params'] = build_analysis_params(
+                alpha,
+                seasonality,
+                seasonality_type if seasonality else None,
+                custom_period if seasonality and seasonality_type == "カスタム" else None,
+                prior_level_sd,
+                standardize if 'standardize' in locals() else False,
+                niter if 'niter' in locals() else 1000
+            )
             # params_savedフラグをTrueに設定
             st.session_state['params_saved'] = True
             
@@ -1088,30 +1060,17 @@ if st.session_state.get('data_loaded', False):
             
             # 分析実行時の処理
             if analyze_btn:
-                # 分析パラメータが保存されたことを明示的に記録
                 st.session_state['params_saved'] = True
-                
-                # 分析中メッセージ
                 with st.spinner("Causal Impact分析を実行中..."):
                     try:
-                        # STEP 3の見出しと説明を追加
-                        st.markdown("""
-<div class="step-card">
-    <h2 style="font-size:1.8em;font-weight:bold;color:#1565c0;margin-bottom:0.5em;">STEP 3：分析実行／結果確認</h2>
-    <div style="color:#1976d2;font-size:1.1em;line-height:1.5;">このステップでは、設定した期間とパラメータに基づいてCausal Impact分析を実行し、結果を確認します。分析結果のグラフとサマリーから、処置群への介入効果を評価できます。</div>
-</div>
-                        """, unsafe_allow_html=True)
-                        
-                        # データセット取得
+                        # ... 既存のSTEP3見出し ...
                         dataset = st.session_state['dataset']
                         treatment_col = [col for col in dataset.columns if '処置群' in col][0]
                         control_col = [col for col in dataset.columns if '対照群' in col][0]
                         data = dataset.set_index('ymd')[[treatment_col, control_col]]
-                        # 期間取得
                         period = st.session_state['analysis_period']
                         pre_period = [str(period['pre_start']), str(period['pre_end'])]
                         post_period = [str(period['post_start']), str(period['post_end'])]
-                        # --- 日付バリデーション ---
                         all_index = set(str(d.date()) for d in data.index)
                         invalid_dates = []
                         for d in pre_period + post_period:
@@ -1119,7 +1078,7 @@ if st.session_state.get('data_loaded', False):
                                 invalid_dates.append(d)
                         if invalid_dates:
                             st.error(f"⚠ 分析期間設定エラー：指定された日付 {', '.join(invalid_dates)} がデータセットに存在しません。")
-                            st.markdown(f"""
+                            st.markdown("""
 <div style="margin-bottom:1.5em;background:#ffebee;padding:1em;border-radius:8px;border-left:4px solid #d32f2f;">
 <p style="font-weight:bold;margin-bottom:0.8em;">日付設定の問題：</p>
 <ul style="margin-bottom:0;">
@@ -1134,14 +1093,12 @@ if st.session_state.get('data_loaded', False):
   </ul>
 </ul>
 </div>
-                            """, unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
                             st.session_state['analysis_completed'] = False
                         else:
-                            # CausalImpact分析
-                            ci = CausalImpact(data, pre_period, post_period)
-                            # 分析実行結果表示
+                            # --- ここから外部関数で実行 ---
+                            ci, summary, report, fig = run_causal_impact_analysis(data, pre_period, post_period)
                             alpha = st.session_state['analysis_params']['alpha']
-                            # 信頼区間をパーセント表示に変換（例：0.95 → 95%）
                             alpha_percent = int(alpha * 100)
                             treatment_name = st.session_state['treatment_name']
                             period = st.session_state['analysis_period']
@@ -1153,92 +1110,15 @@ if st.session_state.get('data_loaded', False):
                                 st.markdown(f'**分析期間**：{period["post_start"].strftime("%Y-%m-%d")} 〜 {period["post_end"].strftime("%Y-%m-%d")}')
                             with col3:
                                 st.markdown(f'**信頼水準**：{alpha_percent}%')
-                            # サマリーとレポート取得
-                            summary = ci.summary()
-                            report = ci.summary(output='report')
-                            # グラフ描画
-                            fig = ci.plot(figsize=(10, 6))
-                            # figがNoneの場合は現在のFigureを利用
-                            if fig is None:
-                                fig = plt.gcf()
-                            # タイトル追加
-                            axes = fig.axes
-                            if len(axes) >= 3:
-                                # 英語のタイトルを設定（文字化け対策）
-                                axes[0].set_title("Graph 1: Predicted vs Actual", fontsize=12)
-                                axes[1].set_title("Graph 2: Point Effects", fontsize=12)
-                                axes[2].set_title("Graph 3: Cumulative Effect", fontsize=12)
-                                
-                                # 下部の"Note: The first 1 observations..."メッセージを削除
-                                # 各サブプロットの下部テキストを確認して削除
-                                for ax in axes:
-                                    # テキストオブジェクトを検索
-                                    for text in ax.texts:
-                                        # "Note:"で始まるテキストを削除
-                                        if "Note:" in text.get_text():
-                                            text.set_visible(False)
-                                    
-                                    # フットノートとして表示されている場合は別の方法で削除
-                                    # _remove_annotationメソッドがあれば使用
-                                    if hasattr(ax, '_remove_annotation'):
-                                        ax._remove_annotation('Note')
-                                    
-                                    # 下部に余白がないように調整（メッセージが表示される領域を除外）
-                                    ax.set_xlabel('')
-                                    
-                                # 図全体のレイアウトを調整して下部のメッセージ領域を除外
-                                plt.subplots_adjust(bottom=0.1, hspace=0.3)
-                                
-                                # 図の下部に表示されるテキストを全て削除する別の方法
-                                fig.texts = []
-                            
+                            # --- summary DataFrame生成も外部関数で ---
+                            df_summary = build_summary_dataframe(summary, alpha_percent)
+                            st.dataframe(df_summary, use_container_width=True)
+                            # --- グラフ描画 ---
                             plt.tight_layout()
                             st.pyplot(fig)
-                            
-                            # グラフに関する注釈を追加
-                            st.markdown("""
-<div style="margin-top:0.5em;margin-bottom:1.5em;background:#f5f8fd;padding:1em;border-radius:8px;">
-<p style="font-size:0.9em;color:#444;margin-bottom:0.8em;"><b>グラフの見方：</b></p>
-<p style="font-size:0.9em;color:#444;margin-bottom:0.8em;"><b>Graph 1（予測値 vs 実測値の比較）</b>：介入がなかった場合の予測値（青の破線）と実測値（黒の実線）を比較したグラフです。介入の影響を視覚的に確認できます。</p>
-<p style="font-size:0.9em;color:#444;margin-bottom:0.8em;"><b>Graph 2（時点効果）</b>：各時点における介入の影響（効果）を示したグラフです。プラス・マイナスの変化から、影響の方向と大きさを把握できます。</p>
-<p style="font-size:0.9em;color:#444;"><b>Graph 3（累積効果）</b>：分析期間を通じて蓄積された効果の合計を示しています。右肩上がりであれば、介入が継続的に効果を発揮していると判断できます。</p>
-</div>
-                            """, unsafe_allow_html=True)
-                            
-                            # 分析結果サマリーのセクションタイトルを追加
-                            st.markdown('<div class="section-title">分析結果サマリー</div>', unsafe_allow_html=True)
-                            
-                            # 分析結果サマリー 表形式で表示
-                            import re
-                            # 数値部分のみ抽出してDataFrame化
-                            lines = [l for l in summary.split('\n') if l.strip()]
-                            data_lines = []
-                            for line in lines[1:]:
-                                parts = re.split(r'\s{2,}', line.strip())
-                                if len(parts) == 3:
-                                    # 平均と累積値を抽出
-                                    data_lines.append([parts[1], parts[2]])
-                            import pandas as pd
-                            df_summary = pd.DataFrame(data_lines, columns=['分析期間の平均値','分析期間の累積値'])
-                            # 日本語インデックス設定 - 信頼区間の値を動的に反映
-                            japanese_index = [
-                                '実測値',
-                                '予測値 (標準偏差)',
-                                f'予測値 {alpha_percent}% 信頼区間',
-                                '絶対効果 (標準偏差)',
-                                f'絶対効果 {alpha_percent}% 信頼区間',
-                                '相対効果 (標準偏差)',
-                                f'相対効果 {alpha_percent}% 信頼区間'
-                            ]
-                            df_summary.index = japanese_index[:len(df_summary)]
-                            st.dataframe(df_summary, use_container_width=True)
-                            # 詳細レポート（日本語訳）
+                            # --- 詳細レポート（日本語訳） ---
                             with st.expander("詳細レポート"):
-                                # 翻訳モジュールを使用してレポートを翻訳
-                                alpha = st.session_state['analysis_params']['alpha']
                                 report_jp = translate_causal_impact_report(report, alpha)
-                                
-                                # レポート表示
                                 st.text(report_jp)
                             st.success("Causal Impact分析が完了しました。分析結果のグラフとサマリーを確認してください。")
                             st.session_state['analysis_completed'] = True
