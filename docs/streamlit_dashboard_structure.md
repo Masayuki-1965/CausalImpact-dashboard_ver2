@@ -1,3 +1,12 @@
+<!--
+【役割】
+本ファイルは、Causal Impact分析アプリのStreamlitダッシュボード画面構成・技術構成・画面イメージ・ファイル構成例をまとめたドキュメントです。
+【参照先】
+- docs/requirements_spec.md（要件定義書）
+- docs/development_checklist.md（進捗管理・TODOリスト）
+- docs/current_status.md（開発状況）
+- docs/environment_notes.md（Python環境・ライブラリ構成）
+-->
 # Streamlitアプリケーション ダッシュボード構成
 
 ## 概要

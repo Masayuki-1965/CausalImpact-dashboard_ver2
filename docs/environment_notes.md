@@ -1,3 +1,11 @@
+<!--
+【役割】
+本ファイルは、Causal Impact分析アプリのPython仮想環境・主要ライブラリ構成・環境構築時の注意点をまとめたドキュメントです。
+【参照先】
+- docs/requirements_spec.md（要件定義書）
+- docs/development_checklist.md（進捗管理・TODOリスト）
+- docs/current_status.md（開発状況）
+-->
 # Python環境・ライブラリ構成に関する留意事項
 
 ## 概要

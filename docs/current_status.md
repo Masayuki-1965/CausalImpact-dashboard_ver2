@@ -1,3 +1,12 @@
+<!--
+【役割】
+本ファイルは、Causal Impact分析アプリの現時点での開発進捗・状況を記録するドキュメントです。
+【参照先】
+- docs/development_checklist.md（進捗管理・TODOリスト）
+- docs/requirements_spec.md（要件定義書）
+- docs/environment_notes.md（Python環境・ライブラリ構成）
+- docs/streamlit_dashboard_structure.md（画面・構成仕様）
+-->
 # Causal Impact 分析アプリ 開発状況報告
 
 ## 現在の開発進捗状況

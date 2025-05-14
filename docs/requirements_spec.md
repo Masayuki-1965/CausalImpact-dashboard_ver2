@@ -1,3 +1,12 @@
+<!--
+【役割】
+本ファイルは、Causal Impact分析アプリの全体要件・機能仕様・画面仕様・技術要件をまとめた要件定義書です。
+【参照先】
+- docs/development_checklist.md（進捗管理・TODOリスト）
+- docs/current_status.md（開発状況）
+- docs/environment_notes.md（Python環境・ライブラリ構成）
+- docs/streamlit_dashboard_structure.md（画面・構成仕様）
+-->
 # Causal Impact データ分析アプリ 要件定義書
 
 ## 1. 概要
