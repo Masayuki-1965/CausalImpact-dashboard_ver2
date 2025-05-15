@@ -385,15 +385,19 @@ def check_date_validity(date_value, min_date, max_date, date_type):
     """
     日付の有効性をチェックし、適切なエラーメッセージを返す
     """
+    # 日付が未設定の場合
     if date_value is None:
         return "日付が正しく設定されていません。"
     
-    if date_value < min_date:
+    # データセットの最小日付より前の日付が選択された場合
+    if min_date is not None and date_value < min_date:
         return f"⚠ 分析期間設定エラー：指定された{date_type}（{date_value}）はデータセットの対象期間（{min_date} ～ {max_date}）外です。対象期間内の日付を選択してください。"
     
-    if date_value > max_date:
+    # データセットの最大日付より後の日付が選択された場合
+    if max_date is not None and date_value > max_date:
         return f"⚠ 分析期間設定エラー：指定された{date_type}（{date_value}）はデータセットの対象期間（{min_date} ～ {max_date}）外です。対象期間内の日付を選択してください。"
     
+    # 日付が有効な場合はNoneを返す
     return None
 
 # --- ファイル選択後のデータ読み込み ---
@@ -805,8 +809,10 @@ if st.session_state.get('data_loaded', False):
                 pre_start_date = st.date_input(
                     "pre_start",
                     value=pre_start,
-                    min_value=dataset_min_date,
-                    max_value=dataset_max_date,
+                    # min_valueとmax_valueの制約を緩和（実質的な制約を削除）
+                    # 実際の検証は後で行う
+                    min_value=pd.to_datetime("1900-01-01").date(),
+                    max_value=pd.to_datetime("2100-12-31").date(),
                     format="YYYY/MM/DD",
                     label_visibility="collapsed"
                 )
@@ -820,8 +826,9 @@ if st.session_state.get('data_loaded', False):
                 pre_end_date = st.date_input(
                     "pre_end",
                     value=pre_end,
+                    # min_valueに制約を設ける（論理的な整合性を保つため）が、max_valueの制約は緩和
                     min_value=pre_start_date,
-                    max_value=dataset_max_date,
+                    max_value=pd.to_datetime("2100-12-31").date(),
                     format="YYYY/MM/DD",
                     label_visibility="collapsed"
                 )
@@ -871,8 +878,9 @@ if st.session_state.get('data_loaded', False):
                 post_start_date = st.date_input(
                     "post_start",
                     value=post_start,
-                    min_value=min_post_start,
-                    max_value=dataset_max_date,
+                    # min_valueはデータセットの開始日ではなく、1900年に設定し、max_valueの制約も緩和
+                    min_value=pd.to_datetime("1900-01-01").date(),
+                    max_value=pd.to_datetime("2100-12-31").date(),
                     format="YYYY/MM/DD",
                     label_visibility="collapsed"
                 )
@@ -886,19 +894,21 @@ if st.session_state.get('data_loaded', False):
             with col2:
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.3em;">終了日</div>', unsafe_allow_html=True)
                 # min_valueに条件付きで値を設定（post_start_dateがNoneの場合の対応）
-                min_val = post_start_date if post_start_date is not None else min_post_start
                 post_end_date = st.date_input(
                     "post_end",
                     value=post_end,
-                    min_value=min_val,
-                    max_value=dataset_max_date,
+                    # min_valueとmax_valueの制約を緩和（実質的な制約を削除）
+                    min_value=pd.to_datetime("1900-01-01").date(),
+                    max_value=pd.to_datetime("2100-12-31").date(),
                     format="YYYY/MM/DD",
                     label_visibility="collapsed"
                 )
-                # 終了日の妥当性チェック
+                # 終了日の妥当性チェック - post_start_dateとの関係性もチェック
                 post_end_error = check_date_validity(post_end_date, dataset_min_date, dataset_max_date, "介入期間の終了日")
                 if post_end_error:
                     st.error(post_end_error)
+                elif post_start_date is not None and post_end_date is not None and post_end_date < post_start_date:
+                    st.error(f"⚠ 分析期間の設定エラー：介入期間の終了日（{post_end_date}）は、介入期間の開始日（{post_start_date}）以降の日付を指定してください。")
             
             # 整合性チェックは上で行うのでここでは削除
             
@@ -1114,6 +1124,108 @@ if st.session_state.get('data_loaded', False):
                     st.error(f"⚠ 分析期間の設定エラー：介入期間の開始日（{post_start_date}）は、介入前期間の終了日（{pre_end_date}）より後の日付を指定してください。")
                 st.markdown('<div style="margin-bottom:1em;color:#d32f2f;font-weight:bold;">分析期間を修正してから分析を実行してください。</div>', unsafe_allow_html=True)
             
+            # 日付が対象期間外かどうかを事前にチェック
+            pre_start_str = str(pre_start_date) if pre_start_date else ""
+            pre_end_str = str(pre_end_date) if pre_end_date else ""
+            post_start_str = str(post_start_date) if post_start_date else ""
+            post_end_str = str(post_end_date) if post_end_date else ""
+            
+            # データセットからすべての日付を取得
+            all_dates = set(d.date().strftime("%Y-%m-%d") for d in dataset['ymd'])
+            
+            # 対象期間外または存在しない日付をチェック
+            missing_dates = []
+            for date_str, date_type in [
+                (pre_start_str, "介入前期間の開始日"),
+                (pre_end_str, "介入前期間の終了日"),
+                (post_start_str, "介入期間の開始日"),
+                (post_end_str, "介入期間の終了日")
+            ]:
+                if date_str and date_str not in all_dates:
+                    date_error = True
+                    missing_dates.append(f"{date_type}（{date_str}）")
+            
+            # 対象期間外または存在しない日付がある場合はエラーを表示
+            if missing_dates:
+                date_error = True
+                dates_str = "、".join(missing_dates)
+                st.error(f"⚠ 分析期間設定エラー：{dates_str} がデータセットに存在しません。")
+                st.markdown("""
+<div style="margin-bottom:1.5em;background:#ffebee;padding:1em;border-radius:8px;border-left:4px solid #d32f2f;">
+<p style="font-weight:bold;margin-bottom:0.8em;">日付設定の問題：</p>
+<ul style="margin-bottom:0;">
+  <li>指定された日付はデータセットに存在しません。</li>
+  <li>デフォルト設定では、日次データでは暦日が自動的に全て含まれますが、週次・月次などの集計データの場合は、特定の日付のみが有効です。</li>
+  <li>現在のデータ集計方法に合わせて、日付を以下のパターンから選択してください：</li>
+  <ul>
+    <li>日次データ：全ての暦日</li>
+    <li>週次データ：同一の曜日（例：毎週月曜日）</li>
+    <li>旬次データ：1日、11日、21日</li>
+    <li>月次データ：各月の1日</li>
+    <li>四半期データ：1月1日、4月1日、7月1日、10月1日</li>
+  </ul>
+</ul>
+</div>
+                """, unsafe_allow_html=True)
+            
+            # min_valueがmax_valueより大きいケースの事前チェック
+            # ケース①・④の対応：日付が対象期間外の場合
+            if post_start_date and dataset_max_date and post_start_date > dataset_max_date:
+                date_error = True
+                st.error(f"⚠ 分析期間設定エラー：指定された介入期間の開始日（{post_start_date}）はデータセットの対象期間（～{dataset_max_date}）を超えています。")
+                st.markdown(f"""
+<div style="margin-bottom:1.5em;background:#ffebee;padding:1em;border-radius:8px;border-left:4px solid #d32f2f;">
+<p style="font-weight:bold;margin-bottom:0.8em;">日付設定の問題：</p>
+<ul style="margin-bottom:0;">
+  <li>指定された介入期間の開始日（{post_start_date}）が対象期間の終了日（{dataset_max_date}）より後の日付になっています。</li>
+  <li>対象期間内の日付を選択してください。</li>
+</ul>
+</div>
+                """, unsafe_allow_html=True)
+            
+            if pre_start_date and dataset_max_date and pre_start_date > dataset_max_date:
+                date_error = True
+                st.error(f"⚠ 分析期間設定エラー：指定された介入前期間の開始日（{pre_start_date}）はデータセットの対象期間（～{dataset_max_date}）を超えています。")
+                st.markdown(f"""
+<div style="margin-bottom:1.5em;background:#ffebee;padding:1em;border-radius:8px;border-left:4px solid #d32f2f;">
+<p style="font-weight:bold;margin-bottom:0.8em;">日付設定の問題：</p>
+<ul style="margin-bottom:0;">
+  <li>指定された介入前期間の開始日（{pre_start_date}）が対象期間の終了日（{dataset_max_date}）より後の日付になっています。</li>
+  <li>対象期間内の日付を選択してください。</li>
+</ul>
+</div>
+                """, unsafe_allow_html=True)
+            
+            # 介入前期間終了日と介入期間開始日の整合性チェックを再度確認（冗長だが念のため）
+            if pre_end_date and post_start_date and post_start_date <= pre_end_date:
+                date_error = True
+                if not any([pre_start_error, pre_end_error, post_start_error, post_end_error]):  # 他のエラーがなければ表示
+                    st.error(f"⚠ 分析期間の設定エラー：介入期間の開始日（{post_start_date}）は、介入前期間の終了日（{pre_end_date}）より後の日付を指定してください。")
+                    st.markdown(f"""
+<div style="margin-bottom:1.5em;background:#ffebee;padding:1em;border-radius:8px;border-left:4px solid #d32f2f;">
+<p style="font-weight:bold;margin-bottom:0.8em;">日付整合性の問題：</p>
+<ul style="margin-bottom:0;">
+  <li>介入期間の開始日（{post_start_date}）は、介入前期間の終了日（{pre_end_date}）より後である必要があります。</li>
+  <li>分析の前後で期間が重複しないよう、日付を調整してください。</li>
+</ul>
+</div>
+                    """, unsafe_allow_html=True)
+
+            # 介入期間の終了日と開始日の整合性チェック
+            if post_end_date and post_start_date and post_end_date < post_start_date:
+                date_error = True
+                if not any([pre_start_error, pre_end_error, post_start_error, post_end_error]):  # 他のエラーがなければ表示
+                    st.error(f"⚠ 分析期間の設定エラー：介入期間の終了日（{post_end_date}）は、開始日（{post_start_date}）以降の日付を指定してください。")
+                    st.markdown(f"""
+<div style="margin-bottom:1.5em;background:#ffebee;padding:1em;border-radius:8px;border-left:4px solid #d32f2f;">
+<p style="font-weight:bold;margin-bottom:0.8em;">日付整合性の問題：</p>
+<ul style="margin-bottom:0;">
+  <li>介入期間の終了日（{post_end_date}）は、開始日（{post_start_date}）と同じか、それより後の日付である必要があります。</li>
+  <li>正しい期間範囲を設定してください。</li>
+</ul>
+</div>
+                    """, unsafe_allow_html=True)
+            
             # 分析実行ボタン - エラーの場合は無効化
             if date_error:
                 st.button("分析実行", key="analyze_disabled", help="日付設定を修正してから分析を実行してください。", type="primary", use_container_width=True, disabled=True)
@@ -1126,20 +1238,28 @@ if st.session_state.get('data_loaded', False):
                 st.session_state['params_saved'] = True
                 with st.spinner("Causal Impact分析を実行中..."):
                     try:
-                        # ... 既存のSTEP3見出し ...
+                        # データセットを取得
                         dataset = st.session_state['dataset']
                         treatment_col = [col for col in dataset.columns if '処置群' in col][0]
                         control_col = [col for col in dataset.columns if '対照群' in col][0]
+                        
+                        # 前処理済みデータを取得
                         data = dataset.set_index('ymd')[[treatment_col, control_col]]
+                        
+                        # 分析期間を取得
                         period = st.session_state['analysis_period']
                         pre_period = [str(period['pre_start']), str(period['pre_end'])]
                         post_period = [str(period['post_start']), str(period['post_end'])]
+                        
+                        # 対象期間チェック（以下のチェックは冗長だが念のため残す）
                         all_index = set(str(d.date()) for d in data.index)
                         invalid_dates = []
                         for d in pre_period + post_period:
                             if d not in all_index:
                                 invalid_dates.append(d)
+                        
                         if invalid_dates:
+                            # 存在しない日付がある場合はエラーを表示
                             st.error(f"⚠ 分析期間設定エラー：指定された日付 {', '.join(invalid_dates)} がデータセットに存在しません。")
                             st.markdown("""
 <div style="margin-bottom:1.5em;background:#ffebee;padding:1em;border-radius:8px;border-left:4px solid #d32f2f;">
@@ -1159,15 +1279,18 @@ if st.session_state.get('data_loaded', False):
                             """, unsafe_allow_html=True)
                             st.session_state['analysis_completed'] = False
                         else:
-                            # Streamlit API例外をキャッチして、ユーザーフレンドリーなメッセージを表示
                             try:
-                                # --- ここから外部関数で実行 ---
+                                # CausalImpact分析を実行
                                 ci, summary, report, fig = run_causal_impact_analysis(data, pre_period, post_period)
+                                
+                                # 結果の表示
                                 alpha = st.session_state['analysis_params']['alpha']
                                 alpha_percent = int(alpha * 100)
                                 treatment_name = st.session_state['treatment_name']
                                 period = st.session_state['analysis_period']
+                                
                                 st.markdown('<div class="section-title">分析結果グラフ</div>', unsafe_allow_html=True)
+                                
                                 col1, col2, col3 = st.columns([2,3,2])
                                 with col1:
                                     st.markdown(f'**分析対象**：{treatment_name}')
@@ -1175,78 +1298,44 @@ if st.session_state.get('data_loaded', False):
                                     st.markdown(f'**分析期間**：{period["post_start"].strftime("%Y-%m-%d")} 〜 {period["post_end"].strftime("%Y-%m-%d")}')
                                 with col3:
                                     st.markdown(f'**信頼水準**：{alpha_percent}%')
-                                # --- summary DataFrame生成も外部関数で ---
+                                
+                                # サマリーの表示
                                 df_summary = build_summary_dataframe(summary, alpha_percent)
                                 st.dataframe(df_summary, use_container_width=True)
-                                # --- グラフ描画 ---
+                                
+                                # グラフの表示
                                 plt.tight_layout()
                                 st.pyplot(fig)
-                                # --- 詳細レポート（日本語訳） ---
+                                
+                                # 詳細レポート
                                 with st.expander("詳細レポート"):
                                     report_jp = translate_causal_impact_report(report, alpha)
                                     st.text(report_jp)
+                                
                                 st.success("Causal Impact分析が完了しました。分析結果のグラフとサマリーを確認してください。")
                                 st.session_state['analysis_completed'] = True
-                            except Exception as e:
-                                # 元のエラーメッセージをクリアするためにコンテナを使用
-                                error_container = st.container()
+                                
+                            except ValueError as e:
+                                # ValueErrorの場合（例：日付フォーマットエラーなど）
                                 error_msg = str(e)
-                                
-                                # ケース①・④：min_valueがmax_valueより大きい場合
-                                if "StreamlitAPIException" in error_msg and "min_value" in error_msg and "max_value" in error_msg and "shouldn't be larger than" in error_msg:
-                                    # 日付の抽出を試みる
-                                    import re
-                                    min_date_match = re.search(r'min_value, set to ([\d-]+)', error_msg)
-                                    max_date_match = re.search(r'max_value, set to ([\d-]+)', error_msg)
-                                    
-                                    min_date = min_date_match.group(1) if min_date_match else "不明"
-                                    max_date = max_date_match.group(1) if max_date_match else "不明"
-                                    
-                                    with error_container:
-                                        st.error(f"⚠ 分析期間設定エラー：日付の範囲が無効です。指定された日付（{min_date}）はデータセットの対象期間（～{max_date}）を超えています。")
-                                        st.markdown(f"""
+                                st.error(f"分析エラー：{error_msg}")
+                                st.markdown("""
 <div style="margin-bottom:1.5em;background:#ffebee;padding:1em;border-radius:8px;border-left:4px solid #d32f2f;">
-<p style="font-weight:bold;margin-bottom:0.8em;">日付設定の問題：</p>
-<ul style="margin-bottom:0;">
-  <li>指定された日付（{min_date}）が対象期間の終了日（{max_date}）より後の日付になっています。</li>
-  <li>対象期間内の日付を選択してください。</li>
-  <li>日付が正しくセットされているか確認してください。介入前期間の終了日は介入期間の開始日より前の日付である必要があります。</li>
+<p style="font-weight:bold;margin-bottom:0.8em;">分析エラー：</p>
+<p>分析期間の設定に問題があります。日付が正しく設定されているか確認してください。</p>
+<ul>
+  <li>介入前期間と介入期間の日付が正しく設定されているか確認してください。</li>
+  <li>介入期間の開始日は介入前期間の終了日より後の日付である必要があります。</li>
+  <li>指定された日付がデータセットに存在するか確認してください。</li>
 </ul>
 </div>
-                                        """, unsafe_allow_html=True)
+                                """, unsafe_allow_html=True)
+                                st.session_state['analysis_completed'] = False
                                 
-                                # ケース②、③、⑤：データセットに存在しない日付の場合
-                                elif "指定された日付" in error_msg and "データセットに存在しません" in error_msg:
-                                    # 日付を抽出
-                                    import re
-                                    date_match = re.search(r'日付 (\d{4}-\d{2}-\d{2})', error_msg)
-                                    invalid_date = date_match.group(1) if date_match else "指定された日付"
-                                    
-                                    with error_container:
-                                        st.error(f"⚠ 分析期間設定エラー：{invalid_date} がデータセットに存在しません。")
-                                        st.markdown(f"""
-<div style="margin-bottom:1.5em;background:#ffebee;padding:1em;border-radius:8px;border-left:4px solid #d32f2f;">
-<p style="font-weight:bold;margin-bottom:0.8em;">日付設定の問題：</p>
-<ul style="margin-bottom:0;">
-  <li>指定された日付（{invalid_date}）はデータセットに存在しません。</li>
-  <li>デフォルト設定では、日次データでは暦日が自動的に全て含まれますが、週次・月次などの集計データの場合は、特定の日付のみが有効です。</li>
-  <li>現在のデータ集計方法に合わせて、日付を以下のパターンから選択してください：</li>
-  <ul>
-    <li>日次データ：全ての暦日</li>
-    <li>週次データ：同一の曜日（例：毎週月曜日）</li>
-    <li>旬次データ：1日、11日、21日</li>
-    <li>月次データ：各月の1日</li>
-    <li>四半期データ：1月1日、4月1日、7月1日、10月1日</li>
-  </ul>
-</ul>
-</div>
-                                        """, unsafe_allow_html=True)
-                                
-                                # その他のエラー
-                                else:
-                                    with error_container:
-                                        st.error(f"Causal Impact分析中にエラーが発生しました: {error_msg}")
-                                
+                            except Exception as e:
+                                # その他の例外
+                                error_msg = str(e)
+                                st.error(f"Causal Impact分析中にエラーが発生しました: {error_msg}")
                                 st.session_state['analysis_completed'] = False
                     except Exception as e:
                         st.error(f"Causal Impact分析中にエラーが発生しました: {e}")
