@@ -1008,51 +1008,56 @@ if st.session_state.get('data_loaded', False):
                 with col2:
                     niter = st.number_input("MCMC反復回数", min_value=100, max_value=10000, value=1000, step=100, help="モンテカルロシミュレーションの反復回数")
             
-            # パラメータの説明を別セクションとして表形式で追加（デフォルトで折りたたみ）
+            # パラメータの説明を別セクションとして表形式で追加（デフォルトで折りたたみ）            
             with st.expander("パラメータの説明", expanded=False):
                 st.markdown("""
 <table style="width:100%; border-collapse: collapse; margin-top:0.5em; font-size:0.9em;">
   <tr style="background-color:#f0f5fa;">
-    <th style="padding:8px; text-align:left; border:1px solid #ddd; width:28%;">指標名</th>
-    <th style="padding:8px; text-align:left; border:1px solid #ddd; width:72%;">意味</th>
+    <th style="padding:8px; text-align:left; border:1px solid #ddd; width:28%;">パラメータ名</th>
+    <th style="padding:8px; text-align:left; border:1px solid #ddd; width:57%;">意味</th>
+    <th style="padding:8px; text-align:left; border:1px solid #ddd; width:15%;">デフォルト値</th>
   </tr>
   <tr>
-    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>実測値</b></td>
-    <td style="padding:8px; border:1px solid #ddd;">介入期間中に実際に観測された応答変数の値です。対象となる処置群の実際の測定値を表します。</td>
+    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>信頼区間</b></td>
+    <td style="padding:8px; border:1px solid #ddd;">分析結果の不確実性を表現する範囲です。値が大きいほど信頼区間は広くなり、効果の推定に対する確信度が高まりますが、区間自体は広くなります。</td>
+    <td style="padding:8px; border:1px solid #ddd; text-align:center;">0.95</td>
   </tr>
   <tr style="background-color:#f9fbfd;">
-    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>予測値 (標準偏差)</b></td>
-    <td style="padding:8px; border:1px solid #ddd;">介入が行われなかった場合に予測される応答値です。括弧内の数値は予測の不確実性を示す標準偏差です。</td>
+    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>季節性を考慮する</b></td>
+    <td style="padding:8px; border:1px solid #ddd;">時系列データに含まれる周期的なパターンを考慮するかどうかを指定します。曜日・月・季節などの影響がある場合はオンにします。</td>
+    <td style="padding:8px; border:1px solid #ddd; text-align:center;">オフ</td>
   </tr>
   <tr>
-    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>予測値 XX% 信頼区間</b></td>
-    <td style="padding:8px; border:1px solid #ddd;">予測値の信頼区間を示します。実際の効果がこの範囲内に収まる確率がXX%であることを意味します。区間は[下限値, 上限値]として表示されます。</td>
+    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>周期タイプ</b></td>
+    <td style="padding:8px; border:1px solid #ddd;">季節性を考慮する場合に、データのパターンに合わせた周期を選択します。
+<ul style="margin-top:0.5em;margin-bottom:0;">
+<li><b>週次 (7日)</b>：週単位で繰り返すパターンがある場合（平日と週末の違いなど）</li>
+<li><b>旬次 (10日)</b>：上旬・中旬・下旬の周期がある場合</li>
+<li><b>月次 (30日)</b>：月単位で繰り返すパターンがある場合（月初・月末の変動など）</li>
+<li><b>四半期 (90日)</b>：四半期単位で繰り返すパターンがある場合（決算期の影響など）</li>
+<li><b>年次 (365日)</b>：年単位で繰り返すパターンがある場合（季節変動など）</li>
+<li><b>カスタム</b>：上記以外の特定の周期がある場合</li>
+</ul></td>
+    <td style="padding:8px; border:1px solid #ddd; text-align:center;">旬次 (10日)</td>
   </tr>
   <tr style="background-color:#f9fbfd;">
-    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>絶対効果 (標準偏差)</b></td>
-    <td style="padding:8px; border:1px solid #ddd;">実測値から予測値を引いた差分で、介入による効果の絶対値を示します。プラスの値は正の効果、マイナスの値は負の効果を意味します。括弧内の数値は標準偏差です。</td>
+    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>水準の事前分布の標準偏差</b></td>
+    <td style="padding:8px; border:1px solid #ddd;">ベイズモデルにおける事前分布のパラメータで、時系列の水準（レベル）の変動性をどの程度許容するかを指定します。値が大きいほど水準の変化に対して寛容になります。</td>
+    <td style="padding:8px; border:1px solid #ddd; text-align:center;">0.010</td>
   </tr>
   <tr>
-    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>絶対効果 XX% 信頼区間</b></td>
-    <td style="padding:8px; border:1px solid #ddd;">絶対効果の信頼区間です。この範囲に0が含まれていない場合、効果は統計的に有意と判断できます。区間は[下限値, 上限値]として表示されます。</td>
+    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>データを標準化する</b></td>
+    <td style="padding:8px; border:1px solid #ddd;">分析前にデータを平均0、標準偏差1になるように変換するかどうかを指定します。データのスケールが大きく異なる場合や、単位の影響を排除したい場合にオンにします。</td>
+    <td style="padding:8px; border:1px solid #ddd; text-align:center;">オフ</td>
   </tr>
   <tr style="background-color:#f9fbfd;">
-    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>相対効果 (標準偏差)</b></td>
-    <td style="padding:8px; border:1px solid #ddd;">絶対効果を予測値で割った比率で、効果のパーセンテージを示します。予測値に対して何%の変化があったかを表します。相対効果については、分析期間の平均値の欄に表示しています。</td>
-  </tr>
-  <tr>
-    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>相対効果 XX% 信頼区間</b></td>
-    <td style="padding:8px; border:1px solid #ddd;">相対効果の信頼区間です。この範囲に0%が含まれていない場合、相対効果は統計的に有意と判断できます。相対効果の信頼区間についても、分析期間の平均値の欄に表示しています。</td>
-  </tr>
-  <tr style="background-color:#f9fbfd;">
-    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>p値 (事後確率)</b></td>
-    <td style="padding:8px; border:1px solid #ddd;">観測された効果（または、より極端な効果）が単なる偶然で生じる確率です。一般的に0.05未満の場合、効果は統計的に有意と判断されます。数値が小さいほど、効果が偶然ではなく介入によるものである可能性が高いことを示します。p値については、分析期間の平均値の欄に表示しています。</td>
+    <td style="padding:8px; border:1px solid #ddd; white-space:nowrap;"><b>MCMC反復回数</b></td>
+    <td style="padding:8px; border:1px solid #ddd;">モンテカルロマルコフ連鎖（MCMC）シミュレーションの反復回数を指定します。値が大きいほど推定精度が向上しますが、計算時間も長くなります。</td>
+    <td style="padding:8px; border:1px solid #ddd; text-align:center;">1000</td>
   </tr>
 </table>
 <div style="margin-top:1em; font-size:0.9em; color:#555;">
-<p><b>分析期間の平均値</b>：介入期間中の1日あたりの平均値を示します。</p>
-<p><b>分析期間の累積値</b>：介入期間全体での合計値を示します。</p>
-<p>※相対効果およびp値については、分析期間の平均値の欄に集約して表示しています。</p>
+<p>※パラメータはデフォルト設定でも多くの場合適切に動作しますが、データの特性や分析目的に応じて調整することで、より精度の高い分析が可能になります。</p>
 </div>
                 """, unsafe_allow_html=True)
             
