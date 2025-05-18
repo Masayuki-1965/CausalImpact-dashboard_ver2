@@ -4,6 +4,21 @@ import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import matplotlib.pyplot as plt
+import io
+from datetime import datetime
+import base64
+import tempfile
+from PIL import Image
+import plotly.io as pio
+import plotly.figure_factory as ff
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as ReportLabImage, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.units import inch, mm
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 # 必要な外部モジュールのみimport
 from causal_impact_translator import translate_causal_impact_report
 from utils_step1 import get_csv_files, load_and_clean_csv, make_period_key, aggregate_df, create_full_period_range, format_stats_with_japanese
@@ -24,6 +39,13 @@ if 'session_initialized' not in st.session_state:
         'post_start': None,
         'post_end': None
     }
+
+# --- PDFレポート用に日本語フォントの登録 ---
+# noto_sans_jp_path = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansJP-Regular.ttf")
+# if os.path.exists(noto_sans_jp_path):
+#     pdfmetrics.registerFont(TTFont('NotoSansJP', noto_sans_jp_path))
+# else:
+#     st.warning("日本語フォントが見つかりません。PDFレポートの日本語表示が正しく行われない可能性があります。")
 
 # --- 画面幅を最大化 ---
 st.set_page_config(layout="wide")
@@ -346,35 +368,37 @@ CSVファイルには、<b>ymd（日付）</b> と <b>qty（数量）</b> の2�
 </ul>
 """, unsafe_allow_html=True)
 
-# --- ファイル選択UI ---
-st.markdown('<div class="section-title">分析対象ファイルの選択</div>', unsafe_allow_html=True)
-
-treatment_dir = "data/treatment_data"
-control_dir = "data/control_data"
-
-treatment_files = get_csv_files(treatment_dir)
-control_files = get_csv_files(control_dir)
+# --- ファイル選択UIの代わりにファイルアップロード機能 ---
+st.markdown('<div class="section-title">分析対象ファイルのアップロード</div>', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 with col1:
     st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群ファイル</div>', unsafe_allow_html=True)
-    treatment_file = st.selectbox("", treatment_files, key="treat", label_visibility="collapsed")
-    selected_treat = f"選択：{treatment_file}（処置群）" if treatment_files else "処置群ファイルが見つかりません"
-    st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_treat}</div>', unsafe_allow_html=True)
+    treatment_file = st.file_uploader("処置群のCSVファイルをアップロード", type=['csv'], key="treatment_upload", help="処置群（効果を測定したい対象）のCSVファイルをアップロードしてください。")
+    if treatment_file:
+        treatment_name = os.path.splitext(treatment_file.name)[0]
+        selected_treat = f"選択：{treatment_file.name}（処置群）"
+        st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_treat}</div>', unsafe_allow_html=True)
+    else:
+        treatment_name = ""
 with col2:
     st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群ファイル</div>', unsafe_allow_html=True)
-    control_file = st.selectbox("", control_files, key="ctrl", label_visibility="collapsed")
-    selected_ctrl = f"選択：{control_file}（対照群）" if control_files else "対照群ファイルが見つかりません"
-    st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_ctrl}</div>', unsafe_allow_html=True)
+    control_file = st.file_uploader("対照群のCSVファイルをアップロード", type=['csv'], key="control_upload", help="対照群（比較対象）のCSVファイルをアップロードしてください。")
+    if control_file:
+        control_name = os.path.splitext(control_file.name)[0]
+        selected_ctrl = f"選択：{control_file.name}（対照群）"
+        st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_ctrl}</div>', unsafe_allow_html=True)
+    else:
+        control_name = ""
 
 # --- データ読み込みボタン ---
 st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
-read_btn = st.button("データを読み込む", key="read", help="選択したファイルを読み込みます。", type="primary", use_container_width=True)
+read_btn = st.button("データを読み込む", key="read", help="アップロードしたファイルを読み込みます。", type="primary", use_container_width=True, disabled=(not treatment_file or not control_file))
 
-# --- データ読み込み・クリーニング関数 ---
-def load_and_clean_csv(path):
-    # ymd, qtyだけ抽出（他カラムは無視）
-    df = pd.read_csv(path, usecols=lambda c: c.strip() in ['ymd', 'qty'])
+# --- アップロードされたファイルからデータを読み込む関数 ---
+def load_and_clean_uploaded_csv(uploaded_file):
+    # アップロードされたファイルをPandasで読み込む
+    df = pd.read_csv(uploaded_file, usecols=lambda c: c.strip() in ['ymd', 'qty'])
     df['ymd'] = df['ymd'].astype(str).str.zfill(8)
     df['ymd'] = pd.to_datetime(df['ymd'], format='%Y%m%d', errors='coerce')
     df = df.dropna(subset=['ymd'])
@@ -400,14 +424,11 @@ def check_date_validity(date_value, min_date, max_date, date_type):
     # 日付が有効な場合はNoneを返す
     return None
 
-# --- ファイル選択後のデータ読み込み ---
-if read_btn:
-    treatment_path = os.path.join(treatment_dir, treatment_file)
-    control_path = os.path.join(control_dir, control_file)
-    df_treat = load_and_clean_csv(treatment_path)
-    df_ctrl = load_and_clean_csv(control_path)
-    treatment_name = os.path.splitext(treatment_file)[0]
-    control_name = os.path.splitext(control_file)[0]
+# --- ファイルアップロード後のデータ読み込み ---
+if read_btn and treatment_file and control_file:
+    df_treat = load_and_clean_uploaded_csv(treatment_file)
+    df_ctrl = load_and_clean_uploaded_csv(control_file)
+    
     # セッションに保存
     st.session_state['df_treat'] = df_treat
     st.session_state['df_ctrl'] = df_ctrl
