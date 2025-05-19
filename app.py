@@ -240,6 +240,28 @@ div[data-testid="stExpander"] div[role="button"] p {
     margin: 1.5em 0;
     width: 100%;
 }
+.red-action-button {
+    background: linear-gradient(135deg, #ff5252 0%, #e52d27 100%);
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.2em;
+    border-radius: 8px;
+    padding: 0.6em 2em;
+    margin: 0.8em 0;
+    box-shadow: 0 6px 15px rgba(229, 45, 39, 0.4);
+    width: 100%;
+    display: inline-block;
+    text-align: center;
+    text-decoration: none;
+    border: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.red-action-button:hover {
+    background: linear-gradient(135deg, #e52d27 0%, #ff5252 100%);
+    box-shadow: 0 8px 20px rgba(229, 45, 39, 0.5);
+    transform: translateY(-3px);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -302,9 +324,10 @@ with st.sidebar:
                 del st.session_state[key]
     
     # リセットボタン
-    if st.button("最初からやり直す", key="reset_button", use_container_width=True, type="primary"):
-        reset_session_state()
-        st.experimental_rerun()  # セッションをリセット後、アプリを再実行
+    st.markdown(
+        '<button class="red-action-button" onclick="window.location.reload();">最初からやり直す</button>',
+        unsafe_allow_html=True
+    )
 
     with st.expander("Causal Impactとは？", expanded=False):
         st.markdown("""
@@ -1447,14 +1470,10 @@ if st.session_state.get('data_loaded', False):
                                         period["post_end"], 
                                         alpha_percent
                                     )
-                                    # 元の実装に戻す（スクロール問題と文字化けを解消）
                                     st.markdown(
                                         f'<a href="{csv_href}" download="{csv_filename}" '
-                                        f'style="background:linear-gradient(135deg, #ff5252 0%, #e52d27 100%); '
-                                        f'color:#fff; font-weight:bold; font-size:1.2em; border-radius:8px; '
-                                        f'padding:0.6em 2em; margin:0.8em 0; box-shadow:0 6px 15px rgba(229, 45, 39, 0.4); '
-                                        f'width:100%; display:inline-block; text-align:center; text-decoration:none; '
-                                        f'transition:all 0.2s ease;">'
+                                        f'class="red-action-button" '
+                                        f'style="color:#fff;text-decoration:none;font-weight:bold;font-size:1.2em;text-align:center;display:inline-block;width:100%;">'
                                         f'分析結果サマリー（CSV）</a>',
                                         unsafe_allow_html=True
                                     )
@@ -1466,14 +1485,10 @@ if st.session_state.get('data_loaded', False):
                                         period["post_start"], 
                                         period["post_end"]
                                     )
-                                    # 元の実装に戻す（スクロール問題を解消）
                                     st.markdown(
                                         f'<a href="{pdf_href}" download="{pdf_filename}" '
-                                        f'style="background:linear-gradient(135deg, #ff5252 0%, #e52d27 100%); '
-                                        f'color:#fff; font-weight:bold; font-size:1.2em; border-radius:8px; '
-                                        f'padding:0.6em 2em; margin:0.8em 0; box-shadow:0 6px 15px rgba(229, 45, 39, 0.4); '
-                                        f'width:100%; display:inline-block; text-align:center; text-decoration:none; '
-                                        f'transition:all 0.2s ease;">'
+                                        f'class="red-action-button" '
+                                        f'style="color:#fff;text-decoration:none;font-weight:bold;font-size:1.2em;text-align:center;display:inline-block;width:100%;">'
                                         f'分析結果グラフ（PDF）</a>',
                                         unsafe_allow_html=True
                                     )
