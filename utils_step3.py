@@ -1,7 +1,11 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import re
+import io
+import base64
 from causalimpact import CausalImpact
+import matplotlib
+matplotlib.use('Agg')  # バックエンドを明示的に指定（サーバー環境対応）
 
 def run_causal_impact_analysis(data, pre_period, post_period):
     ci = CausalImpact(data, pre_period, post_period)
@@ -110,4 +114,104 @@ def build_summary_dataframe(summary, alpha_percent):
     print("最終的なデータフレーム:")
     print(df_summary)
     
-    return df_summary 
+    return df_summary
+
+def get_summary_csv_download_link(df_summary, treatment_name, period_start, period_end, alpha_percent):
+    """
+    分析結果サマリーをCSVとしてダウンロードするためのリンクを生成する関数
+    
+    Parameters:
+    -----------
+    df_summary : pandas.DataFrame
+        build_summary_dataframe関数で生成した分析結果サマリーのデータフレーム
+    treatment_name : str
+        分析対象の名称
+    period_start : datetime.date
+        分析期間の開始日
+    period_end : datetime.date
+        分析期間の終了日
+    alpha_percent : int
+        信頼水準（%）
+        
+    Returns:
+    --------
+    str
+        ダウンロードリンクのHTML
+    """
+    # CSVに追加するヘッダー情報（メタデータ）を作成
+    header_info = pd.DataFrame([
+        ['分析対象', treatment_name],
+        ['分析期間', f"{period_start.strftime('%Y-%m-%d')} ～ {period_end.strftime('%Y-%m-%d')}"],
+        ['信頼水準', f"{alpha_percent}%"],
+        ['（改行）', '']  # 空行を挿入
+    ], columns=['項目', '値'])
+    
+    # メタデータとサマリーを結合
+    # サマリーデータフレームをリセットしてインデックスを列に変換
+    df_summary_reset = df_summary.reset_index()
+    df_summary_reset.columns = ['指標', '分析期間の平均値', '分析期間の累積値']
+    
+    # バッファを使ってCSVを生成
+    csv_buffer = io.StringIO()
+    
+    # メタデータを書き込み
+    header_info.to_csv(csv_buffer, index=False, encoding='utf-8-sig')  # UTF-8 with BOMで文字化け対策
+    
+    # 改行を追加
+    csv_buffer.write('\n')
+    
+    # サマリーを書き込み（ヘッダーは既に書き込み済みなので書き込まない）
+    df_summary_reset.to_csv(csv_buffer, index=False, encoding='utf-8-sig', mode='a')
+    
+    # バッファの内容をbase64エンコード
+    csv_string = csv_buffer.getvalue()
+    csv_base64 = base64.b64encode(csv_string.encode('utf-8-sig')).decode()
+    
+    # ファイル名の設定
+    filename = f"causal_impact_summary_{treatment_name}_{period_start.strftime('%Y%m%d')}_{period_end.strftime('%Y%m%d')}.csv"
+    
+    # ダウンロードリンクの生成
+    href = f'data:text/csv;charset=utf-8-sig;base64,{csv_base64}'
+    
+    return href, filename
+
+def get_figure_pdf_download_link(fig, treatment_name, period_start, period_end):
+    """
+    分析結果グラフをPDFとしてダウンロードするためのリンクを生成する関数
+    
+    Parameters:
+    -----------
+    fig : matplotlib.figure.Figure
+        run_causal_impact_analysis関数で生成した分析結果グラフ
+    treatment_name : str
+        分析対象の名称
+    period_start : datetime.date
+        分析期間の開始日
+    period_end : datetime.date
+        分析期間の終了日
+        
+    Returns:
+    --------
+    str
+        ダウンロードリンクのHTML
+    """
+    # PDFのバッファを用意
+    pdf_buffer = io.BytesIO()
+    
+    # タイトルを追加
+    fig.suptitle(f"分析対象: {treatment_name}\n分析期間: {period_start.strftime('%Y-%m-%d')} ～ {period_end.strftime('%Y-%m-%d')}")
+    
+    # PDFとして保存
+    fig.savefig(pdf_buffer, format='pdf', bbox_inches='tight')
+    pdf_buffer.seek(0)
+    
+    # Base64エンコード
+    pdf_base64 = base64.b64encode(pdf_buffer.read()).decode()
+    
+    # ファイル名の設定
+    filename = f"causal_impact_graph_{treatment_name}_{period_start.strftime('%Y%m%d')}_{period_end.strftime('%Y%m%d')}.pdf"
+    
+    # ダウンロードリンクの生成
+    href = f'data:application/pdf;base64,{pdf_base64}'
+    
+    return href, filename 

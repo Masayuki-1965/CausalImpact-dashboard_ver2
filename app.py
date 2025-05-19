@@ -1398,6 +1398,53 @@ if st.session_state.get('data_loaded', False):
                                     st.text(report_jp)
                                 
                                 st.success("Causal Impact分析が完了しました。分析結果のグラフとサマリーを確認してください。")
+                                
+                                # 分析結果のダウンロードセクション
+                                st.markdown('<div class="section-title">分析結果のダウンロード</div>', unsafe_allow_html=True)
+                                
+                                # utils_step3.pyのダウンロード関数を使用してリンクを生成
+                                from utils_step3 import get_summary_csv_download_link, get_figure_pdf_download_link
+                                
+                                # ダウンロードボタンの表示
+                                col1, col2 = st.columns(2)
+                                
+                                with col1:
+                                    csv_href, csv_filename = get_summary_csv_download_link(
+                                        df_summary, 
+                                        treatment_name, 
+                                        period["post_start"], 
+                                        period["post_end"], 
+                                        alpha_percent
+                                    )
+                                    st.markdown(
+                                        f'<a href="{csv_href}" download="{csv_filename}" '
+                                        f'style="background:linear-gradient(135deg, #1976d2 0%, #0d47a1 100%); '
+                                        f'color:#fff; font-weight:bold; font-size:1.2em; border-radius:8px; '
+                                        f'padding:0.6em 2em; margin:0.8em 0; box-shadow:0 6px 15px rgba(25,118,210,0.4); '
+                                        f'width:100%; display:inline-block; text-align:center; text-decoration:none; '
+                                        f'transition:all 0.2s ease;">'
+                                        f'分析結果サマリー（CSV）</a>',
+                                        unsafe_allow_html=True
+                                    )
+                                
+                                with col2:
+                                    pdf_href, pdf_filename = get_figure_pdf_download_link(
+                                        fig, 
+                                        treatment_name, 
+                                        period["post_start"], 
+                                        period["post_end"]
+                                    )
+                                    st.markdown(
+                                        f'<a href="{pdf_href}" download="{pdf_filename}" '
+                                        f'style="background:linear-gradient(135deg, #1976d2 0%, #0d47a1 100%); '
+                                        f'color:#fff; font-weight:bold; font-size:1.2em; border-radius:8px; '
+                                        f'padding:0.6em 2em; margin:0.8em 0; box-shadow:0 6px 15px rgba(25,118,210,0.4); '
+                                        f'width:100%; display:inline-block; text-align:center; text-decoration:none; '
+                                        f'transition:all 0.2s ease;">'
+                                        f'分析結果グラフ（PDF）</a>',
+                                        unsafe_allow_html=True
+                                    )
+                                
                                 st.session_state['analysis_completed'] = True
                                 
                             except ValueError as e:
