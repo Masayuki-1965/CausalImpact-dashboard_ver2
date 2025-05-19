@@ -297,9 +297,6 @@ with st.sidebar:
     <div class="separator-line"></div>
     """, unsafe_allow_html=True)
     
-    # リセットボタンの追加
-    st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
-    
     # セッション状態をリセットする関数
     def reset_session_state():
         # 初期化が必要な状態変数をリセット
@@ -323,11 +320,34 @@ with st.sidebar:
             if key in st.session_state:
                 del st.session_state[key]
     
-    # リセットボタン
-    st.markdown(
-        '<button class="red-action-button" onclick="window.location.reload();">最初からやり直す</button>',
-        unsafe_allow_html=True
-    )
+    # リセットボタン - 赤色デザインに変更
+    st.markdown("""
+    <style>
+    /* 最初からやり直すボタン用のカスタムCSS */
+    div[data-testid="stSidebar"] button[kind="secondary"] {
+        background: linear-gradient(135deg, #ff5252 0%, #e52d27 100%);
+        color: white;
+        font-weight: bold;
+        font-size: 1.2em;
+        border: none;
+        padding: 0.6em 2em;
+        box-shadow: 0 6px 15px rgba(229, 45, 39, 0.4);
+        width: 100%;
+    }
+    div[data-testid="stSidebar"] button[kind="secondary"]:hover {
+        background: linear-gradient(135deg, #e52d27 0%, #ff5252 100%);
+        box-shadow: 0 8px 20px rgba(229, 45, 39, 0.5);
+        transform: translateY(-3px);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<div style="margin-top:10px;"></div>', unsafe_allow_html=True)
+    # ボタンタイプをsecondaryに設定して、カスタムCSSが適用されるようにする
+    if st.button("最初からやり直す", key="reset_button", use_container_width=True, 
+                help="アプリをリセットして最初から始めます", type="secondary"):
+        reset_session_state()
+        st.rerun()
 
     with st.expander("Causal Impactとは？", expanded=False):
         st.markdown("""
@@ -1495,7 +1515,7 @@ if st.session_state.get('data_loaded', False):
                                 
                                 # 終了メッセージの追加
                                 st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
-                                st.success("これでCausal Impactの分析は終了です。新たなデータで再度分析を行う場合は、左上の更新（Ctrl + R）またはサイドバーのリセットボタンをクリックし、STEP1「データの取り込み」から再実行してください。")
+                                st.success("これでCausal Impactの分析は終了です。\n新たなデータで再度分析を行う場合は、サイドバーの「最初からやり直す」ボタンをクリックし、STEP1「データ取込／可視化」から再実行してください。")
                                 
                                 st.session_state['analysis_completed'] = True
                                 
