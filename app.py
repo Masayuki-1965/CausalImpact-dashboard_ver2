@@ -274,6 +274,37 @@ with st.sidebar:
     </div>
     <div class="separator-line"></div>
     """, unsafe_allow_html=True)
+    
+    # リセットボタンの追加
+    st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
+    
+    # セッション状態をリセットする関数
+    def reset_session_state():
+        # 初期化が必要な状態変数をリセット
+        st.session_state['data_loaded'] = False
+        st.session_state['dataset_created'] = False
+        st.session_state['params_saved'] = False
+        st.session_state['analysis_completed'] = False
+        # 期間のデフォルト値もリセット
+        st.session_state['period_defaults'] = {
+            'pre_start': None,
+            'pre_end': None,
+            'post_start': None,
+            'post_end': None
+        }
+        # その他の状態変数も削除
+        keys_to_remove = [
+            'df_treat', 'df_ctrl', 'treatment_name', 'control_name',
+            'dataset', 'analysis_period', 'analysis_params'
+        ]
+        for key in keys_to_remove:
+            if key in st.session_state:
+                del st.session_state[key]
+    
+    # リセットボタン
+    if st.button("最初からやり直す", key="reset_button", use_container_width=True, type="primary"):
+        reset_session_state()
+        st.experimental_rerun()  # セッションをリセット後、アプリを再実行
 
     with st.expander("Causal Impactとは？", expanded=False):
         st.markdown("""
@@ -1397,7 +1428,7 @@ if st.session_state.get('data_loaded', False):
                                     report_jp = translate_causal_impact_report(report, alpha)
                                     st.text(report_jp)
                                 
-                                st.success("Causal Impact分析が完了しました。分析結果のグラフとサマリーを確認してください。")
+                                st.success("Causal Impact分析が完了しました。分析結果のグラフおよびサマリーをご確認のうえ、必要な情報を以下よりダウンロードしてください。")
                                 
                                 # 分析結果のダウンロードセクション
                                 st.markdown('<div class="section-title">分析結果のダウンロード</div>', unsafe_allow_html=True)
@@ -1416,11 +1447,12 @@ if st.session_state.get('data_loaded', False):
                                         period["post_end"], 
                                         alpha_percent
                                     )
+                                    # 元の実装に戻す（スクロール問題と文字化けを解消）
                                     st.markdown(
                                         f'<a href="{csv_href}" download="{csv_filename}" '
-                                        f'style="background:linear-gradient(135deg, #1976d2 0%, #0d47a1 100%); '
+                                        f'style="background:linear-gradient(135deg, #ff5252 0%, #e52d27 100%); '
                                         f'color:#fff; font-weight:bold; font-size:1.2em; border-radius:8px; '
-                                        f'padding:0.6em 2em; margin:0.8em 0; box-shadow:0 6px 15px rgba(25,118,210,0.4); '
+                                        f'padding:0.6em 2em; margin:0.8em 0; box-shadow:0 6px 15px rgba(229, 45, 39, 0.4); '
                                         f'width:100%; display:inline-block; text-align:center; text-decoration:none; '
                                         f'transition:all 0.2s ease;">'
                                         f'分析結果サマリー（CSV）</a>',
@@ -1434,16 +1466,21 @@ if st.session_state.get('data_loaded', False):
                                         period["post_start"], 
                                         period["post_end"]
                                     )
+                                    # 元の実装に戻す（スクロール問題を解消）
                                     st.markdown(
                                         f'<a href="{pdf_href}" download="{pdf_filename}" '
-                                        f'style="background:linear-gradient(135deg, #1976d2 0%, #0d47a1 100%); '
+                                        f'style="background:linear-gradient(135deg, #ff5252 0%, #e52d27 100%); '
                                         f'color:#fff; font-weight:bold; font-size:1.2em; border-radius:8px; '
-                                        f'padding:0.6em 2em; margin:0.8em 0; box-shadow:0 6px 15px rgba(25,118,210,0.4); '
+                                        f'padding:0.6em 2em; margin:0.8em 0; box-shadow:0 6px 15px rgba(229, 45, 39, 0.4); '
                                         f'width:100%; display:inline-block; text-align:center; text-decoration:none; '
                                         f'transition:all 0.2s ease;">'
                                         f'分析結果グラフ（PDF）</a>',
                                         unsafe_allow_html=True
                                     )
+                                
+                                # 終了メッセージの追加
+                                st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
+                                st.success("これでCausal Impactの分析は終了です。新たなデータで再度分析を行う場合は、左上の更新（Ctrl + R）またはサイドバーのリセットボタンをクリックし、STEP1「データの取り込み」から再実行してください。")
                                 
                                 st.session_state['analysis_completed'] = True
                                 

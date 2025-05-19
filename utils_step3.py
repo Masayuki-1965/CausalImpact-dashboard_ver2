@@ -143,7 +143,6 @@ def get_summary_csv_download_link(df_summary, treatment_name, period_start, peri
         ['分析対象', treatment_name],
         ['分析期間', f"{period_start.strftime('%Y-%m-%d')} ～ {period_end.strftime('%Y-%m-%d')}"],
         ['信頼水準', f"{alpha_percent}%"],
-        ['（改行）', '']  # 空行を挿入
     ], columns=['項目', '値'])
     
     # メタデータとサマリーを結合
@@ -198,8 +197,8 @@ def get_figure_pdf_download_link(fig, treatment_name, period_start, period_end):
     # PDFのバッファを用意
     pdf_buffer = io.BytesIO()
     
-    # タイトルを追加
-    fig.suptitle(f"分析対象: {treatment_name}\n分析期間: {period_start.strftime('%Y-%m-%d')} ～ {period_end.strftime('%Y-%m-%d')}")
+    # タイトルを追加（文字化け防止のため削除）
+    # fig.suptitle(f"分析対象: {treatment_name}\n分析期間: {period_start.strftime('%Y-%m-%d')} ～ {period_end.strftime('%Y-%m-%d')}")
     
     # PDFとして保存
     fig.savefig(pdf_buffer, format='pdf', bbox_inches='tight')
