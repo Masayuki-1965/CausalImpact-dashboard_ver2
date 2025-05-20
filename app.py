@@ -471,12 +471,24 @@ read_btn = st.button("データを読み込む", key="read", help="アップロ�
 
 # --- アップロードされたファイルからデータを読み込む関数 ---
 def load_and_clean_uploaded_csv(uploaded_file):
-    # アップロードされたファイルをPandasで読み込む
-    df = pd.read_csv(uploaded_file, usecols=lambda c: c.strip() in ['ymd', 'qty'])
-    df['ymd'] = df['ymd'].astype(str).str.zfill(8)
-    df['ymd'] = pd.to_datetime(df['ymd'], format='%Y%m%d', errors='coerce')
-    df = df.dropna(subset=['ymd'])
-    return df
+    try:
+        # 文字コード自動判定（失敗時はutf-8で再トライ）
+        try:
+            df = pd.read_csv(uploaded_file, encoding='utf-8')
+        except UnicodeDecodeError:
+            uploaded_file.seek(0)
+            df = pd.read_csv(uploaded_file, encoding='cp932')  # Windows用
+        # 必須カラムチェック
+        if not set(['ymd', 'qty']).issubset(df.columns):
+            st.error("CSVファイルに 'ymd' および 'qty' カラムが含まれていません。")
+            return None
+        df['ymd'] = df['ymd'].astype(str).str.zfill(8)
+        df['ymd'] = pd.to_datetime(df['ymd'], format='%Y%m%d', errors='coerce')
+        df = df.dropna(subset=['ymd'])
+        return df
+    except Exception as e:
+        st.error(f"ファイルの読み込み中にエラーが発生しました: {e}")
+        return None
 
 # --- カスタムエラーハンドリング関数 ---
 def check_date_validity(date_value, min_date, max_date, date_type):
@@ -502,14 +514,15 @@ def check_date_validity(date_value, min_date, max_date, date_type):
 if read_btn and treatment_file and control_file:
     df_treat = load_and_clean_uploaded_csv(treatment_file)
     df_ctrl = load_and_clean_uploaded_csv(control_file)
-    
-    # セッションに保存
-    st.session_state['df_treat'] = df_treat
-    st.session_state['df_ctrl'] = df_ctrl
-    st.session_state['treatment_name'] = treatment_name
-    st.session_state['control_name'] = control_name
-    st.session_state['data_loaded'] = True
-    st.success("データを読み込みました。下記にプレビューと統計情報を表示します。")
+    if df_treat is None or df_ctrl is None:
+        st.error("CSVファイルの読み込みに失敗しました。ファイル形式やカラム名をご確認ください。")
+    else:
+        st.session_state['df_treat'] = df_treat
+        st.session_state['df_ctrl'] = df_ctrl
+        st.session_state['treatment_name'] = treatment_name
+        st.session_state['control_name'] = control_name
+        st.session_state['data_loaded'] = True
+        st.success("データを読み込みました。下記にプレビューと統計情報を表示します。")
 
 # --- データ読み込み済みなら表示（セッションから取得） ---
 if st.session_state.get('data_loaded', False):
