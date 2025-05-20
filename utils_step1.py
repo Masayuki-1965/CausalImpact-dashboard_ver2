@@ -1,18 +1,68 @@
 import os
 import glob
 import pandas as pd
+import io
 
 def get_csv_files(directory):
     files = glob.glob(os.path.join(directory, "*.csv"))
     return [os.path.basename(f) for f in files]
 
 def load_and_clean_csv(path):
-    # ymd, qtyだけ抽出（他カラムは無視）
-    df = pd.read_csv(path, usecols=lambda c: c.strip() in ['ymd', 'qty'])
-    df['ymd'] = df['ymd'].astype(str).str.zfill(8)
-    df['ymd'] = pd.to_datetime(df['ymd'], format='%Y%m%d', errors='coerce')
-    df = df.dropna(subset=['ymd'])
-    return df
+    try:
+        # ファイルを読み込み
+        try:
+            # 最初にUTF-8として読み込みを試みる
+            df = pd.read_csv(path, usecols=lambda c: c.strip() in ['ymd', 'qty'])
+        except UnicodeDecodeError:
+            # 日本語のエンコーディングで試みる
+            for encoding in ['shift-jis', 'cp932', 'euc-jp']:
+                try:
+                    df = pd.read_csv(path, usecols=lambda c: c.strip() in ['ymd', 'qty'], encoding=encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+                except Exception:
+                    continue
+            else:
+                # すべてのエンコーディングで失敗した場合はエラーを発生させる
+                raise ValueError(f"ファイル {path} のエンコーディングを認識できませんでした。UTF-8、Shift-JIS、CP932、EUC-JPでのエンコーディングを試しましたが失敗しました。")
+        
+        # カラムが見つからない場合のエラーハンドリング
+        if 'ymd' not in df.columns and 'qty' not in df.columns:
+            # カラム名のクリーニングを試みる
+            df.columns = [col.strip() for col in df.columns]
+            
+            # それでも見つからない場合はエラー
+            if 'ymd' not in df.columns or 'qty' not in df.columns:
+                raise ValueError(f"必須カラム 'ymd' と 'qty' が見つかりません。現在のカラム: {list(df.columns)}")
+        
+        # 日付処理
+        df['ymd'] = df['ymd'].astype(str).str.zfill(8)
+        df['ymd'] = pd.to_datetime(df['ymd'], format='%Y%m%d', errors='coerce')
+        
+        # 無効な日付の処理
+        invalid_dates = df[df['ymd'].isna()]
+        if not invalid_dates.empty:
+            print(f"{len(invalid_dates)}件の無効な日付形式のデータを除外します。")
+        
+        # 欠損値を除外
+        df = df.dropna(subset=['ymd'])
+        
+        # 数値変換チェック
+        try:
+            df['qty'] = pd.to_numeric(df['qty'], errors='coerce')
+            if df['qty'].isna().any():
+                print("数量(qty)に数値に変換できない値が含まれています。これらは欠損値として除外します。")
+                df = df.dropna(subset=['qty'])
+        except Exception as e:
+            raise ValueError(f"数量(qty)の処理中にエラーが発生しました: {str(e)}")
+        
+        return df
+    except Exception as e:
+        # 例外をキャッチしてエラーメッセージを表示
+        error_msg = f"ファイル {path} の読み込み中にエラーが発生しました: {str(e)}"
+        print(error_msg)
+        raise ValueError(error_msg)
 
 def make_period_key(dt, freq):
     if freq == "月次":

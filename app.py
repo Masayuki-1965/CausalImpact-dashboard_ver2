@@ -445,60 +445,107 @@ CSVファイルには、<b>ymd（日付）</b> と <b>qty（数量）</b> の2�
 # --- ファイル選択UIの代わりにファイルアップロード機能 ---
 st.markdown('<div class="section-title">分析対象ファイルのアップロード</div>', unsafe_allow_html=True)
 
-col1, col2 = st.columns(2)
-with col1:
-    st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群ファイル</div>', unsafe_allow_html=True)
-    treatment_file = st.file_uploader("処置群のCSVファイルをアップロード", type=['csv'], key="treatment_upload", help="処置群（効果を測定したい対象）のCSVファイルをアップロードしてください。")
-    if treatment_file:
-        treatment_name = os.path.splitext(treatment_file.name)[0]
-        selected_treat = f"選択：{treatment_file.name}（処置群）"
-        st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_treat}</div>', unsafe_allow_html=True)
-    else:
-        treatment_name = ""
-with col2:
-    st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群ファイル</div>', unsafe_allow_html=True)
-    control_file = st.file_uploader("対照群のCSVファイルをアップロード", type=['csv'], key="control_upload", help="対照群（比較対象）のCSVファイルをアップロードしてください。")
-    if control_file:
-        control_name = os.path.splitext(control_file.name)[0]
-        selected_ctrl = f"選択：{control_file.name}（対照群）"
-        st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_ctrl}</div>', unsafe_allow_html=True)
-    else:
-        control_name = ""
+# アップロード方法切り替えのラジオボタン
+upload_method = st.radio(
+    "アップロード方法を選択",
+    options=["ファイルアップロード", "CSVテキスト直接入力"],
+    index=0,
+    help="ファイルアップロードに問題がある場合は、CSVデータを直接入力することもできます。"
+)
 
-# --- データ読み込みボタン ---
-st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
-read_btn = st.button("データを読み込む", key="read", help="アップロードしたファイルを読み込みます。", type="primary", use_container_width=True, disabled=(not treatment_file or not control_file))
+if upload_method == "ファイルアップロード":
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群ファイル</div>', unsafe_allow_html=True)
+        treatment_file = st.file_uploader("処置群のCSVファイルをアップロード", type=['csv'], key="treatment_upload", help="処置群（効果を測定したい対象）のCSVファイルをアップロードしてください。", accept_multiple_files=False)
+        if treatment_file:
+            treatment_name = os.path.splitext(treatment_file.name)[0]
+            selected_treat = f"選択：{treatment_file.name}（処置群）"
+            st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_treat}</div>', unsafe_allow_html=True)
+        else:
+            treatment_name = ""
+    with col2:
+        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群ファイル</div>', unsafe_allow_html=True)
+        control_file = st.file_uploader("対照群のCSVファイルをアップロード", type=['csv'], key="control_upload", help="対照群（比較対象）のCSVファイルをアップロードしてください。", accept_multiple_files=False)
+        if control_file:
+            control_name = os.path.splitext(control_file.name)[0]
+            selected_ctrl = f"選択：{control_file.name}（対照群）"
+            st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_ctrl}</div>', unsafe_allow_html=True)
+        else:
+            control_name = ""
+    
+    # --- データ読み込みボタン ---
+    st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
+    read_btn = st.button("データを読み込む", key="read", help="アップロードしたファイルを読み込みます。", type="primary", use_container_width=True, disabled=(not treatment_file or not control_file))
+else:
+    # CSVテキスト直接入力のUI
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群データ</div>', unsafe_allow_html=True)
+        treatment_name = st.text_input("処置群の名称", value="処置群", help="処置群の名称を入力してください（例：商品A、店舗B など）")
+        treatment_csv = st.text_area(
+            "処置群のCSVデータを入力 (ymd,qtyの形式)",
+            height=200,
+            help="CSVデータを直接入力してください。最低限、ymd（日付）とqty（数量）の列が必要です。",
+            placeholder="ymd,qty\n20170403,29\n20170425,24\n..."
+        )
+    with col2:
+        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群データ</div>', unsafe_allow_html=True)
+        control_name = st.text_input("対照群の名称", value="対照群", help="対照群の名称を入力してください（例：商品B、店舗C など）")
+        control_csv = st.text_area(
+            "対照群のCSVデータを入力 (ymd,qtyの形式)",
+            height=200,
+            help="CSVデータを直接入力してください。最低限、ymd（日付）とqty（数量）の列が必要です。",
+            placeholder="ymd,qty\n20170403,35\n20170425,30\n..."
+        )
+    
+    # --- データ読み込みボタン ---
+    st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
+    read_btn = st.button("データを読み込む", key="read_text", help="入力したCSVデータを読み込みます。", type="primary", use_container_width=True, disabled=(not treatment_csv or not control_csv))
 
 # --- アップロードされたファイルからデータを読み込む関数 ---
 def load_and_clean_uploaded_csv(uploaded_file):
     try:
-        # 一時ファイルを作成せずに直接StringIOでPandasに読み込む
-        content = uploaded_file.getvalue().decode('utf-8')
-        df = pd.read_csv(io.StringIO(content))
+        # ファイルをバイト列として読み込み
+        file_bytes = uploaded_file.read()
         
-        # 必要なカラムのみ抽出
-        required_columns = ['ymd', 'qty']
-        if not all(col in df.columns for col in required_columns):
-            column_names = list(df.columns)
-            # カラム名の前後の空白を取り除いて再確認
-            df.columns = [col.strip() for col in df.columns]
-            # それでも見つからない場合はエラー
-            if not all(col in df.columns for col in required_columns):
-                st.error(f"必須カラム 'ymd' と 'qty' が見つかりません。現在のカラム: {column_names}")
+        # 最初に異なるエンコーディングで試す
+        encodings = ['utf-8', 'shift-jis', 'cp932', 'euc-jp', 'iso-2022-jp']
+        df = None
+        
+        for encoding in encodings:
+            try:
+                # エンコーディングを設定して読み込み
+                content = file_bytes.decode(encoding)
+                df = pd.read_csv(io.StringIO(content))
+                st.info(f"ファイル '{uploaded_file.name}' を {encoding} エンコーディングで正常に読み込みました")
+                break
+            except UnicodeDecodeError:
+                continue
+            except Exception as e:
+                st.warning(f"{encoding} エンコーディングでの読み込み中にエラー: {str(e)}")
+        
+        # どのエンコーディングでも読み込めなかった場合
+        if df is None:
+            try:
+                # バイナリモードで直接Pandasを使って読み込み
+                df = pd.read_csv(io.BytesIO(file_bytes))
+                st.info(f"ファイル '{uploaded_file.name}' を自動検出されたエンコーディングで正常に読み込みました")
+            except Exception as e:
+                st.error(f"CSVファイルの読み込みに失敗しました: {str(e)}")
                 return None
         
-        # カラム名が空白を含む場合に対応
-        if 'ymd' not in df.columns and any(col.strip() == 'ymd' for col in df.columns):
-            for col in df.columns:
-                if col.strip() == 'ymd':
-                    df = df.rename(columns={col: 'ymd'})
-                    break
+        # --- 以下は前回の実装と同じ処理 ---
+        # 必要なカラムのみ抽出
+        required_columns = ['ymd', 'qty']
         
-        if 'qty' not in df.columns and any(col.strip() == 'qty' for col in df.columns):
-            for col in df.columns:
-                if col.strip() == 'qty':
-                    df = df.rename(columns={col: 'qty'})
-                    break
+        # カラム名の確認とクリーニング
+        df.columns = [col.strip() for col in df.columns]
+        
+        # 必須カラムが含まれているか確認
+        if not all(col in df.columns for col in required_columns):
+            st.error(f"必須カラム 'ymd' と 'qty' が見つかりません。現在のカラム: {list(df.columns)}")
+            return None
         
         # 日付の処理
         df['ymd'] = df['ymd'].astype(str).str.zfill(8)
@@ -527,7 +574,57 @@ def load_and_clean_uploaded_csv(uploaded_file):
             
         return df
     except Exception as e:
-        st.error(f"CSVファイルの読み込み中にエラーが発生しました: {str(e)}")
+        st.error(f"ファイルの処理中に予期しないエラーが発生しました: {str(e)}")
+        return None
+
+# --- テキスト入力からCSVデータを読み込む関数 ---
+def load_and_clean_csv_text(csv_text, source_name):
+    try:
+        # 空のテキストチェック
+        if not csv_text.strip():
+            st.error(f"{source_name}のCSVデータが入力されていません。")
+            return None
+            
+        # StringIOでCSVテキストを読み込む
+        df = pd.read_csv(io.StringIO(csv_text))
+        
+        # カラム名の確認とクリーニング
+        df.columns = [col.strip() for col in df.columns]
+        
+        # 必須カラムが含まれているか確認
+        required_columns = ['ymd', 'qty']
+        if not all(col in df.columns for col in required_columns):
+            st.error(f"{source_name}の必須カラム 'ymd' と 'qty' が見つかりません。現在のカラム: {list(df.columns)}")
+            return None
+        
+        # 日付の処理
+        df['ymd'] = df['ymd'].astype(str).str.zfill(8)
+        df['ymd'] = pd.to_datetime(df['ymd'], format='%Y%m%d', errors='coerce')
+        
+        # 無効な日付をチェック
+        invalid_dates = df[df['ymd'].isna()]
+        if not invalid_dates.empty:
+            st.warning(f"{source_name}の{len(invalid_dates)}件の無効な日付形式のデータを除外しました。正しい形式は'YYYYMMDD'（例: 20240101）です。")
+        
+        # 欠損値を除外
+        original_len = len(df)
+        df = df.dropna(subset=['ymd'])
+        if len(df) < original_len:
+            st.warning(f"{source_name}の{original_len - len(df)}件の欠損データを除外しました。")
+            
+        # qty列の数値変換確認
+        try:
+            df['qty'] = pd.to_numeric(df['qty'], errors='coerce')
+            if df['qty'].isna().any():
+                st.warning(f"{source_name}の数量(qty)に数値に変換できない値が含まれています。これらは欠損値として扱われます。")
+                df = df.dropna(subset=['qty'])
+        except Exception as e:
+            st.error(f"{source_name}の数量(qty)の処理中にエラーが発生しました: {str(e)}")
+            return None
+            
+        return df
+    except Exception as e:
+        st.error(f"{source_name}のCSVデータ処理中に予期しないエラーが発生しました: {str(e)}")
         return None
 
 # --- カスタムエラーハンドリング関数 ---
@@ -551,10 +648,21 @@ def check_date_validity(date_value, min_date, max_date, date_type):
     return None
 
 # --- ファイルアップロード後のデータ読み込み ---
-if read_btn and treatment_file and control_file:
+if upload_method == "ファイルアップロード" and read_btn and treatment_file and control_file:
     with st.spinner("データ読み込み中..."):
+        # ファイルのシーク位置をリセット（複数回読み込む可能性があるため）
+        treatment_file.seek(0)
+        control_file.seek(0)
+        
         df_treat = load_and_clean_uploaded_csv(treatment_file)
-        df_ctrl = load_and_clean_uploaded_csv(control_file)
+        
+        # 処置群ファイルが読み込めた場合のみ対照群ファイルを読み込む
+        if df_treat is not None:
+            # ファイルのシーク位置をリセット
+            control_file.seek(0)
+            df_ctrl = load_and_clean_uploaded_csv(control_file)
+        else:
+            df_ctrl = None
         
         if df_treat is not None and df_ctrl is not None and not df_treat.empty and not df_ctrl.empty:
             # セッションに保存
@@ -570,6 +678,27 @@ if read_btn and treatment_file and control_file:
                 st.error("処置群ファイルの読み込みに失敗しました。")
             if df_ctrl is None:
                 st.error("対照群ファイルの読み込みに失敗しました。")
+            st.session_state['data_loaded'] = False
+# --- テキスト入力からのデータ読み込み ---
+elif upload_method == "CSVテキスト直接入力" and read_btn:
+    with st.spinner("データ読み込み中..."):
+        df_treat = load_and_clean_csv_text(treatment_csv, "処置群")
+        df_ctrl = load_and_clean_csv_text(control_csv, "対照群")
+        
+        if df_treat is not None and df_ctrl is not None and not df_treat.empty and not df_ctrl.empty:
+            # セッションに保存
+            st.session_state['df_treat'] = df_treat
+            st.session_state['df_ctrl'] = df_ctrl
+            st.session_state['treatment_name'] = treatment_name
+            st.session_state['control_name'] = control_name
+            st.session_state['data_loaded'] = True
+            st.success("データを読み込みました。下記にプレビューと統計情報を表示します。")
+        else:
+            st.error("データの読み込みに失敗しました。入力したCSVデータの形式を確認してください。")
+            if df_treat is None:
+                st.error("処置群データの読み込みに失敗しました。")
+            if df_ctrl is None:
+                st.error("対照群データの読み込みに失敗しました。")
             st.session_state['data_loaded'] = False
 
 # --- データ読み込み済みなら表示（セッションから取得） ---
