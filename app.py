@@ -328,15 +328,15 @@ with st.sidebar:
     with st.expander("Causal Impactとは？", expanded=False):
         st.markdown("""
 <div class="sidebar-faq-body">
-<b>Causal Impactは、介入（施策）の効果を測定するための統計手法です。</b><br><br>
-介入前のデータから予測モデルを構築し、介入がなかった場合の予測値と実際の値を比較することで、介入の効果を推定します。
+<b>Causal Impactは、介入（施策）の効果を測定する統計手法です。</b><br><br>
+施策の影響を受けた<b>“処置群”</b>と影響を受けていない<b>“対照群”</b>の関係性をもとに、<b>状態空間モデル</b>を用いて介入がなかった場合の処置群の予測値を算出し、処置群の実測値と比較します。
 </div>
 """, unsafe_allow_html=True)
-    with st.expander("処置群と対照群について", expanded=False):
+    with st.expander("状態空間モデルとは？", expanded=False):
         st.markdown("""
 <div class="sidebar-faq-body">
-<b>処置群</b>は、施策（介入）の影響を受けたグループです。<br><br>
-<b>対照群</b>は、施策の影響を受けていないグループであり、比較対象となります。
+<b>状態空間モデル</b>は、時系列データの変化する傾向や構造を捉えるための統計モデルです。
+観測データの背後にある“見えない状態”を推定しながら、将来の値を予測します。
 </div>
 """, unsafe_allow_html=True)
 
