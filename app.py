@@ -321,7 +321,7 @@ with st.sidebar:
     st.markdown("""
     <div style="background-color:#ffebee;border-radius:8px;padding:12px 15px;border-left:4px solid #d32f2f;margin-bottom:15px;">
         <div style="font-weight:bold;margin-bottom:8px;color:#d32f2f;font-size:1.05em;">最初からやり直す場合：</div>
-        <div style="line-height:1.5;">画面左上の<b>更新ボタン（⟳）</b>をクリックするか、<b>Ctrl + R</b>を押して、STEP1「データ取込／可視化」から再実行してください。</div>
+        <div style="line-height:1.5;">画面左上の<b>更新ボタン（⟳）</b>をクリックするか、<b>Ctrl + R</b>を押して、STEP１のデータの取り込みから再実行してください。</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -329,14 +329,14 @@ with st.sidebar:
         st.markdown("""
 <div class="sidebar-faq-body">
 <b>Causal Impactは、介入（施策）の効果を測定する統計手法です。</b><br><br>
-施策の影響を受けた<b>“処置群”</b>と影響を受けていない<b>“対照群”</b>の関係性をもとに、<b>状態空間モデル</b>を用いて介入がなかった場合の処置群の予測値を算出し、処置群の実測値と比較します。
+施策の影響を受けた<b>"処置群"</b>と影響を受けていない<b>"対照群"</b>の関係性をもとに、状態空間モデルを用いて介入がなかった場合の処置群の予測値を算出し、処置群の実測値と比較します。
 </div>
 """, unsafe_allow_html=True)
     with st.expander("状態空間モデルとは？", expanded=False):
         st.markdown("""
 <div class="sidebar-faq-body">
 <b>状態空間モデル</b>は、時系列データの変化する傾向や構造を捉えるための統計モデルです。
-観測データの背後にある“見えない状態”を推定しながら、将来の値を予測します。
+観測データの背後にある"見えない状態"を推定しながら、将来の値を予測します。
 </div>
 """, unsafe_allow_html=True)
 
@@ -405,12 +405,12 @@ st.markdown('<div class="section-title">分析対象ファイルのアップロ�
 # アップロード方法切り替えのラジオボタン
 upload_method = st.radio(
     "アップロード方法を選択",
-    options=["CSVテキスト直接入力", "ファイルアップロード（工事中）"],
+    options=["CSVテキスト直接入力", "ファイルアップロード（※準備中）"],
     index=0,
     help="CSVデータを直接入力する方法と、ファイルをアップロードする方法があります。"
 )
 
-if upload_method == "ファイルアップロード（工事中）":
+if upload_method == "ファイルアップロード（※準備中）":
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群ファイル</div>', unsafe_allow_html=True)
@@ -453,25 +453,27 @@ else:
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群データ</div>', unsafe_allow_html=True)
-        treatment_name = st.text_input("処置群の名称", value="処置群", help="処置群の名称を入力してください（例：商品A、店舗B など）")
+        treatment_name = st.text_input("処置群の名称を入力", value="処置群", help="処置群の名称を入力してください（例：商品A、店舗B など）")
         
         treatment_csv = st.text_area(
-            "処置群のCSVデータを入力（カンマ／タブ／スペース区切り）",
+            "処置群のCSVデータを入力（カンマ・タブ・スペース区切りのCSV形式）",
             height=200,
             help="CSVデータを直接入力してください。最低限、ymd（日付）とqty（数量）の列が必要です。",
             placeholder="ymd,qty\n20170403,29\n20170425,24\n20170426,23\n20170523,24\n20170524,26"
         )
+        st.markdown('<div style="color:#555555;font-size:0.9em;margin-top:-5px;margin-bottom:15px;padding-left:5px;">（上の入力欄にCSVデータをコピペしてください）</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群データ</div>', unsafe_allow_html=True)
-        control_name = st.text_input("対照群の名称", value="対照群", help="対照群の名称を入力してください（例：商品B、店舗C など）")
+        control_name = st.text_input("対照群の名称を入力", value="対照群", help="対照群の名称を入力してください（例：商品B、店舗C など）")
         
         control_csv = st.text_area(
-            "対照群のCSVデータを入力（カンマ／タブ／スペース区切り）",
+            "対照群のCSVデータを入力（カンマ・タブ・スペース区切りのCSV形式）",
             height=200,
             help="CSVデータを直接入力してください。最低限、ymd（日付）とqty（数量）の列が必要です。",
             placeholder="ymd,qty\n20170403,35\n20170425,30\n20170426,28\n20170523,29\n20170524,31"
         )
+        st.markdown('<div style="color:#555555;font-size:0.9em;margin-top:-5px;margin-bottom:15px;padding-left:5px;">（上の入力欄にCSVデータをコピペしてください）</div>', unsafe_allow_html=True)
     
     # --- データ読み込みボタン ---
     st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
@@ -1762,7 +1764,7 @@ if st.session_state.get('data_loaded', False):
                                 
                                 # 終了メッセージの追加
                                 st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
-                                st.success("これでCausal Impactの分析は終了です。\n新たなデータで再度分析を行う場合は、サイドバーの「最初からやり直す」ボタン、または画面左上の更新（Ctrl + R）をクリックし、STEP1「データ取込／可視化」から再実行してください。")
+                                st.success("これでCausal Impactの分析は終了です。\n新たなデータで再度分析を行う場合は、サイドバーの「最初からやり直す」ボタン、または画面左上の更新（Ctrl + R）をクリックし、STEP1のデータの取り込み取込／可視化」から再実行してください。")
                                 
                                 st.session_state['analysis_completed'] = True
                                 
