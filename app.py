@@ -126,7 +126,6 @@ body, .main, .block-container {
 }
 .stButton>button:hover {
     background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
-    box-shadow: 0 8px 20px rgba(25, 118, 210, 0.5);
 }
 .stDataFrame, .stTable {
     font-size: 1.05em;
@@ -258,7 +257,6 @@ div[data-testid="stExpander"] div[role="button"] p {
 }
 .red-action-button:hover {
     background: linear-gradient(135deg, #e52d27 0%, #ff5252 100%);
-    box-shadow: 0 8px 20px rgba(229, 45, 39, 0.5);
 }
 </style>
 """, unsafe_allow_html=True)
