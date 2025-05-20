@@ -457,20 +457,42 @@ if upload_method == "ファイルアップロード":
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群ファイル</div>', unsafe_allow_html=True)
-        treatment_file = st.file_uploader("処置群のCSVファイルをアップロード", type=['csv'], key="treatment_upload", help="処置群（効果を測定したい対象）のCSVファイルをアップロードしてください。", accept_multiple_files=False)
+        # ファイルサイズ制限を明示的に設定（5MB）
+        treatment_file = st.file_uploader(
+            "処置群のCSVファイルをアップロード", 
+            type=['csv'], 
+            key="treatment_upload", 
+            help="処置群（効果を測定したい対象）のCSVファイルをアップロードしてください。",
+            accept_multiple_files=False
+        )
         if treatment_file:
             treatment_name = os.path.splitext(treatment_file.name)[0]
             selected_treat = f"選択：{treatment_file.name}（処置群）"
             st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_treat}</div>', unsafe_allow_html=True)
+            
+            # ファイルサイズを表示（デバッグ用）
+            file_details = {"ファイル名": treatment_file.name, "ファイルタイプ": treatment_file.type, "ファイルサイズ": f"{treatment_file.size} バイト"}
+            st.write(file_details)
         else:
             treatment_name = ""
     with col2:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群ファイル</div>', unsafe_allow_html=True)
-        control_file = st.file_uploader("対照群のCSVファイルをアップロード", type=['csv'], key="control_upload", help="対照群（比較対象）のCSVファイルをアップロードしてください。", accept_multiple_files=False)
+        # ファイルサイズ制限を明示的に設定（5MB）
+        control_file = st.file_uploader(
+            "対照群のCSVファイルをアップロード", 
+            type=['csv'], 
+            key="control_upload", 
+            help="対照群（比較対象）のCSVファイルをアップロードしてください。",
+            accept_multiple_files=False
+        )
         if control_file:
             control_name = os.path.splitext(control_file.name)[0]
             selected_ctrl = f"選択：{control_file.name}（対照群）"
             st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_ctrl}</div>', unsafe_allow_html=True)
+            
+            # ファイルサイズを表示（デバッグ用）
+            file_details = {"ファイル名": control_file.name, "ファイルタイプ": control_file.type, "ファイルサイズ": f"{control_file.size} バイト"}
+            st.write(file_details)
         else:
             control_name = ""
     
@@ -483,21 +505,104 @@ else:
     with col1:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群データ</div>', unsafe_allow_html=True)
         treatment_name = st.text_input("処置群の名称", value="処置群", help="処置群の名称を入力してください（例：商品A、店舗B など）")
+        
+        # 入力形式の説明を追加
+        st.markdown("""
+        <div style="font-size:0.9em;margin-bottom:0.5em;color:#666;">
+        以下のいずれかの形式で入力してください：
+        <br>・<b>カンマ区切り</b>: ymd,qty
+        <br>・<b>タブ区切り</b>: ymd[TAB]qty
+        <br>・<b>スペース区切り</b>: ymd qty
+        </div>
+        """, unsafe_allow_html=True)
+        
         treatment_csv = st.text_area(
-            "処置群のCSVデータを入力 (ymd,qtyの形式)",
+            "処置群のCSVデータを入力",
             height=200,
             help="CSVデータを直接入力してください。最低限、ymd（日付）とqty（数量）の列が必要です。",
-            placeholder="ymd,qty\n20170403,29\n20170425,24\n..."
+            placeholder="ymd,qty\n20170403,29\n20170425,24\n20170426,23\n20170523,24\n20170524,26"
         )
+        
+        # データフォーマットの例を表示
+        with st.expander("入力例", expanded=False):
+            st.markdown("""
+            <div style="font-size:0.9em;">
+            <p><b>カンマ区切りの例：</b></p>
+            <pre>
+ymd,qty
+20170403,29
+20170425,24
+20170426,23
+            </pre>
+            
+            <p><b>タブ区切りの例：</b></p>
+            <pre>
+ymd\tqty
+20170403\t29
+20170425\t24
+20170426\t23
+            </pre>
+            
+            <p><b>スペース区切りの例：</b></p>
+            <pre>
+ymd qty
+20170403 29
+20170425 24
+20170426 23
+            </pre>
+            </div>
+            """, unsafe_allow_html=True)
+    
     with col2:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群データ</div>', unsafe_allow_html=True)
         control_name = st.text_input("対照群の名称", value="対照群", help="対照群の名称を入力してください（例：商品B、店舗C など）")
+        
+        # 入力形式の説明を追加
+        st.markdown("""
+        <div style="font-size:0.9em;margin-bottom:0.5em;color:#666;">
+        以下のいずれかの形式で入力してください：
+        <br>・<b>カンマ区切り</b>: ymd,qty
+        <br>・<b>タブ区切り</b>: ymd[TAB]qty
+        <br>・<b>スペース区切り</b>: ymd qty
+        </div>
+        """, unsafe_allow_html=True)
+        
         control_csv = st.text_area(
-            "対照群のCSVデータを入力 (ymd,qtyの形式)",
+            "対照群のCSVデータを入力",
             height=200,
             help="CSVデータを直接入力してください。最低限、ymd（日付）とqty（数量）の列が必要です。",
-            placeholder="ymd,qty\n20170403,35\n20170425,30\n..."
+            placeholder="ymd,qty\n20170403,35\n20170425,30\n20170426,28\n20170523,29\n20170524,31"
         )
+        
+        # データフォーマットの例を表示
+        with st.expander("入力例", expanded=False):
+            st.markdown("""
+            <div style="font-size:0.9em;">
+            <p><b>カンマ区切りの例：</b></p>
+            <pre>
+ymd,qty
+20170403,35
+20170425,30
+20170426,28
+            </pre>
+            
+            <p><b>タブ区切りの例：</b></p>
+            <pre>
+ymd\tqty
+20170403\t35
+20170425\t30
+20170426\t28
+            </pre>
+            
+            <p><b>スペース区切りの例：</b></p>
+            <pre>
+ymd qty
+20170403 35
+20170425 30
+20170426 28
+            </pre>
+            </div>
+            """, unsafe_allow_html=True)
     
     # --- データ読み込みボタン ---
     st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
@@ -506,46 +611,77 @@ else:
 # --- アップロードされたファイルからデータを読み込む関数 ---
 def load_and_clean_uploaded_csv(uploaded_file):
     try:
-        # ファイルをバイト列として読み込み
-        file_bytes = uploaded_file.read()
+        # ファイルタイプと名前を表示（デバッグ用）
+        st.info(f"ファイル '{uploaded_file.name}' の読み込みを開始します（サイズ: {uploaded_file.size} バイト）")
         
-        # 最初に異なるエンコーディングで試す
-        encodings = ['utf-8', 'shift-jis', 'cp932', 'euc-jp', 'iso-2022-jp']
+        # 代替的なファイル読み込み方法を使用
+        # 方法1: バイト列を読み込み
+        file_bytes = uploaded_file.getvalue()
+        
+        # エンコーディング検出の試行回数を増やす
+        encodings = ['utf-8', 'shift-jis', 'cp932', 'euc-jp', 'iso-2022-jp', 'latin1']
         df = None
         
         for encoding in encodings:
             try:
-                # エンコーディングを設定して読み込み
+                # エンコーディングを設定して読み込み試行
                 content = file_bytes.decode(encoding)
+                # 最初の数行を表示（デバッグ用）
+                st.code(content[:200] + "...", language=None)
+                # テスト用に先頭行だけ解析
+                test_df = pd.read_csv(io.StringIO(content.split('\n', 5)[0]), nrows=1)
+                # 成功したらすべてを読み込む
                 df = pd.read_csv(io.StringIO(content))
-                st.info(f"ファイル '{uploaded_file.name}' を {encoding} エンコーディングで正常に読み込みました")
+                st.success(f"ファイル '{uploaded_file.name}' を {encoding} エンコーディングで正常に読み込みました")
                 break
             except UnicodeDecodeError:
                 continue
             except Exception as e:
                 st.warning(f"{encoding} エンコーディングでの読み込み中にエラー: {str(e)}")
+                continue
         
         # どのエンコーディングでも読み込めなかった場合
         if df is None:
             try:
-                # バイナリモードで直接Pandasを使って読み込み
-                df = pd.read_csv(io.BytesIO(file_bytes))
-                st.info(f"ファイル '{uploaded_file.name}' を自動検出されたエンコーディングで正常に読み込みました")
+                # 方法2: tempfileを使用
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp_file:
+                    tmp_file.write(file_bytes)
+                    tmp_path = tmp_file.name
+                
+                # 一時ファイルから読み込む
+                st.info(f"一時ファイルを使用してデータを読み込みます: {tmp_path}")
+                df = pd.read_csv(tmp_path)
+                # 読み込み後に一時ファイルを削除
+                os.unlink(tmp_path)
             except Exception as e:
-                st.error(f"CSVファイルの読み込みに失敗しました: {str(e)}")
-                return None
+                # 方法3: BytesIOを直接使用
+                st.warning(f"一時ファイルでの読み込みに失敗しました: {str(e)}")
+                try:
+                    df = pd.read_csv(io.BytesIO(file_bytes))
+                    st.success(f"BytesIOを使用してファイルを読み込みました")
+                except Exception as e2:
+                    st.error(f"すべての読み込み方法に失敗しました: {str(e2)}")
+                    return None
         
-        # --- 以下は前回の実装と同じ処理 ---
-        # 必要なカラムのみ抽出
-        required_columns = ['ymd', 'qty']
+        # データ構造の詳細を表示（デバッグ用）
+        with st.expander(f"読み込んだデータの詳細（{uploaded_file.name}）", expanded=False):
+            st.write("カラム:", list(df.columns))
+            st.dataframe(df.head())
         
         # カラム名の確認とクリーニング
         df.columns = [col.strip() for col in df.columns]
         
         # 必須カラムが含まれているか確認
+        required_columns = ['ymd', 'qty']
         if not all(col in df.columns for col in required_columns):
-            st.error(f"必須カラム 'ymd' と 'qty' が見つかりません。現在のカラム: {list(df.columns)}")
-            return None
+            # カスタムカラムの場合は、最初の2つのカラムがymdとqtyと仮定
+            if len(df.columns) >= 2:
+                st.warning(f"必須カラム 'ymd' と 'qty' が見つかりません。最初の2つのカラム {df.columns[0]} と {df.columns[1]} を使用します。")
+                rename_dict = {df.columns[0]: 'ymd', df.columns[1]: 'qty'}
+                df = df.rename(columns=rename_dict)
+            else:
+                st.error(f"必須カラム 'ymd' と 'qty' が見つかりません。現在のカラム: {list(df.columns)}")
+                return None
         
         # 日付の処理
         df['ymd'] = df['ymd'].astype(str).str.zfill(8)
@@ -584,18 +720,70 @@ def load_and_clean_csv_text(csv_text, source_name):
         if not csv_text.strip():
             st.error(f"{source_name}のCSVデータが入力されていません。")
             return None
-            
-        # StringIOでCSVテキストを読み込む
-        df = pd.read_csv(io.StringIO(csv_text))
         
-        # カラム名の確認とクリーニング
+        # 入力テキストの前処理（改行と区切り文字の正規化）
+        csv_text = csv_text.strip()
+        # 最初の行を取得してヘッダー行を分析
+        lines = csv_text.split('\n')
+        if len(lines) == 0:
+            st.error(f"{source_name}の入力データに行がありません。")
+            return None
+            
+        # データ形式のチェック（タブ区切り、カンマ区切り、スペース区切りに対応）
+        header = lines[0]
+        sep = None
+        
+        # 区切り文字の検出（タブ、カンマ、スペースの順で試す）
+        if '\t' in header:
+            sep = '\t'
+            st.info(f"{source_name}のデータをタブ区切りとして処理します。")
+        elif ',' in header:
+            sep = ','
+            st.info(f"{source_name}のデータをカンマ区切りとして処理します。")
+        elif ' ' in header and len(header.split()) > 1:
+            sep = '\\s+'  # 正規表現によるスペース区切り
+            st.info(f"{source_name}のデータをスペース区切りとして処理します。")
+        else:
+            # 区切り文字が見つからない場合は、カンマ区切りと仮定
+            sep = ','
+            st.warning(f"{source_name}のデータから区切り文字を検出できませんでした。カンマ区切りと仮定して処理します。")
+        
+        try:
+            # 区切り文字を指定してCSVをパース
+            if sep == '\\s+':
+                # 正規表現のスペース区切りの場合
+                df = pd.read_csv(io.StringIO(csv_text), sep=sep, engine='python')
+            else:
+                df = pd.read_csv(io.StringIO(csv_text), sep=sep)
+        except Exception as e:
+            st.error(f"{source_name}のCSVパースに失敗しました。エラー: {str(e)}")
+            # タブ区切りでもカンマ区切りでも失敗した場合、スペース区切りを試す
+            try:
+                df = pd.read_csv(io.StringIO(csv_text), delim_whitespace=True)
+                st.info(f"{source_name}のデータをスペース区切りとして処理します。")
+            except Exception as e2:
+                st.error(f"{source_name}のデータ読み込みに失敗しました。エラー: {str(e2)}")
+                return None
+        
+        # 入力データを表示（デバッグ用）
+        with st.expander(f"入力データ確認（{source_name}）", expanded=False):
+            st.write("認識されたカラム:", list(df.columns))
+            st.dataframe(df.head())
+        
+        # カラム名の確認とクリーニング（空白を除去）
         df.columns = [col.strip() for col in df.columns]
         
         # 必須カラムが含まれているか確認
         required_columns = ['ymd', 'qty']
         if not all(col in df.columns for col in required_columns):
-            st.error(f"{source_name}の必須カラム 'ymd' と 'qty' が見つかりません。現在のカラム: {list(df.columns)}")
-            return None
+            # カスタムカラムの場合は、最初の2つのカラムがymdとqtyと仮定
+            if len(df.columns) >= 2:
+                st.warning(f"{source_name}の必須カラム 'ymd' と 'qty' が見つかりません。最初の2つのカラムを使用します。")
+                rename_dict = {df.columns[0]: 'ymd', df.columns[1]: 'qty'}
+                df = df.rename(columns=rename_dict)
+            else:
+                st.error(f"{source_name}の必須カラム 'ymd' と 'qty' が見つかりません。現在のカラム: {list(df.columns)}")
+                return None
         
         # 日付の処理
         df['ymd'] = df['ymd'].astype(str).str.zfill(8)
@@ -650,35 +838,69 @@ def check_date_validity(date_value, min_date, max_date, date_type):
 # --- ファイルアップロード後のデータ読み込み ---
 if upload_method == "ファイルアップロード" and read_btn and treatment_file and control_file:
     with st.spinner("データ読み込み中..."):
-        # ファイルのシーク位置をリセット（複数回読み込む可能性があるため）
-        treatment_file.seek(0)
-        control_file.seek(0)
-        
-        df_treat = load_and_clean_uploaded_csv(treatment_file)
-        
-        # 処置群ファイルが読み込めた場合のみ対照群ファイルを読み込む
-        if df_treat is not None:
-            # ファイルのシーク位置をリセット
-            control_file.seek(0)
-            df_ctrl = load_and_clean_uploaded_csv(control_file)
-        else:
-            df_ctrl = None
-        
-        if df_treat is not None and df_ctrl is not None and not df_treat.empty and not df_ctrl.empty:
-            # セッションに保存
-            st.session_state['df_treat'] = df_treat
-            st.session_state['df_ctrl'] = df_ctrl
-            st.session_state['treatment_name'] = treatment_name
-            st.session_state['control_name'] = control_name
-            st.session_state['data_loaded'] = True
-            st.success("データを読み込みました。下記にプレビューと統計情報を表示します。")
-        else:
-            st.error("データの読み込みに失敗しました。CSVファイルの形式を確認してください。")
-            if df_treat is None:
-                st.error("処置群ファイルの読み込みに失敗しました。")
-            if df_ctrl is None:
-                st.error("対照群ファイルの読み込みに失敗しました。")
+        try:
+            # セーフティチェック - ファイルサイズの確認
+            if treatment_file.size > 5 * 1024 * 1024 or control_file.size > 5 * 1024 * 1024:
+                st.error("ファイルサイズが大きすぎます。5MB以下のファイルを使用してください。")
+                df_treat = None
+                df_ctrl = None
+            else:
+                # ファイルのシーク位置をリセット（複数回読み込む可能性があるため）
+                treatment_file.seek(0)
+                
+                # 処置群ファイルの読み込み試行
+                st.markdown("### 処置群ファイルの読み込み")
+                df_treat = load_and_clean_uploaded_csv(treatment_file)
+                
+                # 処置群ファイルが読み込めた場合のみ対照群ファイルを読み込む
+                if df_treat is not None:
+                    # ファイルのシーク位置をリセット
+                    control_file.seek(0)
+                    
+                    # 対照群ファイルの読み込み試行
+                    st.markdown("### 対照群ファイルの読み込み")
+                    df_ctrl = load_and_clean_uploaded_csv(control_file)
+                else:
+                    df_ctrl = None
+                    st.error("処置群ファイルの読み込みに失敗したため、対照群ファイルの読み込みをスキップします。")
+            
+            if df_treat is not None and df_ctrl is not None and not df_treat.empty and not df_ctrl.empty:
+                # セッションに保存
+                st.session_state['df_treat'] = df_treat
+                st.session_state['df_ctrl'] = df_ctrl
+                st.session_state['treatment_name'] = treatment_name
+                st.session_state['control_name'] = control_name
+                st.session_state['data_loaded'] = True
+                st.success("データを読み込みました。下記にプレビューと統計情報を表示します。")
+            else:
+                st.error("データの読み込みに失敗しました。CSVファイルの形式を確認してください。")
+                if df_treat is None:
+                    st.error("処置群ファイルの読み込みに失敗しました。")
+                elif df_treat.empty:
+                    st.error("処置群ファイルに有効なデータがありません。")
+                if df_ctrl is None:
+                    st.error("対照群ファイルの読み込みに失敗しました。")
+                elif df_ctrl is not None and df_ctrl.empty:
+                    st.error("対照群ファイルに有効なデータがありません。")
+                st.session_state['data_loaded'] = False
+                
+                # 代替入力方法の提案
+                st.info("ファイルアップロードに問題がある場合は、'CSVテキスト直接入力'を使用してデータを入力してください。")
+        except Exception as e:
+            st.error(f"データ読み込み中に予期しないエラーが発生しました: {str(e)}")
             st.session_state['data_loaded'] = False
+            
+            # 代替入力方法の提案
+            st.info("ファイルアップロードに問題がある場合は、'CSVテキスト直接入力'を使用してデータを入力してください。")
+            
+            # デバッグ情報の表示
+            with st.expander("詳細エラー情報（トラブルシューティング用）", expanded=False):
+                st.exception(e)
+                if treatment_file:
+                    st.write("処置群ファイル情報:", {"名前": treatment_file.name, "タイプ": treatment_file.type, "サイズ": treatment_file.size})
+                if control_file:
+                    st.write("対照群ファイル情報:", {"名前": control_file.name, "タイプ": control_file.type, "サイズ": control_file.size})
+
 # --- テキスト入力からのデータ読み込み ---
 elif upload_method == "CSVテキスト直接入力" and read_btn:
     with st.spinner("データ読み込み中..."):
