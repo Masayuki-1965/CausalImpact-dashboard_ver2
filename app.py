@@ -243,11 +243,11 @@ div[data-testid="stExpander"] div[role="button"] p {
 .red-action-button {
     background: linear-gradient(135deg, #ff5252 0%, #e52d27 100%);
     color: #fff;
-    font-weight: bold;
-    font-size: 1.2em;
+    font-weight: normal;
+    font-size: 1.0em;
     border-radius: 8px;
-    padding: 0.6em 2em;
-    margin: 0.8em 0;
+    padding: 0.5em 2em;
+    margin: 0.6em 0;
     box-shadow: 0 6px 15px rgba(229, 45, 39, 0.4);
     width: 100%;
     display: inline-block;
@@ -1493,7 +1493,7 @@ if st.session_state.get('data_loaded', False):
                                     st.markdown(
                                         f'<a href="{csv_href}" download="{csv_filename}" '
                                         f'class="red-action-button" '
-                                        f'style="color:#fff;text-decoration:none;font-weight:bold;font-size:1.2em;text-align:center;display:inline-block;width:100%;">'
+                                        f'style="color:#fff;text-decoration:none;text-align:center;display:inline-block;width:100%;">'
                                         f'分析結果サマリー（CSV）</a>',
                                         unsafe_allow_html=True
                                     )
@@ -1508,7 +1508,7 @@ if st.session_state.get('data_loaded', False):
                                     st.markdown(
                                         f'<a href="{pdf_href}" download="{pdf_filename}" '
                                         f'class="red-action-button" '
-                                        f'style="color:#fff;text-decoration:none;font-weight:bold;font-size:1.2em;text-align:center;display:inline-block;width:100%;">'
+                                        f'style="color:#fff;text-decoration:none;text-align:center;display:inline-block;width:100%;">'
                                         f'分析結果グラフ（PDF）</a>',
                                         unsafe_allow_html=True
                                     )
