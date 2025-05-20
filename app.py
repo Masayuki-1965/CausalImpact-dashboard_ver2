@@ -320,34 +320,14 @@ with st.sidebar:
             if key in st.session_state:
                 del st.session_state[key]
     
-    # リセットボタン - 赤色デザインに変更
+    # 最初からやり直す案内文
+    st.markdown('<div style="margin-top:15px;margin-bottom:10px;"></div>', unsafe_allow_html=True)
     st.markdown("""
-    <style>
-    /* 最初からやり直すボタン用のカスタムCSS */
-    div[data-testid="stSidebar"] button[kind="secondary"] {
-        background: linear-gradient(135deg, #ff5252 0%, #e52d27 100%);
-        color: white;
-        font-weight: bold;
-        font-size: 1.2em;
-        border: none;
-        padding: 0.6em 2em;
-        box-shadow: 0 6px 15px rgba(229, 45, 39, 0.4);
-        width: 100%;
-    }
-    div[data-testid="stSidebar"] button[kind="secondary"]:hover {
-        background: linear-gradient(135deg, #e52d27 0%, #ff5252 100%);
-        box-shadow: 0 8px 20px rgba(229, 45, 39, 0.5);
-        transform: translateY(-3px);
-    }
-    </style>
+    <div style="background-color:#ffebee;border-radius:8px;padding:12px 15px;border-left:4px solid #d32f2f;margin-bottom:15px;">
+        <div style="font-weight:bold;margin-bottom:8px;color:#d32f2f;font-size:1.05em;">最初からやり直す場合：</div>
+        <div style="line-height:1.5;">画面左上の<b>更新ボタン（⟳）</b>をクリックするか、<b>Ctrl + R</b>を押して、STEP1「データ取込／可視化」から再実行してください。</div>
+    </div>
     """, unsafe_allow_html=True)
-    
-    st.markdown('<div style="margin-top:10px;"></div>', unsafe_allow_html=True)
-    # ボタンタイプをsecondaryに設定して、カスタムCSSが適用されるようにする
-    if st.button("最初からやり直す", key="reset_button", use_container_width=True, 
-                help="アプリをリセットして最初から始めます", type="secondary"):
-        reset_session_state()
-        st.rerun()
 
     with st.expander("Causal Impactとは？", expanded=False):
         st.markdown("""
@@ -421,25 +401,6 @@ CSVファイルには、<b>ymd（日付）</b> と <b>qty（数量）</b> の2�
 <li><b>qty：</b>数量（整数または小数）</li>
 </ul>
 <p style="margin-top:0.5em;color:#555;">※ 上記以外のカラムは自由に追加できます。なくても問題ありません</p>
-
-<div class="section-title">データファイルの保存場所</div>
-<p style="margin-bottom:1em;font-size:1.05em;line-height:1.6;">処置群と対照群それぞれのCSVデータファイルを、以下の専用フォルダに保存してください。</p>
-
-<div style="background:#f5f5f5;border-radius:10px;padding:1.2em;margin-bottom:1.5em;">
-<div style="display:flex;margin-bottom:1em;">
-<div style="width:180px;font-weight:bold;">処置群データ：</div>
-<div class="file-location">data/treatment_data/</div>
-</div>
-<div style="display:flex;">
-<div style="width:180px;font-weight:bold;">対照群データ：</div>
-<div class="file-location">data/control_data/</div>
-</div>
-</div>
-
-<ul style="font-size:1.05em;line-height:1.6;">
-<li>CSVファイルの名称を製品名・品種名などに設定すると、処置群・対照群の名称として表示されます（日本語表記も可）</li>
-<li>フォルダ内に複数のCSVファイルを保存しておくと、「データ選択」メニューから対象ファイルを選択できます</li>
-</ul>
 """, unsafe_allow_html=True)
 
 # --- ファイル選択UIの代わりにファイルアップロード機能 ---
@@ -448,12 +409,12 @@ st.markdown('<div class="section-title">分析対象ファイルのアップロ�
 # アップロード方法切り替えのラジオボタン
 upload_method = st.radio(
     "アップロード方法を選択",
-    options=["ファイルアップロード", "CSVテキスト直接入力"],
+    options=["CSVテキスト直接入力", "ファイルアップロード（工事中）"],
     index=0,
-    help="ファイルアップロードに問題がある場合は、CSVデータを直接入力することもできます。"
+    help="CSVデータを直接入力する方法と、ファイルをアップロードする方法があります。"
 )
 
-if upload_method == "ファイルアップロード":
+if upload_method == "ファイルアップロード（工事中）":
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群ファイル</div>', unsafe_allow_html=True)
@@ -469,10 +430,6 @@ if upload_method == "ファイルアップロード":
             treatment_name = os.path.splitext(treatment_file.name)[0]
             selected_treat = f"選択：{treatment_file.name}（処置群）"
             st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_treat}</div>', unsafe_allow_html=True)
-            
-            # ファイルサイズを表示（デバッグ用）
-            file_details = {"ファイル名": treatment_file.name, "ファイルタイプ": treatment_file.type, "ファイルサイズ": f"{treatment_file.size} バイト"}
-            st.write(file_details)
         else:
             treatment_name = ""
     with col2:
@@ -489,10 +446,6 @@ if upload_method == "ファイルアップロード":
             control_name = os.path.splitext(control_file.name)[0]
             selected_ctrl = f"選択：{control_file.name}（対照群）"
             st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_ctrl}</div>', unsafe_allow_html=True)
-            
-            # ファイルサイズを表示（デバッグ用）
-            file_details = {"ファイル名": control_file.name, "ファイルタイプ": control_file.type, "ファイルサイズ": f"{control_file.size} バイト"}
-            st.write(file_details)
         else:
             control_name = ""
     
@@ -506,103 +459,23 @@ else:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群データ</div>', unsafe_allow_html=True)
         treatment_name = st.text_input("処置群の名称", value="処置群", help="処置群の名称を入力してください（例：商品A、店舗B など）")
         
-        # 入力形式の説明を追加
-        st.markdown("""
-        <div style="font-size:0.9em;margin-bottom:0.5em;color:#666;">
-        以下のいずれかの形式で入力してください：
-        <br>・<b>カンマ区切り</b>: ymd,qty
-        <br>・<b>タブ区切り</b>: ymd[TAB]qty
-        <br>・<b>スペース区切り</b>: ymd qty
-        </div>
-        """, unsafe_allow_html=True)
-        
         treatment_csv = st.text_area(
-            "処置群のCSVデータを入力",
+            "処置群のCSVデータを入力（カンマ／タブ／スペース区切り）",
             height=200,
             help="CSVデータを直接入力してください。最低限、ymd（日付）とqty（数量）の列が必要です。",
             placeholder="ymd,qty\n20170403,29\n20170425,24\n20170426,23\n20170523,24\n20170524,26"
         )
-        
-        # データフォーマットの例を表示
-        with st.expander("入力例", expanded=False):
-            st.markdown("""
-            <div style="font-size:0.9em;">
-            <p><b>カンマ区切りの例：</b></p>
-            <pre>
-ymd,qty
-20170403,29
-20170425,24
-20170426,23
-            </pre>
-            
-            <p><b>タブ区切りの例：</b></p>
-            <pre>
-ymd\tqty
-20170403\t29
-20170425\t24
-20170426\t23
-            </pre>
-            
-            <p><b>スペース区切りの例：</b></p>
-            <pre>
-ymd qty
-20170403 29
-20170425 24
-20170426 23
-            </pre>
-            </div>
-            """, unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群データ</div>', unsafe_allow_html=True)
         control_name = st.text_input("対照群の名称", value="対照群", help="対照群の名称を入力してください（例：商品B、店舗C など）")
         
-        # 入力形式の説明を追加
-        st.markdown("""
-        <div style="font-size:0.9em;margin-bottom:0.5em;color:#666;">
-        以下のいずれかの形式で入力してください：
-        <br>・<b>カンマ区切り</b>: ymd,qty
-        <br>・<b>タブ区切り</b>: ymd[TAB]qty
-        <br>・<b>スペース区切り</b>: ymd qty
-        </div>
-        """, unsafe_allow_html=True)
-        
         control_csv = st.text_area(
-            "対照群のCSVデータを入力",
+            "対照群のCSVデータを入力（カンマ／タブ／スペース区切り）",
             height=200,
             help="CSVデータを直接入力してください。最低限、ymd（日付）とqty（数量）の列が必要です。",
             placeholder="ymd,qty\n20170403,35\n20170425,30\n20170426,28\n20170523,29\n20170524,31"
         )
-        
-        # データフォーマットの例を表示
-        with st.expander("入力例", expanded=False):
-            st.markdown("""
-            <div style="font-size:0.9em;">
-            <p><b>カンマ区切りの例：</b></p>
-            <pre>
-ymd,qty
-20170403,35
-20170425,30
-20170426,28
-            </pre>
-            
-            <p><b>タブ区切りの例：</b></p>
-            <pre>
-ymd\tqty
-20170403\t35
-20170425\t30
-20170426\t28
-            </pre>
-            
-            <p><b>スペース区切りの例：</b></p>
-            <pre>
-ymd qty
-20170403 35
-20170425 30
-20170426 28
-            </pre>
-            </div>
-            """, unsafe_allow_html=True)
     
     # --- データ読み込みボタン ---
     st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
@@ -626,8 +499,6 @@ def load_and_clean_uploaded_csv(uploaded_file):
             try:
                 # エンコーディングを設定して読み込み試行
                 content = file_bytes.decode(encoding)
-                # 最初の数行を表示（デバッグ用）
-                st.code(content[:200] + "...", language=None)
                 # テスト用に先頭行だけ解析
                 test_df = pd.read_csv(io.StringIO(content.split('\n', 5)[0]), nrows=1)
                 # 成功したらすべてを読み込む
@@ -662,11 +533,6 @@ def load_and_clean_uploaded_csv(uploaded_file):
                 except Exception as e2:
                     st.error(f"すべての読み込み方法に失敗しました: {str(e2)}")
                     return None
-        
-        # データ構造の詳細を表示（デバッグ用）
-        with st.expander(f"読み込んだデータの詳細（{uploaded_file.name}）", expanded=False):
-            st.write("カラム:", list(df.columns))
-            st.dataframe(df.head())
         
         # カラム名の確認とクリーニング
         df.columns = [col.strip() for col in df.columns]
@@ -836,7 +702,7 @@ def check_date_validity(date_value, min_date, max_date, date_type):
     return None
 
 # --- ファイルアップロード後のデータ読み込み ---
-if upload_method == "ファイルアップロード" and read_btn and treatment_file and control_file:
+if upload_method == "ファイルアップロード（工事中）" and read_btn and treatment_file and control_file:
     with st.spinner("データ読み込み中..."):
         try:
             # セーフティチェック - ファイルサイズの確認
@@ -890,16 +756,7 @@ if upload_method == "ファイルアップロード" and read_btn and treatment_
             st.error(f"データ読み込み中に予期しないエラーが発生しました: {str(e)}")
             st.session_state['data_loaded'] = False
             
-            # 代替入力方法の提案
-            st.info("ファイルアップロードに問題がある場合は、'CSVテキスト直接入力'を使用してデータを入力してください。")
-            
-            # デバッグ情報の表示
-            with st.expander("詳細エラー情報（トラブルシューティング用）", expanded=False):
-                st.exception(e)
-                if treatment_file:
-                    st.write("処置群ファイル情報:", {"名前": treatment_file.name, "タイプ": treatment_file.type, "サイズ": treatment_file.size})
-                if control_file:
-                    st.write("対照群ファイル情報:", {"名前": control_file.name, "タイプ": control_file.type, "サイズ": control_file.size})
+            # 代替入力方法の提案            st.info("CSVテキスト直接入力をご利用ください。")
 
 # --- テキスト入力からのデータ読み込み ---
 elif upload_method == "CSVテキスト直接入力" and read_btn:
