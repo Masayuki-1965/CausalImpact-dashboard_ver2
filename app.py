@@ -127,7 +127,6 @@ body, .main, .block-container {
 .stButton>button:hover {
     background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
     box-shadow: 0 8px 20px rgba(25, 118, 210, 0.5);
-    transform: translateY(-3px);
 }
 .stDataFrame, .stTable {
     font-size: 1.05em;
@@ -260,7 +259,6 @@ div[data-testid="stExpander"] div[role="button"] p {
 .red-action-button:hover {
     background: linear-gradient(135deg, #e52d27 0%, #ff5252 100%);
     box-shadow: 0 8px 20px rgba(229, 45, 39, 0.5);
-    transform: translateY(-3px);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -484,11 +482,7 @@ else:
 # --- アップロードされたファイルからデータを読み込む関数 ---
 def load_and_clean_uploaded_csv(uploaded_file):
     try:
-        # ファイルタイプと名前を表示（デバッグ用）
-        st.info(f"ファイル '{uploaded_file.name}' の読み込みを開始します（サイズ: {uploaded_file.size} バイト）")
-        
-        # 代替的なファイル読み込み方法を使用
-        # 方法1: バイト列を読み込み
+        # バイト列を読み込み
         file_bytes = uploaded_file.getvalue()
         
         # エンコーディング検出の試行回数を増やす
@@ -503,12 +497,10 @@ def load_and_clean_uploaded_csv(uploaded_file):
                 test_df = pd.read_csv(io.StringIO(content.split('\n', 5)[0]), nrows=1)
                 # 成功したらすべてを読み込む
                 df = pd.read_csv(io.StringIO(content))
-                st.success(f"ファイル '{uploaded_file.name}' を {encoding} エンコーディングで正常に読み込みました")
                 break
             except UnicodeDecodeError:
                 continue
             except Exception as e:
-                st.warning(f"{encoding} エンコーディングでの読み込み中にエラー: {str(e)}")
                 continue
         
         # どのエンコーディングでも読み込めなかった場合
@@ -520,18 +512,15 @@ def load_and_clean_uploaded_csv(uploaded_file):
                     tmp_path = tmp_file.name
                 
                 # 一時ファイルから読み込む
-                st.info(f"一時ファイルを使用してデータを読み込みます: {tmp_path}")
                 df = pd.read_csv(tmp_path)
                 # 読み込み後に一時ファイルを削除
                 os.unlink(tmp_path)
             except Exception as e:
                 # 方法3: BytesIOを直接使用
-                st.warning(f"一時ファイルでの読み込みに失敗しました: {str(e)}")
                 try:
                     df = pd.read_csv(io.BytesIO(file_bytes))
-                    st.success(f"BytesIOを使用してファイルを読み込みました")
                 except Exception as e2:
-                    st.error(f"すべての読み込み方法に失敗しました: {str(e2)}")
+                    st.error(f"ファイルの読み込みに失敗しました。")
                     return None
         
         # カラム名の確認とクリーニング
@@ -542,11 +531,10 @@ def load_and_clean_uploaded_csv(uploaded_file):
         if not all(col in df.columns for col in required_columns):
             # カスタムカラムの場合は、最初の2つのカラムがymdとqtyと仮定
             if len(df.columns) >= 2:
-                st.warning(f"必須カラム 'ymd' と 'qty' が見つかりません。最初の2つのカラム {df.columns[0]} と {df.columns[1]} を使用します。")
                 rename_dict = {df.columns[0]: 'ymd', df.columns[1]: 'qty'}
                 df = df.rename(columns=rename_dict)
             else:
-                st.error(f"必須カラム 'ymd' と 'qty' が見つかりません。現在のカラム: {list(df.columns)}")
+                st.error(f"必須カラム 'ymd' と 'qty' が見つかりません。")
                 return None
         
         # 日付の処理
@@ -556,27 +544,24 @@ def load_and_clean_uploaded_csv(uploaded_file):
         # 無効な日付をチェック
         invalid_dates = df[df['ymd'].isna()]
         if not invalid_dates.empty:
-            st.warning(f"{len(invalid_dates)}件の無効な日付形式のデータを除外しました。正しい形式は'YYYYMMDD'（例: 20240101）です。")
+            df = df.dropna(subset=['ymd'])
         
         # 欠損値を除外
         original_len = len(df)
         df = df.dropna(subset=['ymd'])
-        if len(df) < original_len:
-            st.warning(f"{original_len - len(df)}件の欠損データを除外しました。")
             
         # qty列の数値変換確認
         try:
             df['qty'] = pd.to_numeric(df['qty'], errors='coerce')
             if df['qty'].isna().any():
-                st.warning("数量(qty)に数値に変換できない値が含まれています。これらは欠損値として扱われます。")
                 df = df.dropna(subset=['qty'])
         except Exception as e:
-            st.error(f"数量(qty)の処理中にエラーが発生しました: {str(e)}")
+            st.error(f"数量(qty)の処理中にエラーが発生しました。")
             return None
             
         return df
     except Exception as e:
-        st.error(f"ファイルの処理中に予期しないエラーが発生しました: {str(e)}")
+        st.error(f"ファイルの処理中にエラーが発生しました。")
         return None
 
 # --- テキスト入力からCSVデータを読み込む関数 ---
@@ -602,17 +587,13 @@ def load_and_clean_csv_text(csv_text, source_name):
         # 区切り文字の検出（タブ、カンマ、スペースの順で試す）
         if '\t' in header:
             sep = '\t'
-            st.info(f"{source_name}のデータをタブ区切りとして処理します。")
         elif ',' in header:
             sep = ','
-            st.info(f"{source_name}のデータをカンマ区切りとして処理します。")
         elif ' ' in header and len(header.split()) > 1:
             sep = '\\s+'  # 正規表現によるスペース区切り
-            st.info(f"{source_name}のデータをスペース区切りとして処理します。")
         else:
             # 区切り文字が見つからない場合は、カンマ区切りと仮定
             sep = ','
-            st.warning(f"{source_name}のデータから区切り文字を検出できませんでした。カンマ区切りと仮定して処理します。")
         
         try:
             # 区切り文字を指定してCSVをパース
@@ -622,19 +603,13 @@ def load_and_clean_csv_text(csv_text, source_name):
             else:
                 df = pd.read_csv(io.StringIO(csv_text), sep=sep)
         except Exception as e:
-            st.error(f"{source_name}のCSVパースに失敗しました。エラー: {str(e)}")
+            st.error(f"{source_name}のCSVデータ形式が不正です。")
             # タブ区切りでもカンマ区切りでも失敗した場合、スペース区切りを試す
             try:
                 df = pd.read_csv(io.StringIO(csv_text), delim_whitespace=True)
-                st.info(f"{source_name}のデータをスペース区切りとして処理します。")
             except Exception as e2:
-                st.error(f"{source_name}のデータ読み込みに失敗しました。エラー: {str(e2)}")
+                st.error(f"{source_name}のデータ読み込みに失敗しました。")
                 return None
-        
-        # 入力データを表示（デバッグ用）
-        with st.expander(f"入力データ確認（{source_name}）", expanded=False):
-            st.write("認識されたカラム:", list(df.columns))
-            st.dataframe(df.head())
         
         # カラム名の確認とクリーニング（空白を除去）
         df.columns = [col.strip() for col in df.columns]
@@ -644,11 +619,10 @@ def load_and_clean_csv_text(csv_text, source_name):
         if not all(col in df.columns for col in required_columns):
             # カスタムカラムの場合は、最初の2つのカラムがymdとqtyと仮定
             if len(df.columns) >= 2:
-                st.warning(f"{source_name}の必須カラム 'ymd' と 'qty' が見つかりません。最初の2つのカラムを使用します。")
                 rename_dict = {df.columns[0]: 'ymd', df.columns[1]: 'qty'}
                 df = df.rename(columns=rename_dict)
             else:
-                st.error(f"{source_name}の必須カラム 'ymd' と 'qty' が見つかりません。現在のカラム: {list(df.columns)}")
+                st.error(f"{source_name}の必須カラム 'ymd' と 'qty' が見つかりません。")
                 return None
         
         # 日付の処理
@@ -658,27 +632,34 @@ def load_and_clean_csv_text(csv_text, source_name):
         # 無効な日付をチェック
         invalid_dates = df[df['ymd'].isna()]
         if not invalid_dates.empty:
-            st.warning(f"{source_name}の{len(invalid_dates)}件の無効な日付形式のデータを除外しました。正しい形式は'YYYYMMDD'（例: 20240101）です。")
+            df = df.dropna(subset=['ymd'])
         
         # 欠損値を除外
         original_len = len(df)
         df = df.dropna(subset=['ymd'])
-        if len(df) < original_len:
-            st.warning(f"{source_name}の{original_len - len(df)}件の欠損データを除外しました。")
             
         # qty列の数値変換確認
         try:
             df['qty'] = pd.to_numeric(df['qty'], errors='coerce')
             if df['qty'].isna().any():
-                st.warning(f"{source_name}の数量(qty)に数値に変換できない値が含まれています。これらは欠損値として扱われます。")
                 df = df.dropna(subset=['qty'])
         except Exception as e:
-            st.error(f"{source_name}の数量(qty)の処理中にエラーが発生しました: {str(e)}")
+            st.error(f"{source_name}の数量(qty)の処理中にエラーが発生しました。")
+            return None
+        
+        # カラムがすべて揃っていることを確認
+        if 'ymd' not in df.columns or 'qty' not in df.columns:
+            st.error(f"{source_name}のデータにymdまたはqtyカラムがありません。")
+            return None
+        
+        # データが空でないことを確認
+        if df.empty:
+            st.error(f"{source_name}の有効なデータがありません。")
             return None
             
         return df
     except Exception as e:
-        st.error(f"{source_name}のCSVデータ処理中に予期しないエラーが発生しました: {str(e)}")
+        st.error(f"{source_name}のデータ処理中にエラーが発生しました。")
         return None
 
 # --- カスタムエラーハンドリング関数 ---
@@ -715,7 +696,6 @@ if upload_method == "ファイルアップロード（工事中）" and read_btn
                 treatment_file.seek(0)
                 
                 # 処置群ファイルの読み込み試行
-                st.markdown("### 処置群ファイルの読み込み")
                 df_treat = load_and_clean_uploaded_csv(treatment_file)
                 
                 # 処置群ファイルが読み込めた場合のみ対照群ファイルを読み込む
@@ -724,7 +704,6 @@ if upload_method == "ファイルアップロード（工事中）" and read_btn
                     control_file.seek(0)
                     
                     # 対照群ファイルの読み込み試行
-                    st.markdown("### 対照群ファイルの読み込み")
                     df_ctrl = load_and_clean_uploaded_csv(control_file)
                 else:
                     df_ctrl = None
@@ -751,12 +730,13 @@ if upload_method == "ファイルアップロード（工事中）" and read_btn
                 st.session_state['data_loaded'] = False
                 
                 # 代替入力方法の提案
-                st.info("ファイルアップロードに問題がある場合は、'CSVテキスト直接入力'を使用してデータを入力してください。")
+                st.info("CSVテキスト直接入力をご利用ください。")
         except Exception as e:
             st.error(f"データ読み込み中に予期しないエラーが発生しました: {str(e)}")
             st.session_state['data_loaded'] = False
             
-            # 代替入力方法の提案            st.info("CSVテキスト直接入力をご利用ください。")
+            # 代替入力方法の提案
+            st.info("CSVテキスト直接入力をご利用ください。")
 
 # --- テキスト入力からのデータ読み込み ---
 elif upload_method == "CSVテキスト直接入力" and read_btn:
