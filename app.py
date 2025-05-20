@@ -472,22 +472,62 @@ read_btn = st.button("データを読み込む", key="read", help="アップロ�
 # --- アップロードされたファイルからデータを読み込む関数 ---
 def load_and_clean_uploaded_csv(uploaded_file):
     try:
-        # 文字コード自動判定（失敗時はutf-8で再トライ）
-        try:
-            df = pd.read_csv(uploaded_file, encoding='utf-8')
-        except UnicodeDecodeError:
-            uploaded_file.seek(0)
-            df = pd.read_csv(uploaded_file, encoding='cp932')  # Windows用
-        # 必須カラムチェック
-        if not set(['ymd', 'qty']).issubset(df.columns):
-            st.error("CSVファイルに 'ymd' および 'qty' カラムが含まれていません。")
-            return None
+        # 一時ファイルを作成せずに直接StringIOでPandasに読み込む
+        content = uploaded_file.getvalue().decode('utf-8')
+        df = pd.read_csv(io.StringIO(content))
+        
+        # 必要なカラムのみ抽出
+        required_columns = ['ymd', 'qty']
+        if not all(col in df.columns for col in required_columns):
+            column_names = list(df.columns)
+            # カラム名の前後の空白を取り除いて再確認
+            df.columns = [col.strip() for col in df.columns]
+            # それでも見つからない場合はエラー
+            if not all(col in df.columns for col in required_columns):
+                st.error(f"必須カラム 'ymd' と 'qty' が見つかりません。現在のカラム: {column_names}")
+                return None
+        
+        # カラム名が空白を含む場合に対応
+        if 'ymd' not in df.columns and any(col.strip() == 'ymd' for col in df.columns):
+            for col in df.columns:
+                if col.strip() == 'ymd':
+                    df = df.rename(columns={col: 'ymd'})
+                    break
+        
+        if 'qty' not in df.columns and any(col.strip() == 'qty' for col in df.columns):
+            for col in df.columns:
+                if col.strip() == 'qty':
+                    df = df.rename(columns={col: 'qty'})
+                    break
+        
+        # 日付の処理
         df['ymd'] = df['ymd'].astype(str).str.zfill(8)
         df['ymd'] = pd.to_datetime(df['ymd'], format='%Y%m%d', errors='coerce')
+        
+        # 無効な日付をチェック
+        invalid_dates = df[df['ymd'].isna()]
+        if not invalid_dates.empty:
+            st.warning(f"{len(invalid_dates)}件の無効な日付形式のデータを除外しました。正しい形式は'YYYYMMDD'（例: 20240101）です。")
+        
+        # 欠損値を除外
+        original_len = len(df)
         df = df.dropna(subset=['ymd'])
+        if len(df) < original_len:
+            st.warning(f"{original_len - len(df)}件の欠損データを除外しました。")
+            
+        # qty列の数値変換確認
+        try:
+            df['qty'] = pd.to_numeric(df['qty'], errors='coerce')
+            if df['qty'].isna().any():
+                st.warning("数量(qty)に数値に変換できない値が含まれています。これらは欠損値として扱われます。")
+                df = df.dropna(subset=['qty'])
+        except Exception as e:
+            st.error(f"数量(qty)の処理中にエラーが発生しました: {str(e)}")
+            return None
+            
         return df
     except Exception as e:
-        st.error(f"ファイルの読み込み中にエラーが発生しました: {e}")
+        st.error(f"CSVファイルの読み込み中にエラーが発生しました: {str(e)}")
         return None
 
 # --- カスタムエラーハンドリング関数 ---
@@ -512,17 +552,25 @@ def check_date_validity(date_value, min_date, max_date, date_type):
 
 # --- ファイルアップロード後のデータ読み込み ---
 if read_btn and treatment_file and control_file:
-    df_treat = load_and_clean_uploaded_csv(treatment_file)
-    df_ctrl = load_and_clean_uploaded_csv(control_file)
-    if df_treat is None or df_ctrl is None:
-        st.error("CSVファイルの読み込みに失敗しました。ファイル形式やカラム名をご確認ください。")
-    else:
-        st.session_state['df_treat'] = df_treat
-        st.session_state['df_ctrl'] = df_ctrl
-        st.session_state['treatment_name'] = treatment_name
-        st.session_state['control_name'] = control_name
-        st.session_state['data_loaded'] = True
-        st.success("データを読み込みました。下記にプレビューと統計情報を表示します。")
+    with st.spinner("データ読み込み中..."):
+        df_treat = load_and_clean_uploaded_csv(treatment_file)
+        df_ctrl = load_and_clean_uploaded_csv(control_file)
+        
+        if df_treat is not None and df_ctrl is not None and not df_treat.empty and not df_ctrl.empty:
+            # セッションに保存
+            st.session_state['df_treat'] = df_treat
+            st.session_state['df_ctrl'] = df_ctrl
+            st.session_state['treatment_name'] = treatment_name
+            st.session_state['control_name'] = control_name
+            st.session_state['data_loaded'] = True
+            st.success("データを読み込みました。下記にプレビューと統計情報を表示します。")
+        else:
+            st.error("データの読み込みに失敗しました。CSVファイルの形式を確認してください。")
+            if df_treat is None:
+                st.error("処置群ファイルの読み込みに失敗しました。")
+            if df_ctrl is None:
+                st.error("対照群ファイルの読み込みに失敗しました。")
+            st.session_state['data_loaded'] = False
 
 # --- データ読み込み済みなら表示（セッションから取得） ---
 if st.session_state.get('data_loaded', False):
