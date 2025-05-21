@@ -403,61 +403,90 @@ CSVファイルには、<b>ymd（日付）</b> と <b>qty（数量）</b> の2�
 st.markdown('<div class="section-title">分析対象ファイルのアップロード</div>', unsafe_allow_html=True)
 
 # アップロード方法切り替えのラジオボタン
+st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">アップロード方法の選択</div>', unsafe_allow_html=True)
 upload_method = st.radio(
-    "アップロード方法を選択",
-    options=["CSVテキスト直接入力", "ファイルアップロード（※日本語ファイル名は非対応）"],
+    "アップロード方法選択",
+    options=["ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）", "CSVテキスト直接入力"],
     index=0,
+    label_visibility="collapsed",
     help="CSVデータを直接入力する方法と、ファイルをアップロードする方法があります。"
 )
 
-if upload_method == "ファイルアップロード（※日本語ファイル名は非対応）":
-    st.warning("⚠️ 注意: 日本語を含むファイル名はエラーになります。英数字のファイル名を使用してください。")
+if upload_method == "ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）":
+    # 注意喚起メッセージを削除（ラジオボタンのラベルに統合）
+    
+    # 処置群と対照群の名称入力欄（ファイルアップロード・CSVテキスト共通）
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群ファイル</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群データ</div>', unsafe_allow_html=True)
+        
+        # ファイルアップロード欄
+        # 「処置群ファイル」ラベルを削除
         # ファイルサイズ制限を明示的に設定（5MB）
         treatment_file = st.file_uploader(
             "処置群のCSVファイルをアップロード", 
             type=['csv'], 
             key="treatment_upload", 
             help="処置群（効果を測定したい対象）のCSVファイルをアップロードしてください。",
-            accept_multiple_files=False
+            accept_multiple_files=False,
+            label_visibility="collapsed"
         )
+        
+        # ファイルがアップロードされたらファイル名から名称をセット
         if treatment_file:
-            treatment_name = os.path.splitext(treatment_file.name)[0]
+            # ファイル名から拡張子を除いた部分を名称として使用
+            file_basename = os.path.splitext(treatment_file.name)[0]
+            treatment_name = file_basename
             selected_treat = f"選択：{treatment_file.name}（処置群）"
             st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_treat}</div>', unsafe_allow_html=True)
         else:
-            treatment_name = ""
+            treatment_name = "処置群"
+            
+        # 名称入力欄（ファイル名から取得した値を初期値として表示）
+        treatment_name = st.text_input("処置群の名称を入力", value=treatment_name, key="treatment_name_upload", help="処置群の名称を入力してください（例：商品A、店舗B など）")
+        
     with col2:
-        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群ファイル</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群データ</div>', unsafe_allow_html=True)
+        
+        # ファイルアップロード欄
+        # 「対照群ファイル」ラベルを削除
         # ファイルサイズ制限を明示的に設定（5MB）
         control_file = st.file_uploader(
             "対照群のCSVファイルをアップロード", 
             type=['csv'], 
             key="control_upload", 
             help="対照群（比較対象）のCSVファイルをアップロードしてください。",
-            accept_multiple_files=False
+            accept_multiple_files=False,
+            label_visibility="collapsed"
         )
+        
+        # ファイルがアップロードされたらファイル名から名称をセット
         if control_file:
-            control_name = os.path.splitext(control_file.name)[0]
+            # ファイル名から拡張子を除いた部分を名称として使用
+            file_basename = os.path.splitext(control_file.name)[0]
+            control_name = file_basename
             selected_ctrl = f"選択：{control_file.name}（対照群）"
             st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_ctrl}</div>', unsafe_allow_html=True)
         else:
-            control_name = ""
+            control_name = "対照群"
+            
+        # 名称入力欄（ファイル名から取得した値を初期値として表示）
+        control_name = st.text_input("対照群の名称を入力", value=control_name, key="control_name_upload", help="対照群の名称を入力してください（例：商品B、店舗C など）")
     
-    # --- データ読み込みボタン ---
+    # --- データ読み込みボタン（ファイルアップロード用） ---
     st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
-    read_btn = st.button("データを読み込む", key="read", help="アップロードしたファイルを読み込みます。", type="primary", use_container_width=True, disabled=(not treatment_file or not control_file))
+    read_btn_upload = st.button("データを読み込む", key="read_upload", help="アップロードしたファイルを読み込みます。", type="primary", use_container_width=True, disabled=(not treatment_file or not control_file))
+
 else:
     # CSVテキスト直接入力のUI
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群データ</div>', unsafe_allow_html=True)
-        treatment_name = st.text_input("処置群の名称を入力", value="処置群", help="処置群の名称を入力してください（例：商品A、店舗B など）")
+        treatment_name = st.text_input("処置群の名称を入力", value="処置群", key="treatment_name_text", help="処置群の名称を入力してください（例：商品A、店舗B など）")
         
+        # 処置群の名称入力と同じスタイルを適用するため、st.markdown ではなく st.text_input を使用
         treatment_csv = st.text_area(
-            "処置群のCSVデータを入力（カンマ・タブ・スペース区切りのCSV形式）",
+            "CSVデータを入力（カンマ・タブ・スペース区切り）",
             height=200,
             help="CSVデータを直接入力またはコピペしてください。最低限、ymd（日付）とqty（数量）の列が必要です。",
             placeholder="ymd,qty\n20170403,29\n20170425,24\n20170426,23\n20170523,24\n20170524,26"
@@ -466,55 +495,20 @@ else:
     
     with col2:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群データ</div>', unsafe_allow_html=True)
-        control_name = st.text_input("対照群の名称を入力", value="対照群", help="対照群の名称を入力してください（例：商品B、店舗C など）")
+        control_name = st.text_input("対照群の名称を入力", value="対照群", key="control_name_text", help="対照群の名称を入力してください（例：商品B、店舗C など）")
         
+        # 対照群の名称入力と同じスタイルを適用するため、st.markdown ではなく st.text_input を使用
         control_csv = st.text_area(
-            "対照群のCSVデータを入力（カンマ・タブ・スペース区切りのCSV形式）",
+            "CSVデータを入力（カンマ・タブ・スペース区切り）",
             height=200,
             help="CSVデータを直接入力またはコピペしてください。最低限、ymd（日付）とqty（数量）の列が必要です。",
             placeholder="ymd,qty\n20170403,35\n20170425,30\n20170426,28\n20170523,29\n20170524,31"
         )
         st.markdown('<div style="color:#555555;font-size:0.9em;margin-top:-5px;margin-bottom:15px;padding-left:5px;">（上の入力欄にCSVデータをコピペしてください）</div>', unsafe_allow_html=True)
     
-    # サンプルデータ表示ボタン
-    with st.expander("サンプルデータを表示", expanded=False):
-        st.markdown("""
-        <div style="margin-bottom:10px;font-weight:bold;">以下のサンプルデータをコピーして利用できます：</div>
-        
-        <div style="margin-top:15px;font-weight:bold;">処置群のサンプル：</div>
-        <pre style="background-color:#f5f5f5;padding:10px;border-radius:5px;margin-top:5px;">
-ymd,qty
-20170403,29
-20170425,24
-20170426,23
-20170523,24
-20170524,26
-20170529,21
-20170530,20
-20170531,22
-20170601,25
-20170602,28
-        </pre>
-        
-        <div style="margin-top:15px;font-weight:bold;">対照群のサンプル：</div>
-        <pre style="background-color:#f5f5f5;padding:10px;border-radius:5px;margin-top:5px;">
-ymd,qty
-20170403,35
-20170425,30
-20170426,28
-20170523,29
-20170524,31
-20170529,27
-20170530,25
-20170531,28
-20170601,30
-20170602,33
-        </pre>
-        """, unsafe_allow_html=True)
-    
-    # --- データ読み込みボタン ---
+    # --- データ読み込みボタン（CSVテキスト直接入力用） ---
     st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
-    read_btn = st.button("データを読み込む", key="read_text", help="入力したCSVデータを読み込みます。", type="primary", use_container_width=True, disabled=(not treatment_csv or not control_csv))
+    read_btn_text = st.button("データを読み込む", key="read_text", help="入力したCSVデータを読み込みます。", type="primary", use_container_width=True, disabled=(not treatment_csv or not control_csv))
 
 # --- アップロードされたファイルからデータを読み込む関数 ---
 def load_and_clean_uploaded_csv(uploaded_file):
@@ -739,7 +733,7 @@ def check_date_validity(date_value, min_date, max_date, date_type):
     return None
 
 # --- ファイルアップロード後のデータ読み込み ---
-if upload_method == "ファイルアップロード（※日本語ファイル名は非対応）" and read_btn and treatment_file and control_file:
+if upload_method == "ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）" and read_btn_upload and treatment_file and control_file:
     with st.spinner("データ読み込み中..."):
         try:
             # Streamlit Cloud環境かどうかを確認（環境変数などで判定可能）
@@ -779,9 +773,12 @@ if upload_method == "ファイルアップロード（※日本語ファイル�
                     st.error("処置群ファイルの読み込みに失敗したため、対照群ファイルの読み込みをスキップします。")
             
             if df_treat is not None and df_ctrl is not None and not df_treat.empty and not df_ctrl.empty:
-                # セッションに保存
+                # セッションに保存（ユーザーが入力した名称を使用）
                 st.session_state['df_treat'] = df_treat
                 st.session_state['df_ctrl'] = df_ctrl
+                # 名前が空でなければユーザー入力値を使用、空なら処理名をデフォルト値に
+                treatment_name = treatment_name.strip() if treatment_name and treatment_name.strip() else "処置群"
+                control_name = control_name.strip() if control_name and control_name.strip() else "対照群"
                 st.session_state['treatment_name'] = treatment_name
                 st.session_state['control_name'] = control_name
                 st.session_state['data_loaded'] = True
@@ -808,15 +805,18 @@ if upload_method == "ファイルアップロード（※日本語ファイル�
             st.info("CSVテキスト直接入力をご利用ください。以下は入力例です：\n\nymd,qty\n20170403,29\n20170425,24\n...")
 
 # --- テキスト入力からのデータ読み込み ---
-elif upload_method == "CSVテキスト直接入力" and read_btn:
+elif upload_method == "CSVテキスト直接入力" and read_btn_text:
     with st.spinner("データ読み込み中..."):
         df_treat = load_and_clean_csv_text(treatment_csv, "処置群")
         df_ctrl = load_and_clean_csv_text(control_csv, "対照群")
         
         if df_treat is not None and df_ctrl is not None and not df_treat.empty and not df_ctrl.empty:
-            # セッションに保存
+            # セッションに保存（ユーザーが入力した名称を使用）
             st.session_state['df_treat'] = df_treat
             st.session_state['df_ctrl'] = df_ctrl
+            # 名前が空でなければユーザー入力値を使用、空なら処理名をデフォルト値に
+            treatment_name = treatment_name.strip() if treatment_name and treatment_name.strip() else "処置群"
+            control_name = control_name.strip() if control_name and control_name.strip() else "対照群"
             st.session_state['treatment_name'] = treatment_name
             st.session_state['control_name'] = control_name
             st.session_state['data_loaded'] = True
@@ -1256,8 +1256,7 @@ if st.session_state.get('data_loaded', False):
             # 説明文と警告メッセージを統合
             st.markdown("""
 <div style="margin-bottom:1em;">効果を測定する介入後の期間を指定します。
-<span style="color:red;font-weight:bold;">※介入期間の開始日は介入前期間の終了日より後の日付を指定する必要があります。</span>
-<br><span style="color:#666;font-size:0.9em;">※指定された日付がデータセットに存在しない場合は、分析対象として無効となります。有効な日付を選択してください。</span>
+<span style="color:red;font-weight:bold;">※注意：介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。</span>
 </div>
             """, unsafe_allow_html=True)
             
