@@ -335,7 +335,7 @@ with st.sidebar:
     with st.expander("状態空間モデルとは？", expanded=False):
         st.markdown("""
 <div class="sidebar-faq-body">
-<b>状態空間モデル</b>は、時系列データの変化の傾向や構造を捉える統計手法で、観測データの背後にある“見えない状態”を推定しながら将来の動きを予測します。<br><br>
+<b>状態空間モデル</b>は、時系列データの変化の傾向や構造を捉える統計手法で、観測データの背後にある"見えない状態"を推定しながら将来の動きを予測します。<br><br>
 Causal Impactでは、このモデルを用いて「施策がなかった場合の自然な推移」を予測します。
 </div>
 """, unsafe_allow_html=True)
@@ -405,12 +405,13 @@ st.markdown('<div class="section-title">分析対象ファイルのアップロ�
 # アップロード方法切り替えのラジオボタン
 upload_method = st.radio(
     "アップロード方法を選択",
-    options=["CSVテキスト直接入力", "ファイルアップロード（※準備中）"],
+    options=["CSVテキスト直接入力", "ファイルアップロード（※日本語ファイル名は非対応）"],
     index=0,
     help="CSVデータを直接入力する方法と、ファイルをアップロードする方法があります。"
 )
 
-if upload_method == "ファイルアップロード（※準備中）":
+if upload_method == "ファイルアップロード（※日本語ファイル名は非対応）":
+    st.warning("⚠️ 注意: 日本語を含むファイル名はエラーになります。英数字のファイル名を使用してください。")
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群ファイル</div>', unsafe_allow_html=True)
@@ -458,7 +459,7 @@ else:
         treatment_csv = st.text_area(
             "処置群のCSVデータを入力（カンマ・タブ・スペース区切りのCSV形式）",
             height=200,
-            help="CSVデータを直接入力してください。最低限、ymd（日付）とqty（数量）の列が必要です。",
+            help="CSVデータを直接入力またはコピペしてください。最低限、ymd（日付）とqty（数量）の列が必要です。",
             placeholder="ymd,qty\n20170403,29\n20170425,24\n20170426,23\n20170523,24\n20170524,26"
         )
         st.markdown('<div style="color:#555555;font-size:0.9em;margin-top:-5px;margin-bottom:15px;padding-left:5px;">（上の入力欄にCSVデータをコピペしてください）</div>', unsafe_allow_html=True)
@@ -470,10 +471,46 @@ else:
         control_csv = st.text_area(
             "対照群のCSVデータを入力（カンマ・タブ・スペース区切りのCSV形式）",
             height=200,
-            help="CSVデータを直接入力してください。最低限、ymd（日付）とqty（数量）の列が必要です。",
+            help="CSVデータを直接入力またはコピペしてください。最低限、ymd（日付）とqty（数量）の列が必要です。",
             placeholder="ymd,qty\n20170403,35\n20170425,30\n20170426,28\n20170523,29\n20170524,31"
         )
         st.markdown('<div style="color:#555555;font-size:0.9em;margin-top:-5px;margin-bottom:15px;padding-left:5px;">（上の入力欄にCSVデータをコピペしてください）</div>', unsafe_allow_html=True)
+    
+    # サンプルデータ表示ボタン
+    with st.expander("サンプルデータを表示", expanded=False):
+        st.markdown("""
+        <div style="margin-bottom:10px;font-weight:bold;">以下のサンプルデータをコピーして利用できます：</div>
+        
+        <div style="margin-top:15px;font-weight:bold;">処置群のサンプル：</div>
+        <pre style="background-color:#f5f5f5;padding:10px;border-radius:5px;margin-top:5px;">
+ymd,qty
+20170403,29
+20170425,24
+20170426,23
+20170523,24
+20170524,26
+20170529,21
+20170530,20
+20170531,22
+20170601,25
+20170602,28
+        </pre>
+        
+        <div style="margin-top:15px;font-weight:bold;">対照群のサンプル：</div>
+        <pre style="background-color:#f5f5f5;padding:10px;border-radius:5px;margin-top:5px;">
+ymd,qty
+20170403,35
+20170425,30
+20170426,28
+20170523,29
+20170524,31
+20170529,27
+20170530,25
+20170531,28
+20170601,30
+20170602,33
+        </pre>
+        """, unsafe_allow_html=True)
     
     # --- データ読み込みボタン ---
     st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
@@ -482,6 +519,10 @@ else:
 # --- アップロードされたファイルからデータを読み込む関数 ---
 def load_and_clean_uploaded_csv(uploaded_file):
     try:
+        # ファイル名をログに出力（デバッグ用）
+        file_name = uploaded_file.name
+        print(f"処理中のファイル: {file_name}")
+        
         # バイト列を読み込み
         file_bytes = uploaded_file.getvalue()
         
@@ -489,6 +530,7 @@ def load_and_clean_uploaded_csv(uploaded_file):
         encodings = ['utf-8', 'shift-jis', 'cp932', 'euc-jp', 'iso-2022-jp', 'latin1']
         df = None
         
+        # 方法1: 直接StringIOを使用
         for encoding in encodings:
             try:
                 # エンコーディングを設定して読み込み試行
@@ -497,29 +539,34 @@ def load_and_clean_uploaded_csv(uploaded_file):
                 test_df = pd.read_csv(io.StringIO(content.split('\n', 5)[0]), nrows=1)
                 # 成功したらすべてを読み込む
                 df = pd.read_csv(io.StringIO(content))
+                print(f"正常に読み込み: エンコーディング {encoding}")
                 break
             except UnicodeDecodeError:
                 continue
             except Exception as e:
+                print(f"エラー（{encoding}）: {str(e)}")
                 continue
         
         # どのエンコーディングでも読み込めなかった場合
         if df is None:
             try:
-                # 方法2: tempfileを使用
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp_file:
-                    tmp_file.write(file_bytes)
-                    tmp_path = tmp_file.name
-                
-                # 一時ファイルから読み込む
-                df = pd.read_csv(tmp_path)
-                # 読み込み後に一時ファイルを削除
-                os.unlink(tmp_path)
-            except Exception as e:
-                # 方法3: BytesIOを直接使用
+                # 方法2: BytesIOを直接使用
+                df = pd.read_csv(io.BytesIO(file_bytes))
+                print("BytesIOを使用して正常に読み込み")
+            except Exception as e2:
                 try:
-                    df = pd.read_csv(io.BytesIO(file_bytes))
-                except Exception as e2:
+                    # 方法3: tempfileを使用（ファイル名に依存しない処理）
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp_file:
+                        tmp_file.write(file_bytes)
+                        tmp_path = tmp_file.name
+                    
+                    # 一時ファイルから読み込む
+                    df = pd.read_csv(tmp_path)
+                    # 読み込み後に一時ファイルを削除
+                    os.unlink(tmp_path)
+                    print("一時ファイルを使用して正常に読み込み")
+                except Exception as e3:
+                    print(f"全ての読み込み方法が失敗: {str(e2)}, {str(e3)}")
                     st.error(f"ファイルの読み込みに失敗しました。")
                     return None
         
@@ -533,6 +580,7 @@ def load_and_clean_uploaded_csv(uploaded_file):
             if len(df.columns) >= 2:
                 rename_dict = {df.columns[0]: 'ymd', df.columns[1]: 'qty'}
                 df = df.rename(columns=rename_dict)
+                st.info(f"カラム名を自動設定しました: {df.columns[0]} → ymd, {df.columns[1]} → qty")
             else:
                 st.error(f"必須カラム 'ymd' と 'qty' が見つかりません。")
                 return None
@@ -544,24 +592,32 @@ def load_and_clean_uploaded_csv(uploaded_file):
         # 無効な日付をチェック
         invalid_dates = df[df['ymd'].isna()]
         if not invalid_dates.empty:
+            st.warning(f"{len(invalid_dates)}行の日付が無効なため除外されました。")
             df = df.dropna(subset=['ymd'])
         
         # 欠損値を除外
         original_len = len(df)
         df = df.dropna(subset=['ymd'])
+        if len(df) < original_len:
+            st.warning(f"{original_len - len(df)}行の欠損値が除外されました。")
             
         # qty列の数値変換確認
         try:
             df['qty'] = pd.to_numeric(df['qty'], errors='coerce')
             if df['qty'].isna().any():
+                st.warning(f"{df['qty'].isna().sum()}行の数量(qty)が数値に変換できないため除外されました。")
                 df = df.dropna(subset=['qty'])
         except Exception as e:
             st.error(f"数量(qty)の処理中にエラーが発生しました。")
             return None
+        
+        if len(df) == 0:
+            st.error("処理後のデータが0行になりました。データを確認してください。")
+            return None
             
         return df
     except Exception as e:
-        st.error(f"ファイルの処理中にエラーが発生しました。")
+        st.error(f"ファイルの処理中にエラーが発生しました: {str(e)}")
         return None
 
 # --- テキスト入力からCSVデータを読み込む関数 ---
@@ -683,9 +739,12 @@ def check_date_validity(date_value, min_date, max_date, date_type):
     return None
 
 # --- ファイルアップロード後のデータ読み込み ---
-if upload_method == "ファイルアップロード（※準備中）" and read_btn and treatment_file and control_file:
+if upload_method == "ファイルアップロード（※日本語ファイル名は非対応）" and read_btn and treatment_file and control_file:
     with st.spinner("データ読み込み中..."):
         try:
+            # Streamlit Cloud環境かどうかを確認（環境変数などで判定可能）
+            is_cloud_env = os.environ.get('STREAMLIT_SHARING_MODE') == 'streamlit_sharing'
+            
             # セーフティチェック - ファイルサイズの確認
             if treatment_file.size > 5 * 1024 * 1024 or control_file.size > 5 * 1024 * 1024:
                 st.error("ファイルサイズが大きすぎます。5MB以下のファイルを使用してください。")
@@ -695,16 +754,26 @@ if upload_method == "ファイルアップロード（※準備中）" and read_
                 # ファイルのシーク位置をリセット（複数回読み込む可能性があるため）
                 treatment_file.seek(0)
                 
-                # 処置群ファイルの読み込み試行
-                df_treat = load_and_clean_uploaded_csv(treatment_file)
+                # 日本語ファイル名チェック
+                if any(ord(c) > 127 for c in treatment_file.name) and is_cloud_env:
+                    st.error(f"Streamlit Cloud環境では日本語を含むファイル名（{treatment_file.name}）はサポートされていません。英数字のファイル名に変更してください。")
+                    df_treat = None
+                else:
+                    # 処置群ファイルの読み込み試行
+                    df_treat = load_and_clean_uploaded_csv(treatment_file)
                 
                 # 処置群ファイルが読み込めた場合のみ対照群ファイルを読み込む
                 if df_treat is not None:
                     # ファイルのシーク位置をリセット
                     control_file.seek(0)
                     
-                    # 対照群ファイルの読み込み試行
-                    df_ctrl = load_and_clean_uploaded_csv(control_file)
+                    # 日本語ファイル名チェック
+                    if any(ord(c) > 127 for c in control_file.name) and is_cloud_env:
+                        st.error(f"Streamlit Cloud環境では日本語を含むファイル名（{control_file.name}）はサポートされていません。英数字のファイル名に変更してください。")
+                        df_ctrl = None
+                    else:
+                        # 対照群ファイルの読み込み試行
+                        df_ctrl = load_and_clean_uploaded_csv(control_file)
                 else:
                     df_ctrl = None
                     st.error("処置群ファイルの読み込みに失敗したため、対照群ファイルの読み込みをスキップします。")
@@ -730,13 +799,13 @@ if upload_method == "ファイルアップロード（※準備中）" and read_
                 st.session_state['data_loaded'] = False
                 
                 # 代替入力方法の提案
-                st.info("CSVテキスト直接入力をご利用ください。")
+                st.info("CSVテキスト直接入力をご利用ください。以下は入力例です：\n\nymd,qty\n20170403,29\n20170425,24\n...")
         except Exception as e:
             st.error(f"データ読み込み中に予期しないエラーが発生しました: {str(e)}")
             st.session_state['data_loaded'] = False
             
             # 代替入力方法の提案
-            st.info("CSVテキスト直接入力をご利用ください。")
+            st.info("CSVテキスト直接入力をご利用ください。以下は入力例です：\n\nymd,qty\n20170403,29\n20170425,24\n...")
 
 # --- テキスト入力からのデータ読み込み ---
 elif upload_method == "CSVテキスト直接入力" and read_btn:
