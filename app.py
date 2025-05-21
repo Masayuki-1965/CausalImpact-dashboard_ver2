@@ -328,15 +328,16 @@ with st.sidebar:
     with st.expander("Causal Impactとは？", expanded=False):
         st.markdown("""
 <div class="sidebar-faq-body">
-<b>Causal Impactは、介入（施策）の効果を測定する統計手法です。</b><br><br>
-施策の影響を受けた<b>"処置群"</b>と影響を受けていない<b>"対照群"</b>の関係性をもとに、状態空間モデルを用いて介入がなかった場合の処置群の予測値を算出し、処置群の実測値と比較します。
+<b>Causal Impact</b>は、Googleが開発した統計的手法で、キャンペーンなどの施策（＝介入）がもたらした効果を測定するために用いられます。<br><br>
+施策の影響を受けた<b>"処置群"</b>と、影響を受けていない<b>"対照群"</b>の関係性をもとに、状態空間モデルを用いて「介入がなかった場合の処置群の予測値」を算出し、これを実際の観測値と比較することで、施策による因果的な影響を明らかにします。
+
 </div>
 """, unsafe_allow_html=True)
     with st.expander("状態空間モデルとは？", expanded=False):
         st.markdown("""
 <div class="sidebar-faq-body">
-<b>状態空間モデル</b>は、時系列データの変化する傾向や構造を捉えるための統計モデルです。
-観測データの背後にある"見えない状態"を推定しながら、将来の値を予測します。
+<b>状態空間モデル</b>は、時系列データの変化の傾向や構造を捉える統計手法で、観測データの背後にある“見えない状態”を推定しながら将来の動きを予測します。
+Causal Impactでは、このモデルを用いて「施策がなかった場合の自然な推移」を予測し、実際の結果と比較することで効果を評価します。
 </div>
 """, unsafe_allow_html=True)
 
@@ -683,7 +684,7 @@ def check_date_validity(date_value, min_date, max_date, date_type):
     return None
 
 # --- ファイルアップロード後のデータ読み込み ---
-if upload_method == "ファイルアップロード（工事中）" and read_btn and treatment_file and control_file:
+if upload_method == "ファイルアップロード（※準備中）" and read_btn and treatment_file and control_file:
     with st.spinner("データ読み込み中..."):
         try:
             # セーフティチェック - ファイルサイズの確認
