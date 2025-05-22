@@ -1797,8 +1797,7 @@ if st.session_state.get('data_loaded', False):
                                 from utils_step3 import get_summary_csv_download_link, get_figure_pdf_download_link
                                 
                                 # ダウンロードボタンの表示
-                                col1, col2 = st.columns(2)
-                                
+                                col1, col2, col3 = st.columns([2,2,2])
                                 with col1:
                                     csv_href, csv_filename = get_summary_csv_download_link(
                                         df_summary, 
@@ -1814,7 +1813,6 @@ if st.session_state.get('data_loaded', False):
                                         f'分析結果サマリー（CSV）</a>',
                                         unsafe_allow_html=True
                                     )
-                                
                                 with col2:
                                     pdf_href, pdf_filename = get_figure_pdf_download_link(
                                         fig, 
@@ -1827,6 +1825,20 @@ if st.session_state.get('data_loaded', False):
                                         f'class="red-action-button" '
                                         f'style="color:#fff;text-decoration:none;text-align:center;display:inline-block;width:100%;">'
                                         f'分析結果グラフ（PDF）</a>',
+                                        unsafe_allow_html=True
+                                    )
+                                with col3:
+                                    from utils_step3 import get_detail_csv_download_link
+                                    detail_href, detail_filename = get_detail_csv_download_link(
+                                        ci,
+                                        period,
+                                        treatment_name
+                                    )
+                                    st.markdown(
+                                        f'<a href="{detail_href}" download="{detail_filename}" '
+                                        f'class="red-action-button" '
+                                        f'style="color:#fff;text-decoration:none;text-align:center;display:inline-block;width:100%;">'
+                                        f'予測値・実測値の詳細データ（CSV）</a>',
                                         unsafe_allow_html=True
                                     )
                                 

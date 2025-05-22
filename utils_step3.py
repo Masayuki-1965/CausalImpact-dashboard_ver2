@@ -213,4 +213,88 @@ def get_figure_pdf_download_link(fig, treatment_name, period_start, period_end):
     # ダウンロードリンクの生成
     href = f'data:application/pdf;base64,{pdf_base64}'
     
+    return href, filename
+
+def get_detail_csv_download_link(ci, period, treatment_name):
+    """
+    CausalImpactの詳細データ（予測値・実測値・効果・累積値など）をCSVとしてダウンロードするためのリンクを生成する関数
+    
+    Parameters:
+    -----------
+    ci : CausalImpactオブジェクト
+    period : dict
+        'pre_start', 'pre_end', 'post_start', 'post_end' を含む分析期間情報
+    treatment_name : str
+        分析対象の名称
+    
+    Returns:
+    --------
+    href, filename : str, str
+        ダウンロードリンクのHTML, ファイル名
+    """
+    import numpy as np
+    df = ci.inferences.copy()
+    df = df.reset_index()
+    # 日付列名を統一
+    if 'index' in df.columns:
+        df = df.rename(columns={'index': '日付'})
+    elif 'date' in df.columns:
+        df = df.rename(columns={'date': '日付'})
+    else:
+        df = df.rename(columns={df.columns[0]: '日付'})
+
+    # カラム名推測候補を拡充
+    col_map = {
+        'response': ['response', 'actual', 'observed', 'y'],
+        'predicted': ['predicted', 'predicted_mean', 'prediction', 'pred_mean', 'preds', 'pred'],
+        'point_effect': ['point_effect', 'effect', 'point_effects', 'effects'],
+        'cumulative_actual': ['cumulative_actual', 'cum_actual', 'actual_cum', 'cumsum_actual'],
+        'cumulative_predicted': ['cumulative_predicted', 'cum_predicted', 'predicted_cum', 'cumsum_predicted'],
+        'cumulative_effect': ['cumulative_effect', 'cum_effect', 'effect_cum', 'cumsum_effect'],
+    }
+    output_names = {
+        'response': '実測値',
+        'predicted': '予測値',
+        'point_effect': '効果',
+        'cumulative_actual': '累積実測値',
+        'cumulative_predicted': '累積予測値',
+        'cumulative_effect': '累積効果',
+    }
+    for key, candidates in col_map.items():
+        found = False
+        for cand in candidates:
+            if cand in df.columns:
+                df[output_names[key]] = df[cand]
+                found = True
+                break
+        if not found:
+            df[output_names[key]] = np.nan
+
+    # 期間情報
+    pre_start = pd.to_datetime(period['pre_start'])
+    pre_end = pd.to_datetime(period['pre_end'])
+    post_start = pd.to_datetime(period['post_start'])
+    post_end = pd.to_datetime(period['post_end'])
+
+    # 累積値は介入期間のみ、それ以外は空欄
+    mask_post = (df['日付'] >= post_start) & (df['日付'] <= post_end)
+    for col in ['累積実測値', '累積予測値', '累積効果']:
+        df.loc[~mask_post, col] = np.nan
+
+    # 列順を指定
+    output_cols = ['日付', '実測値', '予測値', '効果', '累積実測値', '累積予測値', '累積効果']
+    for col in output_cols:
+        if col not in df.columns:
+            df[col] = np.nan
+    output_df = df[output_cols].copy()
+    # 日付を文字列に
+    output_df['日付'] = pd.to_datetime(output_df['日付']).dt.strftime('%Y/%m/%d')
+
+    # CSV出力
+    csv_buffer = io.StringIO()
+    output_df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+    csv_string = csv_buffer.getvalue()
+    csv_base64 = base64.b64encode(csv_string.encode('utf-8-sig')).decode()
+    filename = f"causal_impact_detail_{treatment_name}_{post_start.strftime('%Y%m%d')}_{post_end.strftime('%Y%m%d')}.csv"
+    href = f'data:text/csv;charset=utf-8-sig;base64,{csv_base64}'
     return href, filename 
