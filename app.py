@@ -1832,7 +1832,7 @@ if st.session_state.get('data_loaded', False):
                                 
                                 # 終了メッセージの追加
                                 st.markdown('<div style="margin-top:25px;"></div>', unsafe_allow_html=True)
-                                st.success("これでCausal Impactの分析は終了です。\n新たなデータで再度分析を行う場合は、サイドバーの「最初からやり直す」ボタン、または画面左上の更新（Ctrl + R）をクリックし、STEP1のデータの取り込み取込／可視化」から再実行してください。")
+                                st.success("これでCausal Impactの分析は終了です。\n新たなデータで再度分析を行う場合は、画面左上の更新ボタン（⟳）をクリックするか、Ctrl + Rを押して、STEP１のデータの取り込みから再実行してください。")
                                 
                                 st.session_state['analysis_completed'] = True
                                 
