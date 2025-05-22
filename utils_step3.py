@@ -248,17 +248,11 @@ def get_detail_csv_download_link(ci, period, treatment_name):
         'response': ['response', 'actual', 'observed', 'y'],
         'predicted': ['predicted', 'predicted_mean', 'prediction', 'pred_mean', 'preds', 'pred'],
         'point_effect': ['point_effect', 'effect', 'point_effects', 'effects'],
-        'cumulative_actual': ['cumulative_actual', 'cum_actual', 'actual_cum', 'cumsum_actual'],
-        'cumulative_predicted': ['cumulative_predicted', 'cum_predicted', 'predicted_cum', 'cumsum_predicted'],
-        'cumulative_effect': ['cumulative_effect', 'cum_effect', 'effect_cum', 'cumsum_effect'],
     }
     output_names = {
         'response': '実測値',
         'predicted': '予測値',
         'point_effect': '効果',
-        'cumulative_actual': '累積実測値',
-        'cumulative_predicted': '累積予測値',
-        'cumulative_effect': '累積効果',
     }
     for key, candidates in col_map.items():
         found = False
@@ -270,16 +264,26 @@ def get_detail_csv_download_link(ci, period, treatment_name):
         if not found:
             df[output_names[key]] = np.nan
 
+    # 実測値が空欄の場合は「予測値＋効果」で逆算
+    mask_missing_actual = df['実測値'].isna() & df['予測値'].notna() & df['効果'].notna()
+    df.loc[mask_missing_actual, '実測値'] = df.loc[mask_missing_actual, '予測値'] + df.loc[mask_missing_actual, '効果']
+
     # 期間情報
-    pre_start = pd.to_datetime(period['pre_start'])
-    pre_end = pd.to_datetime(period['pre_end'])
     post_start = pd.to_datetime(period['post_start'])
     post_end = pd.to_datetime(period['post_end'])
 
-    # 累積値は介入期間のみ、それ以外は空欄
+    # 介入期間のマスク
     mask_post = (df['日付'] >= post_start) & (df['日付'] <= post_end)
-    for col in ['累積実測値', '累積予測値', '累積効果']:
-        df.loc[~mask_post, col] = np.nan
+
+    # 累積値（介入期間のみ計算、それ以外は空欄）
+    df['累積実測値'] = np.nan
+    df['累積予測値'] = np.nan
+    df['累積効果'] = np.nan
+    if mask_post.any():
+        post_idx = df.index[mask_post]
+        df.loc[post_idx, '累積実測値'] = df.loc[post_idx, '実測値'].cumsum()
+        df.loc[post_idx, '累積予測値'] = df.loc[post_idx, '予測値'].cumsum()
+        df.loc[post_idx, '累積効果'] = df.loc[post_idx, '効果'].cumsum()
 
     # 列順を指定
     output_cols = ['日付', '実測値', '予測値', '効果', '累積実測値', '累積予測値', '累積効果']
@@ -293,6 +297,8 @@ def get_detail_csv_download_link(ci, period, treatment_name):
     # CSV出力
     csv_buffer = io.StringIO()
     output_df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+    # 注釈を末尾に追加
+    csv_buffer.write('\n※E～G列（累積実測値・累積予測値・累積効果）は、介入期間のみ出力しています（介入期間外は空欄）。\n')
     csv_string = csv_buffer.getvalue()
     csv_base64 = base64.b64encode(csv_string.encode('utf-8-sig')).decode()
     filename = f"causal_impact_detail_{treatment_name}_{post_start.strftime('%Y%m%d')}_{post_end.strftime('%Y%m%d')}.csv"
