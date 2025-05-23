@@ -243,62 +243,116 @@ def get_detail_csv_download_link(ci, period, treatment_name):
     else:
         df = df.rename(columns={df.columns[0]: '日付'})
 
-    # カラム名推測候補を拡充
+    # 変数名マッピング
     col_map = {
-        'response': ['response', 'actual', 'observed', 'y'],
-        'predicted': ['predicted', 'predicted_mean', 'prediction', 'pred_mean', 'preds', 'pred'],
-        'point_effect': ['point_effect', 'effect', 'point_effects', 'effects'],
+        'preds': ['preds', 'predicted', 'predicted_mean', 'prediction', 'pred_mean', 'preds', 'pred'],
+        'preds_lower': ['preds_lower', 'predicted_lower', 'prediction_lower', 'pred_lower', 'lower'],
+        'preds_upper': ['preds_upper', 'predicted_upper', 'prediction_upper', 'pred_upper', 'upper'],
+        'point_effects': ['point_effects', 'point_effect', 'effect', 'effects'],
+        'point_effects_lower': ['point_effects_lower', 'effect_lower', 'point_effect_lower', 'effects_lower'],
+        'point_effects_upper': ['point_effects_upper', 'effect_upper', 'point_effect_upper', 'effects_upper'],
+        'post_cum_y': ['post_cum_y', 'cumulative_actual', 'cum_actual', 'actual_cum', 'cumsum_actual'],
+        'post_cum_pred': ['post_cum_pred', 'cumulative_predicted', 'cum_predicted', 'predicted_cum', 'cumsum_predicted'],
+        'post_cum_pred_lower': ['post_cum_pred_lower', 'cumulative_predicted_lower', 'cum_predicted_lower', 'predicted_cum_lower', 'cumsum_predicted_lower'],
+        'post_cum_pred_upper': ['post_cum_pred_upper', 'cumulative_predicted_upper', 'cum_predicted_upper', 'predicted_cum_upper', 'cumsum_predicted_upper'],
+        'post_cum_effects': ['post_cum_effects', 'cumulative_effect', 'cum_effect', 'effect_cum', 'cumsum_effect'],
+        'post_cum_effects_lower': ['post_cum_effects_lower', 'cumulative_effect_lower', 'cum_effect_lower', 'effect_cum_lower', 'cumsum_effect_lower'],
+        'post_cum_effects_upper': ['post_cum_effects_upper', 'cumulative_effect_upper', 'cum_effect_upper', 'effect_cum_upper', 'cumsum_effect_upper'],
     }
-    output_names = {
-        'response': '実測値',
-        'predicted': '予測値',
-        'point_effect': '効果',
+    # 15列の日本語名・英字名
+    jp_names = [
+        '日付',
+        '実測値',
+        '予測値',
+        '予測値下限',
+        '予測値上限',
+        '効果',
+        '効果下限',
+        '効果上限',
+        '累積実測値',
+        '累積予測値',
+        '累積予測値下限',
+        '累積予測値上限',
+        '累積効果',
+        '累積効果下限',
+        '累積効果上限',
+    ]
+    en_names = [
+        'date',
+        'y',
+        'preds',
+        'preds_lower',
+        'preds_upper',
+        'point_effects',
+        'point_effects_lower',
+        'point_effects_upper',
+        'post_cum_y',
+        'post_cum_pred',
+        'post_cum_pred_lower',
+        'post_cum_pred_upper',
+        'post_cum_effects',
+        'post_cum_effects_lower',
+        'post_cum_effects_upper',
+    ]
+    # 変数名→出力名の対応
+    var2en = dict(zip(jp_names, en_names))
+    var2out = {
+        'preds': '予測値',
+        'preds_lower': '予測値下限',
+        'preds_upper': '予測値上限',
+        'point_effects': '効果',
+        'point_effects_lower': '効果下限',
+        'point_effects_upper': '効果上限',
+        'post_cum_y': '累積実測値',
+        'post_cum_pred': '累積予測値',
+        'post_cum_pred_lower': '累積予測値下限',
+        'post_cum_pred_upper': '累積予測値上限',
+        'post_cum_effects': '累積効果',
+        'post_cum_effects_lower': '累積効果下限',
+        'post_cum_effects_upper': '累積効果上限',
     }
-    for key, candidates in col_map.items():
+    # 各列をDataFrameに追加
+    for var, candidates in col_map.items():
         found = False
         for cand in candidates:
             if cand in df.columns:
-                df[output_names[key]] = df[cand]
+                df[var2out[var]] = df[cand]
                 found = True
                 break
         if not found:
-            df[output_names[key]] = np.nan
+            df[var2out[var]] = np.nan
 
-    # 実測値が空欄の場合は「予測値＋効果」で逆算
-    mask_missing_actual = df['実測値'].isna() & df['予測値'].notna() & df['効果'].notna()
-    df.loc[mask_missing_actual, '実測値'] = df.loc[mask_missing_actual, '予測値'] + df.loc[mask_missing_actual, '効果']
+    # 実測値（y）: 予測値＋効果
+    df['実測値'] = df['予測値'] + df['効果']
 
     # 期間情報
     post_start = pd.to_datetime(period['post_start'])
     post_end = pd.to_datetime(period['post_end'])
-
-    # 介入期間のマスク
     mask_post = (df['日付'] >= post_start) & (df['日付'] <= post_end)
 
-    # 累積値（介入期間のみ計算、それ以外は空欄）
-    df['累積実測値'] = np.nan
-    df['累積予測値'] = np.nan
-    df['累積効果'] = np.nan
-    if mask_post.any():
-        post_idx = df.index[mask_post]
-        df.loc[post_idx, '累積実測値'] = df.loc[post_idx, '実測値'].cumsum()
-        df.loc[post_idx, '累積予測値'] = df.loc[post_idx, '予測値'].cumsum()
-        df.loc[post_idx, '累積効果'] = df.loc[post_idx, '効果'].cumsum()
+    # 累積値（I～O列）は介入期間のみ出力、それ以外は空欄
+    for col in jp_names[8:]:
+        if col in df.columns:
+            df.loc[~mask_post, col] = np.nan
 
     # 列順を指定
-    output_cols = ['日付', '実測値', '予測値', '効果', '累積実測値', '累積予測値', '累積効果']
-    for col in output_cols:
+    for col in jp_names:
         if col not in df.columns:
             df[col] = np.nan
-    output_df = df[output_cols].copy()
+    output_df = df[jp_names].copy()
     # 日付を文字列に
     output_df['日付'] = pd.to_datetime(output_df['日付']).dt.strftime('%Y/%m/%d')
 
-    # CSV出力
+    # 1行目: 日本語名, 2行目: 英字名, 3行目以降: データ
+    import io, base64
     csv_buffer = io.StringIO()
-    output_df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+    # ヘッダー2行
+    csv_buffer.write(','.join(jp_names) + '\n')
+    csv_buffer.write(','.join(en_names) + '\n')
+    # データ
+    output_df.to_csv(csv_buffer, index=False, header=False, encoding='utf-8-sig')
     # 注釈を末尾に追加
-    csv_buffer.write('\n※E～G列（累積実測値・累積予測値・累積効果）は、介入期間のみ出力しています（介入期間外は空欄）。\n')
+    csv_buffer.write('\n※I～O列の累積値は、介入期間のみ出力しています（介入期間外は空欄）。\n')
     csv_string = csv_buffer.getvalue()
     csv_base64 = base64.b64encode(csv_string.encode('utf-8-sig')).decode()
     filename = f"causal_impact_detail_{treatment_name}_{post_start.strftime('%Y%m%d')}_{post_end.strftime('%Y%m%d')}.csv"
