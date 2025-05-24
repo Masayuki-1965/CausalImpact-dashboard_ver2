@@ -520,13 +520,13 @@ if st.session_state.get('data_loaded', False):
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_name}）</div>', unsafe_allow_html=True)
-        preview_df_treat = df_treat.head(10).copy()
+        preview_df_treat = df_treat[['ymd', 'qty']].head(10).copy()
         preview_df_treat['ymd'] = preview_df_treat['ymd'].dt.strftime('%Y-%m-%d')
         preview_df_treat.index = range(1, len(preview_df_treat) + 1)
         st.dataframe(preview_df_treat, use_container_width=True)
     with col2:
         st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群（{control_name}）</div>', unsafe_allow_html=True)
-        preview_df_ctrl = df_ctrl.head(10).copy()
+        preview_df_ctrl = df_ctrl[['ymd', 'qty']].head(10).copy()
         preview_df_ctrl['ymd'] = preview_df_ctrl['ymd'].dt.strftime('%Y-%m-%d')
         preview_df_ctrl.index = range(1, len(preview_df_ctrl) + 1)
         st.dataframe(preview_df_ctrl, use_container_width=True)
