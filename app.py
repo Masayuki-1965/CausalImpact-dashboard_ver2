@@ -79,18 +79,7 @@ st.markdown(STEP1_CARD_HTML, unsafe_allow_html=True)
 with st.expander("データ形式ガイド", expanded=False):
     st.markdown(DATA_FORMAT_GUIDE_HTML, unsafe_allow_html=True)
 
-# --- ファイル選択UIの代わりにファイルアップロード機能 ---
-st.markdown('<div class="section-title">分析対象ファイルのアップロード</div>', unsafe_allow_html=True)
-
-# アップロード方法切り替えのラジオボタン
-st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">アップロード方法の選択</div>', unsafe_allow_html=True)
-upload_method = st.radio(
-    "アップロード方法選択",
-    options=["ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）", "CSVテキスト直接入力"],
-    index=0,
-    label_visibility="collapsed",
-    help="CSVデータを直接入力する方法と、ファイルをアップロードする方法があります。"
-)
+# --- ファイル選択UIの代わりにファイルアップロード機能 ---st.markdown('<div class="section-title">分析対象ファイルのアップロード</div>', unsafe_allow_html=True)# 分析タイプの選択st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">分析タイプの選択</div>', unsafe_allow_html=True)analysis_type = st.radio(    "分析タイプ選択",    options=["標準分析（処置群 + 対照群）", "処置群のみ分析（対照群なし）"],    index=0,    label_visibility="collapsed",    help="標準分析は処置群と対照群の両方を比較します。処置群のみ分析は介入前後のトレンド変化を分析します。")# アップロード方法切り替えのラジオボタンst.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;margin-top:1em;">アップロード方法の選択</div>', unsafe_allow_html=True)upload_method = st.radio(    "アップロード方法選択",    options=["ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）", "CSVテキスト直接入力"],    index=0,    label_visibility="collapsed",    help="CSVデータを直接入力する方法と、ファイルをアップロードする方法があります。")
 
 if upload_method == "ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）":
     # 注意喚起メッセージを削除（ラジオボタンのラベルに統合）
