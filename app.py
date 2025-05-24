@@ -19,385 +19,65 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.units import inch, mm
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
-# 必要な外部モジュールのみimport
+
+# 外部モジュールimport
 from causal_impact_translator import translate_causal_impact_report
 from utils_step1 import get_csv_files, load_and_clean_csv, make_period_key, aggregate_df, create_full_period_range, format_stats_with_japanese
 from utils_step2 import get_period_defaults, validate_periods, calc_period_days, build_analysis_params
-from utils_step3 import run_causal_impact_analysis, build_summary_dataframe
+from utils_step3 import run_causal_impact_analysis, build_summary_dataframe, get_summary_csv_download_link, get_figure_pdf_download_link, get_detail_csv_download_link
 
-# --- 初期化コード（最初に実行）---
-if 'session_initialized' not in st.session_state:
-    st.session_state['session_initialized'] = True
-    st.session_state['data_loaded'] = False
-    st.session_state['dataset_created'] = False
-    st.session_state['params_saved'] = False
-    st.session_state['analysis_completed'] = False
-    # 分析期間のデフォルト値を格納する辞書を初期化
-    st.session_state['period_defaults'] = {
-        'pre_start': None,
-        'pre_end': None,
-        'post_start': None,
-        'post_end': None
-    }
+# リファクタリング後の外部モジュール
+from config.constants import PAGE_CONFIG, CUSTOM_CSS_PATH
+from config.help_texts import (
+    DATA_FORMAT_GUIDE_HTML, FAQ_CAUSAL_IMPACT, FAQ_STATE_SPACE_MODEL,
+    HEADER_CARD_HTML, STEP1_CARD_HTML, STEP2_CARD_HTML, STEP3_CARD_HTML,
+    RESET_GUIDE_HTML, SIDEBAR_FLOW_DESCRIPTION
+)
+from utils_common import load_css, initialize_session_state, reset_session_state, get_step_status
 
-# --- PDFレポート用に日本語フォントの登録 ---
-# noto_sans_jp_path = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansJP-Regular.ttf")
-# if os.path.exists(noto_sans_jp_path):
-#     pdfmetrics.registerFont(TTFont('NotoSansJP', noto_sans_jp_path))
-# else:
-#     st.warning("日本語フォントが見つかりません。PDFレポートの日本語表示が正しく行われない可能性があります。")
+# --- 初期化 ---
+initialize_session_state()
 
 # --- 画面幅を最大化 ---
-st.set_page_config(layout="wide")
+st.set_page_config(**PAGE_CONFIG)
 
-# --- カスタムCSS（全体の余白・フォント・配色・テイスト調整） ---
-st.markdown("""
-<style>
-body, .main, .block-container {
-    background-color: #f7fafd !important;
-    font-family: 'Noto Sans JP', 'Meiryo', sans-serif;
-}
-.big-title {
-    font-size: 3.5em;
-    font-weight: 900;
-    color: white;
-    margin-bottom: 0.1em;
-    letter-spacing: 0.04em;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    line-height: 1.1;
-    text-align: center;
-}
-.sub-title {
-    font-size: 1.25em;
-    color: white;
-    margin-bottom: 1em;
-    font-weight: 500;
-    text-align: center;
-}
-.card {
-    background: #fff;
-    border-radius: 12px;
-    padding: 1.3em 1.8em;
-    margin-bottom: 1.4em;
-    border: 1.5px solid #e3e8ee;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-}
-.blue-header-card {
-    background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%);
-    border-radius: 12px;
-    padding: 1.7em 2em;
-    margin-bottom: 2em;
-    border: none;
-    box-shadow: 0 4px 20px rgba(25, 118, 210, 0.15);
-    color: white;
-    height: 170px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-.step-card {
-    background: #e3f2fd;
-    border-radius: 12px;
-    padding: 1.2em 1.5em;
-    margin-bottom: 1.5em;
-    border: 1px solid rgba(25, 118, 210, 0.2);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
-}
-.section-title {
-    font-size: 1.3em;
-    font-weight: bold;
-    color: #1976d2;
-    margin-bottom: 0.8em;
-    margin-top: 1em;
-    border-left: 5px solid #1976d2;
-    padding-left: 12px;
-}
-.stButton>button {
-    background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%);
-    color: #fff;
-    font-weight: bold;
-    font-size: 1.2em;
-    border-radius: 8px;
-    padding: 0.6em 2em;
-    margin: 0.8em 0;
-    box-shadow: 0 6px 15px rgba(25, 118, 210, 0.4);
-    width: 100%;
-    transition: all 0.2s ease;
-}
-.stButton>button:hover {
-    background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
-}
-.stDataFrame, .stTable {
-    font-size: 1.05em;
-}
-hr {
-    border: none;
-    border-top: 2px solid #e3e8ee;
-    margin: 1.5em 0;
-}
-.sidebar-card {
-    background: #fff;
-    border-radius: 12px;
-    padding: 1.3em 1.5em;
-    margin-bottom: 1.4em;
-    border: 1.5px solid #e3e8ee;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-}
-.sidebar-title {
-    font-size: 1.3em;
-    font-weight: 600;
-    color: #1976d2;
-    margin-bottom: 0.7em;
-    letter-spacing: 0.02em;
-}
-.sidebar-step {
-    font-size: 1.1em;
-    font-weight: bold;
-    display: block;
-    margin-bottom: 0.7em;
-}
-.sidebar-step-active {
-    background: linear-gradient(135deg, #2196f3 0%, #1565c0 100%);
-    color: white;
-    border-radius: 8px;
-    padding: 0.6em 1.2em;
-    margin-bottom: 0.8em;
-    display: inline-block;
-    box-shadow: 0 3px 10px rgba(33, 150, 243, 0.25);
-    width: 100%;
-    font-size: 1.15em;
-    font-weight: 600;
-    letter-spacing: 0.015em;
-    transition: all 0.2s ease;
-}
-.sidebar-step-inactive {
-    background: #e8f4fd;
-    color: #1976d2;
-    border-radius: 8px;
-    padding: 0.6em 1.2em;
-    margin-bottom: 0.8em;
-    display: inline-block;
-    box-shadow: 0 1px 4px rgba(33, 150, 243, 0.1);
-    width: 100%;
-    font-size: 1.15em;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    transition: all 0.2s ease;
-}
-.sidebar-step-inactive:hover {
-    background: #e1f0fd;
-    box-shadow: 0 2px 6px rgba(33, 150, 243, 0.15);
-}
-.sidebar-faq-title {
-    font-size: 1.15em;
-    font-weight: bold;
-    color: #1976d2;
-    margin-bottom: 0.5em;
-}
-.sidebar-faq-body {
-    background: #f4f8fd;
-    border-radius: 8px;
-    padding: 1.2em 1.3em;
-    color: #333;
-    font-size: 0.98em;
-    line-height: 1.6;
-}
-.data-format-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1em 0;
-}
-.data-format-table th, .data-format-table td {
-    border: 1px solid #e0e0e0;
-    padding: 8px 12px;
-    text-align: left;
-}
-.data-format-table th {
-    background-color: #f5f5f5;
-    font-weight: bold;
-}
-.file-location {
-    background: #e3f2fd;
-    padding: 4px 10px;
-    border-radius: 6px;
-    color: #1565c0;
-    font-weight: 500;
-}
-.expander-header {
-    font-size: 1.15em;
-    font-weight: bold;
-    color: #1976d2;
-}
-div[data-testid="stExpander"] div[role="button"] p {
-    font-size: 1.15em !important;
-    font-weight: bold !important;
-    color: #1976d2 !important;
-}
-.separator-line {
-    border-top: 1px solid #e0e0e0;
-    margin: 1.5em 0;
-    width: 100%;
-}
-.red-action-button {
-    background: linear-gradient(135deg, #ff5252 0%, #e52d27 100%);
-    color: #fff;
-    font-weight: normal;
-    font-size: 1.0em;
-    border-radius: 8px;
-    padding: 0.5em 2em;
-    margin: 0.6em 0;
-    box-shadow: 0 6px 15px rgba(229, 45, 39, 0.4);
-    width: 100%;
-    display: inline-block;
-    text-align: center;
-    text-decoration: none;
-    border: none;
-    transition: all 0.2s ease;
-    cursor: pointer;
-}
-.red-action-button:hover {
-    background: linear-gradient(135deg, #e52d27 0%, #ff5252 100%);
-}
-</style>
-""", unsafe_allow_html=True)
+# --- カスタムCSS読み込み ---
+load_css(CUSTOM_CSS_PATH)
 
 # --- サイドバー ---
 with st.sidebar:
     st.markdown('<div class="sidebar-title">分析フロー</div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size:1em;color:#333;margin-bottom:1em;line-height:1.5;">Causal Impact分析は以下の<b>3つのステップ</b>で行います。各ステップのコンテンツはメイン画面に表示されます。</div>', unsafe_allow_html=True)
+    st.markdown(SIDEBAR_FLOW_DESCRIPTION, unsafe_allow_html=True)
     
-    # STEPのアクティブ状態を決定
-    step1_active = True  # STEP 1は常に表示
-    step2_active = False
-    step3_active = False
+    # STEPのアクティブ状態を取得
+    step_status = get_step_status()
     
-    # データ読み込み済みならSTEP 2をアクティブに
-    if st.session_state.get('data_loaded', False):
-        if 'dataset_created' in st.session_state and st.session_state['dataset_created']:
-            step2_active = True
-    
-    # 分析設定済みならSTEP 3をアクティブに
-    if 'params_saved' in st.session_state and st.session_state['params_saved']:
-        step3_active = True
-    
-    # 分析実行済みならSTEP 3をアクティブに
-    if 'analysis_completed' in st.session_state and st.session_state['analysis_completed']:
-        step3_active = True
-        
     st.markdown(f"""
     <div style="margin-top:0.5em;">
-        <div class="{'sidebar-step-active' if step1_active else 'sidebar-step-inactive'}">STEP 1：データ取り込み／可視化</div>
-        <div class="{'sidebar-step-active' if step2_active else 'sidebar-step-inactive'}">STEP 2：分析期間／パラメータ設定</div>
-        <div class="{'sidebar-step-active' if step3_active else 'sidebar-step-inactive'}">STEP 3：分析実行／結果確認</div>
+        <div class="{'sidebar-step-active' if step_status['step1'] else 'sidebar-step-inactive'}">STEP 1：データ取り込み／可視化</div>
+        <div class="{'sidebar-step-active' if step_status['step2'] else 'sidebar-step-inactive'}">STEP 2：分析期間／パラメータ設定</div>
+        <div class="{'sidebar-step-active' if step_status['step3'] else 'sidebar-step-inactive'}">STEP 3：分析実行／結果確認</div>
     </div>
     <div class="separator-line"></div>
     """, unsafe_allow_html=True)
     
-    # セッション状態をリセットする関数
-    def reset_session_state():
-        # 初期化が必要な状態変数をリセット
-        st.session_state['data_loaded'] = False
-        st.session_state['dataset_created'] = False
-        st.session_state['params_saved'] = False
-        st.session_state['analysis_completed'] = False
-        # 期間のデフォルト値もリセット
-        st.session_state['period_defaults'] = {
-            'pre_start': None,
-            'pre_end': None,
-            'post_start': None,
-            'post_end': None
-        }
-        # その他の状態変数も削除
-        keys_to_remove = [
-            'df_treat', 'df_ctrl', 'treatment_name', 'control_name',
-            'dataset', 'analysis_period', 'analysis_params'
-        ]
-        for key in keys_to_remove:
-            if key in st.session_state:
-                del st.session_state[key]
-    
     # 最初からやり直す案内文
     st.markdown('<div style="margin-top:15px;margin-bottom:10px;"></div>', unsafe_allow_html=True)
-    st.markdown("""
-    <div style="background-color:#ffebee;border-radius:8px;padding:12px 15px;border-left:4px solid #d32f2f;margin-bottom:15px;">
-        <div style="font-weight:bold;margin-bottom:8px;color:#d32f2f;font-size:1.05em;">最初からやり直す場合：</div>
-        <div style="line-height:1.5;">画面左上の<b>更新ボタン（⟳）</b>をクリックするか、<b>Ctrl + R</b>を押して、STEP１のデータの取り込みから再実行してください。</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(RESET_GUIDE_HTML, unsafe_allow_html=True)
 
     with st.expander("Causal Impactとは？", expanded=False):
-        st.markdown("""
-<div class="sidebar-faq-body">
-<b>Causal Impact</b>は、Googleが開発した統計的手法で、キャンペーンなどの施策（＝介入）がもたらした効果を測定するために用いられます。<br><br>
-施策の影響を受けた<b>"処置群"</b>と、影響を受けていない<b>"対照群"</b>の関係性をもとに、状態空間モデルを用いて「介入がなかった場合の処置群の予測値」を算出し、これを実際の観測値と比較することで、施策による因果的な影響を明らかにします。
-</div>
-""", unsafe_allow_html=True)
+        st.markdown(FAQ_CAUSAL_IMPACT, unsafe_allow_html=True)
     with st.expander("状態空間モデルとは？", expanded=False):
-        st.markdown("""
-<div class="sidebar-faq-body">
-<b>状態空間モデル</b>は、時系列データの変化の傾向や構造を捉える統計手法で、観測データの背後にある"見えない状態"を推定しながら将来の動きを予測します。<br><br>
-Causal Impactでは、このモデルを用いて「施策がなかった場合の自然な推移」を予測します。
-</div>
-""", unsafe_allow_html=True)
+        st.markdown(FAQ_STATE_SPACE_MODEL, unsafe_allow_html=True)
 
 # --- メインコンテンツ ---
-st.markdown("""
-<div class="blue-header-card">
-    <div class="big-title">Causal Impact 分析</div>
-    <div class="sub-title">施策効果を測定し、可視化するシンプルな分析ツール</div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(HEADER_CARD_HTML, unsafe_allow_html=True)
 
-st.markdown("""
-<div class="step-card">
-    <h2 style="font-size:1.8em;font-weight:bold;color:#1565c0;margin-bottom:0.5em;">STEP 1：データ取り込み／可視化</h2>
-    <div style="color:#1976d2;font-size:1.1em;line-height:1.5;">このステップでは、分析に必要な時系列データを読み込み、可視化します。処置群（効果を測定したい対象）と対照群（比較対象）のデータをCSVファイルから取り込み、分析用データセットを作成します。</div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(STEP1_CARD_HTML, unsafe_allow_html=True)
 
 # --- データ形式ガイド ---
 with st.expander("データ形式ガイド", expanded=False):
-    st.markdown("""
-<div class="section-title" style="margin-top:0;">CSVファイルの要件</div>
-<div style="font-size:1.05em;line-height:1.6;margin-bottom:1.2em;">
-CSVファイルには、<b>ymd（日付）</b> と <b>qty（数量）</b> の2つのカラムが必須です。
-</div>
-
-<div style="display:flex;gap:2.5em;margin-bottom:1.5em;">
-<div style="flex:1;">
-<div style="font-weight:bold;font-size:1.1em;margin-bottom:0.5em;color:#1976d2;">基本レイアウト</div>
-<table class="data-format-table">
-<tr><th>ymd</th><th>qty</th></tr>
-<tr><td>20170403</td><td>29</td></tr>
-<tr><td>20170425</td><td>24</td></tr>
-<tr><td>20170426</td><td>23</td></tr>
-<tr><td>20170523</td><td>24</td></tr>
-<tr><td>20170524</td><td>26</td></tr>
-<tr><td>20170529</td><td>21</td></tr>
-<tr><td>...</td><td>...</td></tr>
-</table>
-</div>
-<div style="flex:1;">
-<div style="font-weight:bold;font-size:1.1em;margin-bottom:0.5em;color:#1976d2;">追加カラムがある場合の例</div>
-<table class="data-format-table">
-<tr><th>product_category</th><th>ymd</th><th>qty</th></tr>
-<tr><td>ﾒｳ3</td><td>20170403</td><td>29</td></tr>
-<tr><td>ﾒｳ3</td><td>20170425</td><td>24</td></tr>
-<tr><td>ﾒｳ3</td><td>20170426</td><td>23</td></tr>
-<tr><td>ﾒｳ3</td><td>20170523</td><td>24</td></tr>
-<tr><td>ﾒｳ3</td><td>20170524</td><td>26</td></tr>
-<tr><td>ﾒｳ3</td><td>20170529</td><td>21</td></tr>
-<tr><td>...</td><td>...</td><td>...</td></tr>
-</table>
-</div>
-</div>
-
-<ul style="margin-top:1em;font-size:1.05em;line-height:1.6;">
-<li><b>ymd：</b>日付（YYYYMMDD形式の8桁数字）</li>
-<li><b>qty：</b>数量（整数または小数）</li>
-</ul>
-<p style="margin-top:0.5em;color:#555;">※ 上記以外のカラムは自由に追加できます。なくても問題ありません</p>
-""", unsafe_allow_html=True)
+    st.markdown(DATA_FORMAT_GUIDE_HTML, unsafe_allow_html=True)
 
 # --- ファイル選択UIの代わりにファイルアップロード機能 ---
 st.markdown('<div class="section-title">分析対象ファイルのアップロード</div>', unsafe_allow_html=True)
@@ -841,11 +521,13 @@ if st.session_state.get('data_loaded', False):
     with col1:
         st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_name}）</div>', unsafe_allow_html=True)
         preview_df_treat = df_treat.head(10).copy()
+        preview_df_treat['ymd'] = preview_df_treat['ymd'].dt.strftime('%Y-%m-%d')
         preview_df_treat.index = range(1, len(preview_df_treat) + 1)
         st.dataframe(preview_df_treat, use_container_width=True)
     with col2:
         st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群（{control_name}）</div>', unsafe_allow_html=True)
         preview_df_ctrl = df_ctrl.head(10).copy()
+        preview_df_ctrl['ymd'] = preview_df_ctrl['ymd'].dt.strftime('%Y-%m-%d')
         preview_df_ctrl.index = range(1, len(preview_df_ctrl) + 1)
         st.dataframe(preview_df_ctrl, use_container_width=True)
     # --- 統計情報 ---

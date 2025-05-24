@@ -1,0 +1,234 @@
+/* Causal Impact分析アプリ カスタムCSS */
+
+body, .main, .block-container {
+    background-color: #f7fafd !important;
+    font-family: 'Noto Sans JP', 'Meiryo', sans-serif;
+}
+
+.big-title {
+    font-size: 3.5em;
+    font-weight: 900;
+    color: white;
+    margin-bottom: 0.1em;
+    letter-spacing: 0.04em;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    line-height: 1.1;
+    text-align: center;
+}
+
+.sub-title {
+    font-size: 1.25em;
+    color: white;
+    margin-bottom: 1em;
+    font-weight: 500;
+    text-align: center;
+}
+
+.card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.3em 1.8em;
+    margin-bottom: 1.4em;
+    border: 1.5px solid #e3e8ee;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.blue-header-card {
+    background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%);
+    border-radius: 12px;
+    padding: 1.7em 2em;
+    margin-bottom: 2em;
+    border: none;
+    box-shadow: 0 4px 20px rgba(25, 118, 210, 0.15);
+    color: white;
+    height: 170px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.step-card {
+    background: #e3f2fd;
+    border-radius: 12px;
+    padding: 1.2em 1.5em;
+    margin-bottom: 1.5em;
+    border: 1px solid rgba(25, 118, 210, 0.2);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+}
+
+.section-title {
+    font-size: 1.3em;
+    font-weight: bold;
+    color: #1976d2;
+    margin-bottom: 0.8em;
+    margin-top: 1em;
+    border-left: 5px solid #1976d2;
+    padding-left: 12px;
+}
+
+.stButton>button {
+    background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%);
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.2em;
+    border-radius: 8px;
+    padding: 0.6em 2em;
+    margin: 0.8em 0;
+    box-shadow: 0 6px 15px rgba(25, 118, 210, 0.4);
+    width: 100%;
+    transition: all 0.2s ease;
+}
+
+.stButton>button:hover {
+    background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
+}
+
+.stDataFrame, .stTable {
+    font-size: 1.05em;
+}
+
+hr {
+    border: none;
+    border-top: 2px solid #e3e8ee;
+    margin: 1.5em 0;
+}
+
+.sidebar-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.3em 1.5em;
+    margin-bottom: 1.4em;
+    border: 1.5px solid #e3e8ee;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-title {
+    font-size: 1.3em;
+    font-weight: 600;
+    color: #1976d2;
+    margin-bottom: 0.7em;
+    letter-spacing: 0.02em;
+}
+
+.sidebar-step {
+    font-size: 1.1em;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 0.7em;
+}
+
+.sidebar-step-active {
+    background: linear-gradient(135deg, #2196f3 0%, #1565c0 100%);
+    color: white;
+    border-radius: 8px;
+    padding: 0.6em 1.2em;
+    margin-bottom: 0.8em;
+    display: inline-block;
+    box-shadow: 0 3px 10px rgba(33, 150, 243, 0.25);
+    width: 100%;
+    font-size: 1.15em;
+    font-weight: 600;
+    letter-spacing: 0.015em;
+    transition: all 0.2s ease;
+}
+
+.sidebar-step-inactive {
+    background: #e8f4fd;
+    color: #1976d2;
+    border-radius: 8px;
+    padding: 0.6em 1.2em;
+    margin-bottom: 0.8em;
+    display: inline-block;
+    box-shadow: 0 1px 4px rgba(33, 150, 243, 0.1);
+    width: 100%;
+    font-size: 1.15em;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    transition: all 0.2s ease;
+}
+
+.sidebar-step-inactive:hover {
+    background: #e1f0fd;
+    box-shadow: 0 2px 6px rgba(33, 150, 243, 0.15);
+}
+
+.sidebar-faq-title {
+    font-size: 1.15em;
+    font-weight: bold;
+    color: #1976d2;
+    margin-bottom: 0.5em;
+}
+
+.sidebar-faq-body {
+    background: #f4f8fd;
+    border-radius: 8px;
+    padding: 1.2em 1.3em;
+    color: #333;
+    font-size: 0.98em;
+    line-height: 1.6;
+}
+
+.data-format-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+}
+
+.data-format-table th, .data-format-table td {
+    border: 1px solid #e0e0e0;
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.data-format-table th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+}
+
+.file-location {
+    background: #e3f2fd;
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: #1565c0;
+    font-weight: 500;
+}
+
+.expander-header {
+    font-size: 1.15em;
+    font-weight: bold;
+    color: #1976d2;
+}
+
+div[data-testid="stExpander"] div[role="button"] p {
+    font-size: 1.15em !important;
+    font-weight: bold !important;
+    color: #1976d2 !important;
+}
+
+.separator-line {
+    border-top: 1px solid #e0e0e0;
+    margin: 1.5em 0;
+    width: 100%;
+}
+
+.red-action-button {
+    background: linear-gradient(135deg, #ff5252 0%, #e52d27 100%);
+    color: #fff;
+    font-weight: normal;
+    font-size: 1.0em;
+    border-radius: 8px;
+    padding: 0.5em 2em;
+    margin: 0.6em 0;
+    box-shadow: 0 6px 15px rgba(229, 45, 39, 0.4);
+    width: 100%;
+    display: inline-block;
+    text-align: center;
+    text-decoration: none;
+    border: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.red-action-button:hover {
+    background: linear-gradient(135deg, #e52d27 0%, #ff5252 100%);
+} 
