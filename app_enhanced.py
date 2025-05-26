@@ -493,11 +493,34 @@ def create_single_group_dataset(df_treat, treatment_name, freq_option):
         agg_treat = aggregate_df(df_treat, freq_option)
         
         # 全期間の範囲を生成（処置群のみの場合）
-        all_periods = pd.date_range(
-            start=agg_treat['period'].min(),
-            end=agg_treat['period'].max(),
-            freq='MS' if freq_option == "月次" else pd.DateOffset(days=10)
-        )
+        # 処置群のデータから開始日と終了日を取得
+        df_dates = pd.to_datetime(df_treat['ymd'])
+        start_date = df_dates.min()
+        end_date = df_dates.max()
+        
+        if freq_option == "月次":
+            # 月の初日のシーケンスを生成
+            all_periods = pd.date_range(
+                start=start_date.replace(day=1),
+                end=end_date.replace(day=1),
+                freq='MS'  # Month Start
+            )
+        elif freq_option == "旬次":
+            # 旬区切りの日付リストを作成（utils_step1.pyと同じロジック）
+            first_month = start_date.replace(day=1)
+            last_month = end_date.replace(day=1)
+            months = pd.date_range(start=first_month, end=last_month, freq='MS')
+            
+            periods = []
+            for month in months:
+                # 各月の1日、11日、21日を追加（範囲内の場合のみ）
+                for day in [1, 11, 21]:
+                    date = month.replace(day=day)
+                    if start_date <= date <= end_date:
+                        periods.append(date)
+            all_periods = pd.DatetimeIndex(periods)
+        else:  # 日次
+            all_periods = pd.date_range(start=start_date, end=end_date, freq='D')
         
         # 全期間のインデックスを作成し、データをゼロ埋め
         all_periods_df = pd.DataFrame(index=all_periods)
