@@ -99,18 +99,20 @@ st.markdown('<div class="section-title">分析対象ファイルのアップロ�
 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">分析タイプの選択</div>', unsafe_allow_html=True)
 analysis_type = st.radio(
     "分析タイプ選択",
-    options=["標準分析（処置群 + 対照群）", "処置群のみ分析（対照群なし）"],
+    options=["二群比較（処置群＋対照群を使用）", "単群推定（処置群のみを使用）"],
     index=0,
     label_visibility="collapsed",
-    help="標準分析は処置群と対照群の両方を比較します。処置群のみ分析は介入前後のトレンド変化を分析します。"
+    help="二群比較は処置群と対照群の両方を比較します。単群推定は処置群のみで介入前後のトレンド変化を分析します。"
 )
 
 # 分析タイプをセッション状態に保存
 st.session_state.analysis_type = analysis_type
 
 # 分析タイプによって説明を表示
-if analysis_type == "処置群のみ分析（対照群なし）":
-    st.info("💡 **処置群のみ分析**では、介入前のデータから季節性やトレンドを学習し、介入後の予測値（反事実シナリオ）と実測値を比較して効果を測定します。")
+if analysis_type == "単群推定（処置群のみを使用）":
+    st.info("単群推定では、介入前のデータから季節性やトレンドを学習し、介入後の予測値（反事実シナリオ）と実測値を比較して効果を測定します。")
+else:
+    st.info("二群比較では、介入の影響を受けた処置群と、影響を受けていない対照群の関係性をもとに、介入後の予測値と実測値を比較して効果を測定します。")
 
 # アップロード方法切り替えのラジオボタン
 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;margin-top:1em;">アップロード方法の選択</div>', unsafe_allow_html=True)
@@ -135,7 +137,7 @@ read_btn_single_upload = False
 read_btn_single_text = False
 
 # 分析タイプに応じてUIを切り替え
-if analysis_type == "標準分析（処置群 + 対照群）":
+if analysis_type == "二群比較（処置群＋対照群を使用）":
     # 既存の標準分析UI
     if upload_method == "ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）":
         # 処置群と対照群の名称入力欄（ファイルアップロード・CSVテキスト共通）
@@ -220,7 +222,7 @@ if analysis_type == "標準分析（処置群 + 対照群）":
         read_btn_text = st.button("データを読み込む", key="read_text", help="入力したCSVデータを読み込みます。", type="primary", use_container_width=True, disabled=(not treatment_csv or not control_csv))
 
 else:
-    # 処置群のみ分析UI
+    # 単群推定UI
     if upload_method == "ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）":
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群データ</div>', unsafe_allow_html=True)
         
@@ -236,7 +238,7 @@ else:
         if treatment_file:
             file_basename = os.path.splitext(treatment_file.name)[0]
             treatment_name = file_basename
-            selected_treat = f"選択：{treatment_file.name}（処置群のみ分析）"
+            selected_treat = f"選択：{treatment_file.name}（単群推定）"
             st.markdown(f'<div style="color:#1976d2;font-size:0.9em;">{selected_treat}</div>', unsafe_allow_html=True)
         else:
             treatment_name = "処置群"
@@ -255,7 +257,7 @@ else:
         treatment_csv = st.text_area(
             "CSVデータを入力（カンマ・タブ・スペース区切り）",
             height=300,
-            help="CSVデータを直接入力またはコピペしてください。最低限、ymd（日付）とqty（数量）の列が必要です。処置群のみ分析では最低37日間のデータが推奨されます。",
+            help="CSVデータを直接入力またはコピペしてください。最低限、ymd（日付）とqty（数量）の列が必要です。単群推定では最低37日間のデータが推奨されます。",
             placeholder="ymd,qty\n20170403,29\n20170425,24\n20170426,23\n20170523,24\n20170524,26\n...\n（介入前後を含む十分なデータを入力）"
         )
         st.markdown('<div style="color:#555555;font-size:0.9em;margin-top:-5px;margin-bottom:15px;padding-left:5px;">（最低37日間のデータを推奨、介入前期間は全体の60%以上が必要）</div>', unsafe_allow_html=True)
@@ -547,8 +549,8 @@ def create_single_group_dataset(df_treat, treatment_name, freq_option):
         st.error(f"処置群のみデータセット作成でエラーが発生しました: {str(e)}")
         return None
 
-# --- 標準分析のファイルアップロード後のデータ読み込み ---
-if analysis_type == "標準分析（処置群 + 対照群）":
+# --- 二群比較のファイルアップロード後のデータ読み込み ---
+if analysis_type == "二群比較（処置群＋対照群を使用）":
     if upload_method == "ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）" and read_btn_upload and treatment_file and control_file:
         with st.spinner("データ読み込み中..."):
             try:
@@ -620,7 +622,7 @@ if analysis_type == "標準分析（処置群 + 対照群）":
                 # 代替入力方法の提案
                 st.info("CSVテキスト直接入力をご利用ください。以下は入力例です：\n\nymd,qty\n20170403,29\n20170425,24\n...")
 
-    # --- 標準分析のテキスト入力からのデータ読み込み ---
+    # --- 二群比較のテキスト入力からのデータ読み込み ---
     elif upload_method == "CSVテキスト直接入力" and read_btn_text:
         with st.spinner("データ読み込み中..."):
             df_treat = load_and_clean_csv_text(treatment_csv, "処置群")
@@ -645,8 +647,8 @@ if analysis_type == "標準分析（処置群 + 対照群）":
                     st.error("対照群データの読み込みに失敗しました。")
                 st.session_state['data_loaded'] = False
 
-# --- 処置群のみ分析のデータ読み込み ---
-else:  # analysis_type == "処置群のみ分析（対照群なし）"
+# --- 単群推定のデータ読み込み ---
+else:  # analysis_type == "単群推定（処置群のみを使用）"
     if upload_method == "ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）" and read_btn_single_upload and treatment_file:
         with st.spinner("処置群のみデータ読み込み中..."):
             try:
@@ -681,7 +683,7 @@ else:  # analysis_type == "処置群のみ分析（対照群なし）"
                         st.session_state['treatment_name'] = treatment_name
                         st.session_state['control_name'] = None
                         st.session_state['data_loaded'] = True
-                        st.session_state['analysis_type'] = "処置群のみ分析（対照群なし）"  # 分析タイプを明示的に保存
+                        st.session_state['analysis_type'] = "単群推定（処置群のみを使用）"  # 分析タイプを明示的に保存
                         st.success("処置群のみデータを読み込みました。下記にプレビューと統計情報を表示します。")
                     else:
                         st.error(f"データ検証エラー: {error_msg}")
@@ -710,7 +712,7 @@ else:  # analysis_type == "処置群のみ分析（対照群なし）"
                     st.session_state['treatment_name'] = treatment_name
                     st.session_state['control_name'] = None
                     st.session_state['data_loaded'] = True
-                    st.session_state['analysis_type'] = "処置群のみ分析（対照群なし）"  # 分析タイプを明示的に保存
+                    st.session_state['analysis_type'] = "単群推定（処置群のみを使用）"  # 分析タイプを明示的に保存
                     st.success("処置群のみデータを読み込みました。下記にプレビューと統計情報を表示します。")
                 else:
                     st.error(f"データ検証エラー: {error_msg}")
@@ -730,8 +732,8 @@ if st.session_state.get('data_loaded', False):
     # --- データプレビュー ---
     st.markdown('<div class="section-title">読み込みデータのプレビュー（上位10件表示）</div>', unsafe_allow_html=True)
     
-    if current_analysis_type == "標準分析（処置群 + 対照群）" and df_ctrl is not None:
-        # 標準分析の場合（処置群 + 対照群）
+    if current_analysis_type == "二群比較（処置群＋対照群を使用）" and df_ctrl is not None:
+        # 二群比較の場合（処置群 + 対照群）
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_name}）</div>', unsafe_allow_html=True)
@@ -746,66 +748,74 @@ if st.session_state.get('data_loaded', False):
             preview_df_ctrl.index = range(1, len(preview_df_ctrl) + 1)
             st.dataframe(preview_df_ctrl, use_container_width=True)
     else:
-        # 処置群のみ分析の場合
-        st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_name}）- 処置群のみ分析</div>', unsafe_allow_html=True)
-        preview_df_treat = df_treat[['ymd', 'qty']].head(10).copy()
-        preview_df_treat['ymd'] = preview_df_treat['ymd'].dt.strftime('%Y-%m-%d')
-        preview_df_treat.index = range(1, len(preview_df_treat) + 1)
+        # 単群推定の場合
+        # データ要件チェックを独立したセクションとして表示
+        st.markdown('<div class="section-title">データ要件チェック</div>', unsafe_allow_html=True)
         
-        # 介入ポイント推奨の表示
         try:
             suggested_date, pre_days, post_days = suggest_intervention_point(df_treat)
+            total_days = len(df_treat)
             
-            col1, col2 = st.columns([2, 1])
+            # データ要件情報を整列表示
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.dataframe(preview_df_treat, use_container_width=True)
+                st.metric("総データ日数", f"{total_days}日")
             with col2:
-                st.markdown("**データ要件チェック**")
-                total_days = len(df_treat)
-                st.write(f"📊 総データ日数: {total_days}日")
-                
                 # suggested_dateが日付型かどうかを確認して適切に表示
                 if isinstance(suggested_date, str):
-                    st.write(f"📅 推奨介入日: {suggested_date}")
+                    date_str = suggested_date
                 else:
                     try:
-                        # datetimeオブジェクトの場合
                         if hasattr(suggested_date, 'strftime'):
-                            st.write(f"📅 推奨介入日: {suggested_date.strftime('%Y-%m-%d')}")
+                            date_str = suggested_date.strftime('%Y-%m-%d')
                         else:
-                            # その他の形式の場合は文字列として表示
-                            st.write(f"📅 推奨介入日: {str(suggested_date)}")
-                    except Exception as e:
-                        st.write(f"📅 推奨介入日: {str(suggested_date)}")
+                            date_str = str(suggested_date)
+                    except Exception:
+                        date_str = str(suggested_date)
+                st.metric("推奨介入日", date_str)
+            with col3:
+                st.metric("介入前期間", f"{pre_days}日")
+            with col4:
+                st.metric("介入後期間", f"{post_days}日")
+            
+            # データ量充足状況
+            if total_days >= 37:
+                st.success("十分なデータ量が確保されており、信頼性の高い分析が可能です。")
+            else:
+                st.warning("データ量が不足しています。より信頼性の高い分析のため、37日以上のデータを推奨します。")
                 
-                st.write(f"⏳ 介入前期間: {pre_days}日")
-                st.write(f"⏳ 介入後期間: {post_days}日")
-                
-                if total_days >= 37:
-                    st.success("✅ データ量充足")
-                else:
-                    st.warning("⚠️ データ不足（37日未満）")
-                    
         except Exception as e:
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                st.dataframe(preview_df_treat, use_container_width=True)
-            with col2:
-                st.markdown("**データ要件チェック**")
-                total_days = len(df_treat)
-                st.write(f"📊 総データ日数: {total_days}日")
-                st.warning(f"⚠️ 推奨介入日の計算でエラーが発生しました: {str(e)}")
-                
-                if total_days >= 37:
-                    st.success("✅ データ量充足")
-                else:
-                    st.warning("⚠️ データ不足（37日未満）")
+            total_days = len(df_treat)
+            st.metric("総データ日数", f"{total_days}日")
+            st.warning(f"推奨介入日の計算でエラーが発生しました: {str(e)}")
+            
+            if total_days >= 37:
+                st.success("十分なデータ量が確保されており、信頼性の高い分析が可能です。")
+            else:
+                st.warning("データ量が不足しています。より信頼性の高い分析のため、37日以上のデータを推奨します。")
+        
+        # データプレビューと統計情報を横並びで表示
+        st.markdown('<div class="section-title">読み込みデータのプレビュー（上位10件表示）と統計情報</div>', unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">データプレビュー（上位10件表示）</div>', unsafe_allow_html=True)
+            preview_df_treat = df_treat[['ymd', 'qty']].head(10).copy()
+            preview_df_treat['ymd'] = preview_df_treat['ymd'].dt.strftime('%Y-%m-%d')
+            preview_df_treat.index = range(1, len(preview_df_treat) + 1)
+            st.dataframe(preview_df_treat, use_container_width=True)
+        with col2:
+            st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">統計情報</div>', unsafe_allow_html=True)
+            if 'qty' in df_treat.columns:
+                stats_treat = format_stats_with_japanese(df_treat[['qty']])
+                st.dataframe(stats_treat, use_container_width=True, hide_index=True)
+            else:
+                st.error("データに 'qty' カラムが見つかりません")
 
-    # --- 統計情報 ---
-    st.markdown('<div class="section-title">データの統計情報</div>', unsafe_allow_html=True)
-    
-    if current_analysis_type == "標準分析（処置群 + 対照群）" and df_ctrl is not None:
-        # 標準分析の統計情報表示
+    # --- 統計情報（二群比較のみ） ---
+    if current_analysis_type == "二群比較（処置群＋対照群を使用）" and df_ctrl is not None:
+        st.markdown('<div class="section-title">データの統計情報</div>', unsafe_allow_html=True)
+        # 二群比較の統計情報表示
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_name}）</div>', unsafe_allow_html=True)
@@ -821,14 +831,6 @@ if st.session_state.get('data_loaded', False):
                 st.dataframe(stats_ctrl, use_container_width=True, hide_index=True)
             else:
                 st.error("データに 'qty' カラムが見つかりません")
-    else:
-        # 処置群のみ分析の統計情報表示
-        st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_name}）</div>', unsafe_allow_html=True)
-        if 'qty' in df_treat.columns:
-            stats_treat = format_stats_with_japanese(df_treat[['qty']])
-            st.dataframe(stats_treat, use_container_width=True, hide_index=True)
-        else:
-            st.error("データに 'qty' カラムが見つかりません")
 
     # --- 分析用データセット作成セクション ---
     st.markdown('<div class="section-title">分析用データセットの作成</div>', unsafe_allow_html=True)
@@ -865,8 +867,8 @@ if st.session_state.get('data_loaded', False):
     
     if create_btn or ('dataset_created' in st.session_state and st.session_state['dataset_created']):
         if create_btn:  # 新しくデータセットを作成する場合のみ実行
-            if current_analysis_type == "標準分析（処置群 + 対照群）" and df_ctrl is not None:
-                # 標準分析のデータセット作成（既存ロジック）
+            if current_analysis_type == "二群比較（処置群＋対照群を使用）" and df_ctrl is not None:
+                # 二群比較のデータセット作成（既存ロジック）
                 # データフレームの集計
                 agg_treat = aggregate_df(df_treat, freq_option)
                 agg_ctrl = aggregate_df(df_ctrl, freq_option)
@@ -924,7 +926,7 @@ if st.session_state.get('data_loaded', False):
                         'common_period': treat_period  # 処置群のみの期間
                     }
                 else:
-                    st.error("処置群のみ分析用データセットの作成に失敗しました。")
+                    st.error("単群推定用データセットの作成に失敗しました。")
                     dataset = None
             
             if dataset is not None:
@@ -941,8 +943,8 @@ if st.session_state.get('data_loaded', False):
                 default_pre_end = dataset.iloc[mid_point_idx-1]['ymd'].date()
                 default_post_start = dataset.iloc[mid_point_idx]['ymd'].date()
                 
-                # 処置群のみ分析の場合は推奨介入ポイントを使用
-                if current_analysis_type == "処置群のみ分析（対照群なし）":
+                # 単群推定の場合は推奨介入ポイントを使用
+                if current_analysis_type == "単群推定（処置群のみを使用）":
                     try:
                         suggested_date, _, _ = suggest_intervention_point(df_treat)
                         # suggested_dateが日付型かどうかを確認
@@ -1003,7 +1005,7 @@ if st.session_state.get('data_loaded', False):
             if 'period_info' in st.session_state:
                 with st.expander("元データの期間情報", expanded=False):
                     period_info = st.session_state['period_info']
-                    if current_analysis_type == "標準分析（処置群 + 対照群）":
+                    if current_analysis_type == "二群比較（処置群＋対照群を使用）":
                         st.markdown(f"""
 <div style="margin-top:0.5em;">
 <p><b>処置群期間：</b>{period_info['treat_period']}</p>
@@ -1016,7 +1018,7 @@ if st.session_state.get('data_loaded', False):
                         st.markdown(f"""
 <div style="margin-top:0.5em;">
 <p><b>処置群期間：</b>{period_info['treat_period']}</p>
-<p style="margin-top:1em;font-size:0.9em;color:#666;">※処置群のみ分析では、処置群のデータ期間全体を対象としています。<br>※欠損値はすべてゼロ埋めされています。</p>
+<p style="margin-top:1em;font-size:0.9em;color:#666;">※単群推定では、処置群のデータ期間全体を対象としています。<br>※欠損値はすべてゼロ埋めされています。</p>
 </div>
                         """, unsafe_allow_html=True)
 
@@ -1056,10 +1058,8 @@ if st.session_state.get('data_loaded', False):
             # --- 時系列可視化セクション ---
             st.markdown('<div class="section-title">時系列プロット</div>', unsafe_allow_html=True)
             
-            if current_analysis_type == "標準分析（処置群 + 対照群）" and len(dataset.columns) >= 3:
-                # 標準分析の時系列可視化（処置群 + 対照群）
-                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群と対照群の時系列推移</div>', unsafe_allow_html=True)
-                
+            if current_analysis_type == "二群比較（処置群＋対照群を使用）" and len(dataset.columns) >= 3:
+                # 二群比較の時系列可視化（処置群 + 対照群）
                 # 列名を動的に取得
                 treatment_col = [col for col in dataset.columns if col != 'ymd' and '処置群' in col][0]
                 control_col = [col for col in dataset.columns if col != 'ymd' and '対照群' in col][0]
@@ -1120,7 +1120,7 @@ if st.session_state.get('data_loaded', False):
                     tickfont=dict(color="#ef5350")
                 )
                 
-                # レイアウトの設定
+                # レイアウトの設定（凡例を中央に配置、range sliderを追加）
                 fig.update_layout(
                     title="処置群と対照群の時系列推移",
                     height=500,
@@ -1129,38 +1129,45 @@ if st.session_state.get('data_loaded', False):
                         orientation="h",
                         yanchor="bottom",
                         y=1.02,
-                        xanchor="right",
-                        x=1
-                    )
+                        xanchor="center",
+                        x=0.5
+                    ),
+                    xaxis_rangeslider_visible=True,
+                    dragmode="zoom"
                 )
                 
                 st.plotly_chart(fig, use_container_width=True)
                 
             else:
-                # 処置群のみ分析の時系列可視化
-                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群の時系列推移</div>', unsafe_allow_html=True)
-                
+                # 単群推定の時系列可視化
                 # 列名を動的に取得
                 treatment_col = [col for col in dataset.columns if col != 'ymd'][0]
                 
-                # プロットの作成（標準分析と同様の構成）
+                # プロットの作成
                 fig = go.Figure()
                 
-                # 処置群のトレース追加
+                # 処置群のトレース追加（凡例を明示）
                 fig.add_trace(
                     go.Scatter(
                         x=dataset['ymd'], 
                         y=dataset[treatment_col], 
-                        name=treatment_col, 
+                        name=f"処置群（{treatment_name}）", 
                         line=dict(color="#1976d2", width=2), 
                         mode='lines', 
                         hovertemplate='日付: %{x|%Y-%m-%d}<br>数量: %{y}<extra></extra>'
                     )
                 )
                 
-                # レイアウトの設定（標準分析と同様）
+                # レイアウトの設定（凡例表示、range slider追加）
                 fig.update_layout(
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+                    title="処置群の時系列推移",
+                    legend=dict(
+                        orientation="h", 
+                        yanchor="bottom", 
+                        y=1.02, 
+                        xanchor="center", 
+                        x=0.5
+                    ),
                     hovermode="x unified",
                     plot_bgcolor='white',
                     margin=dict(t=50, l=60, r=60, b=60),
@@ -1179,9 +1186,11 @@ if st.session_state.get('data_loaded', False):
                     tickangle=-30
                 )
                 
-                # Y軸の設定
+                # Y軸の設定（左軸ラベルを青文字で明示）
                 fig.update_yaxes(
-                    title_text="数量",
+                    title_text="処置群の数量",
+                    title_font=dict(color="#1976d2"),
+                    tickfont=dict(color="#1976d2"),
                     showgrid=True
                 )
                 
@@ -1203,7 +1212,7 @@ if st.session_state.get('data_loaded', False):
             
             # --- 分析期間設定のヒント ---
             with st.expander("分析期間設定のヒント"):
-                if current_analysis_type == "標準分析（処置群 + 対照群）":
+                if current_analysis_type == "二群比較（処置群＋対照群を使用）":
                     st.markdown("""
 <div style="line-height:1.7;">
 <ul>
@@ -1226,7 +1235,7 @@ if st.session_state.get('data_loaded', False):
     <ul>
       <li><b>季節性</b>：介入前期間に季節性がある場合は、少なくとも2〜3周期分のデータを含めるのが望ましいです</li>
       <li><b>イレギュラー要因</b>：外部要因による大きな影響がある期間は、介入前期間に含めないことをおすすめします</li>
-      <li><b>処置群のみ分析</b>：対照群がないため、介入前のトレンドと季節性パターンから反事実シナリオを構築します</li>
+      <li><b>単群推定</b>：対照群がないため、介入前のトレンドと季節性パターンから反事実シナリオを構築します</li>
     </ul>
   </li>
 </ul>
@@ -1242,11 +1251,11 @@ if st.session_state.get('data_loaded', False):
             # STEP2への遷移処理（今後実装予定）
             if next_step_btn:
                 st.session_state['show_step2'] = True
-                st.info("🚧 STEP2の実装は現在進行中です。処置群のみ分析に対応した期間設定機能を実装予定です。")
+                st.info("🚧 STEP2の実装は現在進行中です。単群推定に対応した期間設定機能を実装予定です。")
 
 st.markdown("---")
 st.markdown("### 🚧 開発中")
-st.markdown("**処置群のみ分析機能**は現在開発中です。既存の標準分析機能をベースに、以下の拡張を実装予定：")
+st.markdown("**単群推定機能**は現在開発中です。既存の二群比較機能をベースに、以下の拡張を実装予定：")
 st.markdown("""
 - ✅ 処置群のみデータの取り込み機能
 - 🔄 介入ポイント自動推奨機能  
