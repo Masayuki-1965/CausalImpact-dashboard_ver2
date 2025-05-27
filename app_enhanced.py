@@ -1053,6 +1053,197 @@ if st.session_state.get('data_loaded', False):
                 stats_df.insert(0, '統計項目', stats_df.index)
                 st.dataframe(stats_df, use_container_width=True, hide_index=True)
 
+            # --- 時系列可視化セクション ---
+            st.markdown('<div class="section-title">時系列プロット</div>', unsafe_allow_html=True)
+            
+            if current_analysis_type == "標準分析（処置群 + 対照群）" and len(dataset.columns) >= 3:
+                # 標準分析の時系列可視化（処置群 + 対照群）
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群と対照群の時系列推移</div>', unsafe_allow_html=True)
+                
+                # 列名を動的に取得
+                treatment_col = [col for col in dataset.columns if col != 'ymd' and '処置群' in col][0]
+                control_col = [col for col in dataset.columns if col != 'ymd' and '対照群' in col][0]
+                
+                # プロットの作成
+                fig = make_subplots(specs=[[{"secondary_y": True}]])
+                
+                # 処置群のトレース追加
+                fig.add_trace(
+                    go.Scatter(
+                        x=dataset['ymd'], 
+                        y=dataset[treatment_col], 
+                        name=treatment_col, 
+                        line=dict(color="#1976d2", width=2), 
+                        mode='lines+markers', 
+                        marker=dict(size=4),
+                        hovertemplate='日付: %{x|%Y-%m-%d}<br>数量: %{y}<extra></extra>'
+                    ),
+                    secondary_y=False
+                )
+                
+                # 対照群のトレース追加
+                fig.add_trace(
+                    go.Scatter(
+                        x=dataset['ymd'], 
+                        y=dataset[control_col], 
+                        name=control_col, 
+                        line=dict(color="#ef5350", width=2), 
+                        mode='lines+markers', 
+                        marker=dict(size=4),
+                        hovertemplate='日付: %{x|%Y-%m-%d}<br>数量: %{y}<extra></extra>'
+                    ),
+                    secondary_y=True
+                )
+                
+                # X軸の設定
+                fig.update_xaxes(
+                    title_text="日付", 
+                    type="date", 
+                    tickformat="%Y-%m", 
+                    showgrid=True, 
+                    tickangle=-30
+                )
+                
+                # 左Y軸の設定（処置群）
+                fig.update_yaxes(
+                    title_text="処置群の数量", 
+                    secondary_y=False, 
+                    title_font=dict(color="#1976d2"), 
+                    tickfont=dict(color="#1976d2")
+                )
+                
+                # 右Y軸の設定（対照群）
+                fig.update_yaxes(
+                    title_text="対照群の数量", 
+                    secondary_y=True, 
+                    title_font=dict(color="#ef5350"), 
+                    tickfont=dict(color="#ef5350")
+                )
+                
+                # レイアウトの設定
+                fig.update_layout(
+                    title="処置群と対照群の時系列推移",
+                    height=500,
+                    hovermode='x unified',
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1
+                    )
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+            else:
+                # 処置群のみ分析の時系列可視化
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群の時系列推移</div>', unsafe_allow_html=True)
+                
+                # 列名を動的に取得
+                treatment_col = [col for col in dataset.columns if col != 'ymd'][0]
+                
+                # プロットの作成（標準分析と同様の構成）
+                fig = go.Figure()
+                
+                # 処置群のトレース追加
+                fig.add_trace(
+                    go.Scatter(
+                        x=dataset['ymd'], 
+                        y=dataset[treatment_col], 
+                        name=treatment_col, 
+                        line=dict(color="#1976d2", width=2), 
+                        mode='lines', 
+                        hovertemplate='日付: %{x|%Y-%m-%d}<br>数量: %{y}<extra></extra>'
+                    )
+                )
+                
+                # レイアウトの設定（標準分析と同様）
+                fig.update_layout(
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+                    hovermode="x unified",
+                    plot_bgcolor='white',
+                    margin=dict(t=50, l=60, r=60, b=60),
+                    height=500,
+                    autosize=True,
+                    xaxis_rangeslider_visible=True,
+                    dragmode="zoom"
+                )
+                
+                # X軸の設定
+                fig.update_xaxes(
+                    title_text="日付", 
+                    type="date", 
+                    tickformat="%Y-%m", 
+                    showgrid=True, 
+                    tickangle=-30
+                )
+                
+                # Y軸の設定
+                fig.update_yaxes(
+                    title_text="数量",
+                    showgrid=True
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+
+            # --- Plotlyインタラクティブグラフの使い方ガイド ---
+            with st.expander("Plotlyインタラクティブグラフの使い方ガイド"):
+                st.markdown("""
+<div style="line-height:1.7;">
+<ul>
+<li><b>データ確認</b>：グラフ上の線やポイントにマウスを置くと、詳細値がポップアップ表示されます</li>
+<li><b>拡大表示</b>：見たい期間をドラッグして範囲選択すると拡大表示されます</li>
+<li><b>表示移動</b>：拡大後、右クリックドラッグで表示位置を調整できます</li>
+<li><b>初期表示</b>：ダブルクリックすると全期間表示に戻ります</li>
+<li><b>系列表示切替</b>：凡例をクリックすると系列の表示/非表示を切り替えできます</li>
+</ul>
+</div>
+                """, unsafe_allow_html=True)
+            
+            # --- 分析期間設定のヒント ---
+            with st.expander("分析期間設定のヒント"):
+                if current_analysis_type == "標準分析（処置群 + 対照群）":
+                    st.markdown("""
+<div style="line-height:1.7;">
+<ul>
+  <li><b>介入期間</b>：処置群（青線）において、施策（介入）実施後の効果を測定したい期間を設定してください</li>
+  <li><b>介入前期間</b>：施策（介入）実施前の期間として、十分な長さのデータを含めて設定してください
+    <ul>
+      <li><b>季節性</b>：介入前期間に季節性がある場合は、少なくとも2〜3周期分のデータを含めるのが望ましいです</li>
+      <li><b>イレギュラー要因</b>：外部要因による大きな影響がある期間は、介入前期間に含めないことをおすすめします</li>
+    </ul>
+  </li>
+</ul>
+</div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+<div style="line-height:1.7;">
+<ul>
+  <li><b>介入期間</b>：処置群において、施策（介入）実施後の効果を測定したい期間を設定してください</li>
+  <li><b>介入前期間</b>：施策（介入）実施前の期間として、十分な長さのデータを含めて設定してください
+    <ul>
+      <li><b>季節性</b>：介入前期間に季節性がある場合は、少なくとも2〜3周期分のデータを含めるのが望ましいです</li>
+      <li><b>イレギュラー要因</b>：外部要因による大きな影響がある期間は、介入前期間に含めないことをおすすめします</li>
+      <li><b>処置群のみ分析</b>：対照群がないため、介入前のトレンドと季節性パターンから反事実シナリオを構築します</li>
+    </ul>
+  </li>
+</ul>
+</div>
+                    """, unsafe_allow_html=True)
+
+            # STEP 1完了メッセージと次のSTEPへのボタンを表示
+            st.success("データセットの作成が完了しました。次のステップで分析期間とパラメータの設定を行います。")
+            
+            # 分析期間とパラメータを設定するボタンを追加
+            next_step_btn = st.button("分析期間とパラメータを設定する", key="next_step", help="次のステップ（分析期間とパラメータ設定）に進みます。", type="primary", use_container_width=True)
+            
+            # STEP2への遷移処理（今後実装予定）
+            if next_step_btn:
+                st.session_state['show_step2'] = True
+                st.info("🚧 STEP2の実装は現在進行中です。処置群のみ分析に対応した期間設定機能を実装予定です。")
+
 st.markdown("---")
 st.markdown("### 🚧 開発中")
 st.markdown("**処置群のみ分析機能**は現在開発中です。既存の標準分析機能をベースに、以下の拡張を実装予定：")
