@@ -12,6 +12,15 @@ DATA_FORMAT_GUIDE_HTML = """
 CSVファイルには、<b>ymd（日付）</b> と <b>qty（数量）</b> の2つのカラムが必須です。
 </div>
 
+<div style="background-color:#e3f2fd;border-radius:8px;padding:15px;margin-bottom:1.5em;border-left:4px solid #1976d2;">
+<div style="font-weight:bold;margin-bottom:8px;color:#1976d2;font-size:1.1em;">📊 データ量の推奨値</div>
+<ul style="margin:0;padding-left:1.2em;line-height:1.6;">
+<li><b>二群比較（処置群＋対照群）：</b>介入前後を合わせて30日以上のデータを推奨</li>
+<li><b>単群推定（処置群のみ）：</b>季節性学習のため、37日以上のデータを強く推奨<br>
+<span style="color:#666;font-size:0.95em;">（介入前期間：約25日、介入後期間：約12日の配分を推奨）</span></li>
+</ul>
+</div>
+
 <div style="display:flex;gap:2.5em;margin-bottom:1.5em;">
 <div style="flex:1;">
 <div style="font-weight:bold;font-size:1.1em;margin-bottom:0.5em;color:#1976d2;">基本レイアウト</div>
@@ -52,14 +61,14 @@ CSVファイルには、<b>ymd（日付）</b> と <b>qty（数量）</b> の2�
 FAQ_CAUSAL_IMPACT = """
 <div class="sidebar-faq-body">
 <b>Causal Impact</b>は、Googleが開発した統計的手法で、キャンペーンなどの施策（＝介入）がもたらした効果を測定するために用いられます。<br><br>
-施策の影響を受けた<b>"処置群"</b>と、影響を受けていない<b>"対照群"</b>の関係性をもとに、状態空間モデルを用いて「介入がなかった場合の処置群の予測値」を算出し、これを実際の観測値と比較することで、施策による因果的な影響を明らかにします。
+介入の影響を受けた<b>"処置群"</b>と、影響を受けていない<b>"対照群"</b>の関係性をもとに、状態空間モデルを用いて「介入がなかった場合の処置群の予測値」を算出し、これを実際の観測値と比較することで、施策による因果的な影響を明らかにします。
 </div>
 """
 
 FAQ_STATE_SPACE_MODEL = """
 <div class="sidebar-faq-body">
 <b>状態空間モデル</b>は、時系列データの変化の傾向や構造を捉える統計手法で、観測データの背後にある"見えない状態"を推定しながら将来の動きを予測します。<br><br>
-Causal Impactでは、このモデルを用いて「施策がなかった場合の自然な推移」を予測します。
+Causal Impactでは、このモデルを用いて「介入がなかった場合の自然な推移」を予測します。
 </div>
 """
 

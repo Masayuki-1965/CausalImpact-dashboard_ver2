@@ -112,7 +112,7 @@ st.session_state.analysis_type = analysis_type
 if analysis_type == "単群推定（処置群のみを使用）":
     st.info("単群推定では、介入前のデータから季節性やトレンドを学習し、介入後の予測値（反事実シナリオ）と実測値を比較して効果を測定します。")
 else:
-    st.info("二群比較では、介入の影響を受けた処置群と、影響を受けていない対照群の関係性をもとに、介入後の予測値と実測値を比較して効果を測定します。")
+    st.info("二群比較では、介入の影響を受けた処置群と影響を受けていない対照群の関係性をもとに、介入後の予測値と実測値を比較して効果を測定します。")
 
 # アップロード方法切り替えのラジオボタン
 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;margin-top:1em;">アップロード方法の選択</div>', unsafe_allow_html=True)
@@ -730,9 +730,8 @@ if st.session_state.get('data_loaded', False):
     current_analysis_type = st.session_state.get('analysis_type', analysis_type)
     
     # --- データプレビュー ---
-    st.markdown('<div class="section-title">読み込みデータのプレビュー（上位10件表示）</div>', unsafe_allow_html=True)
-    
     if current_analysis_type == "二群比較（処置群＋対照群を使用）" and df_ctrl is not None:
+        st.markdown('<div class="section-title">読み込みデータのプレビュー（上位10件表示）</div>', unsafe_allow_html=True)
         # 二群比較の場合（処置群 + 対照群）
         col1, col2 = st.columns(2)
         with col1:
@@ -749,53 +748,8 @@ if st.session_state.get('data_loaded', False):
             st.dataframe(preview_df_ctrl, use_container_width=True)
     else:
         # 単群推定の場合
-        # データ要件チェックを独立したセクションとして表示
-        st.markdown('<div class="section-title">データ要件チェック</div>', unsafe_allow_html=True)
-        
-        try:
-            suggested_date, pre_days, post_days = suggest_intervention_point(df_treat)
-            total_days = len(df_treat)
-            
-            # データ要件情報を整列表示
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("総データ日数", f"{total_days}日")
-            with col2:
-                # suggested_dateが日付型かどうかを確認して適切に表示
-                if isinstance(suggested_date, str):
-                    date_str = suggested_date
-                else:
-                    try:
-                        if hasattr(suggested_date, 'strftime'):
-                            date_str = suggested_date.strftime('%Y-%m-%d')
-                        else:
-                            date_str = str(suggested_date)
-                    except Exception:
-                        date_str = str(suggested_date)
-                st.metric("推奨介入日", date_str)
-            with col3:
-                st.metric("介入前期間", f"{pre_days}日")
-            with col4:
-                st.metric("介入後期間", f"{post_days}日")
-            
-            # データ量充足状況
-            if total_days >= 37:
-                st.success("十分なデータ量が確保されており、信頼性の高い分析が可能です。")
-            else:
-                st.warning("データ量が不足しています。より信頼性の高い分析のため、37日以上のデータを推奨します。")
-                
-        except Exception as e:
-            total_days = len(df_treat)
-            st.metric("総データ日数", f"{total_days}日")
-            st.warning(f"推奨介入日の計算でエラーが発生しました: {str(e)}")
-            
-            if total_days >= 37:
-                st.success("十分なデータ量が確保されており、信頼性の高い分析が可能です。")
-            else:
-                st.warning("データ量が不足しています。より信頼性の高い分析のため、37日以上のデータを推奨します。")
-        
         # データプレビューと統計情報を横並びで表示
-        st.markdown('<div class="section-title">読み込みデータのプレビュー（上位10件表示）と統計情報</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">読み込みデータのプレビューと統計情報</div>', unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
         with col1:
@@ -811,10 +765,18 @@ if st.session_state.get('data_loaded', False):
                 st.dataframe(stats_treat, use_container_width=True, hide_index=True)
             else:
                 st.error("データに 'qty' カラムが見つかりません")
+        
+        # データ量の簡潔な表示（統計情報表の下に移動）
+        total_days = len(df_treat)
+        if total_days >= 37:
+            st.success(f"✅ データ量：{total_days}日間（分析に十分なデータ量が確保されています）")
+        else:
+            st.warning(f"⚠️ データ量：{total_days}日間（より信頼性の高い分析のため、37日以上のデータを推奨します）")
 
     # --- 統計情報（二群比較のみ） ---
     if current_analysis_type == "二群比較（処置群＋対照群を使用）" and df_ctrl is not None:
         st.markdown('<div class="section-title">データの統計情報</div>', unsafe_allow_html=True)
+        
         # 二群比較の統計情報表示
         col1, col2 = st.columns(2)
         with col1:
@@ -831,6 +793,15 @@ if st.session_state.get('data_loaded', False):
                 st.dataframe(stats_ctrl, use_container_width=True, hide_index=True)
             else:
                 st.error("データに 'qty' カラムが見つかりません")
+        
+        # データ量の簡潔な表示（統計情報表の下に移動）
+        treat_days = len(df_treat)
+        ctrl_days = len(df_ctrl)
+        min_days = min(treat_days, ctrl_days)
+        if min_days >= 30:
+            st.success(f"✅ データ量：処置群{treat_days}日間、対照群{ctrl_days}日間（分析に十分なデータ量が確保されています）")
+        else:
+            st.warning(f"⚠️ データ量：処置群{treat_days}日間、対照群{ctrl_days}日間（より信頼性の高い分析のため、30日以上のデータを推奨します）")
 
     # --- 分析用データセット作成セクション ---
     st.markdown('<div class="section-title">分析用データセットの作成</div>', unsafe_allow_html=True)
@@ -1059,6 +1030,7 @@ if st.session_state.get('data_loaded', False):
             st.markdown('<div class="section-title">時系列プロット</div>', unsafe_allow_html=True)
             
             if current_analysis_type == "二群比較（処置群＋対照群を使用）" and len(dataset.columns) >= 3:
+                st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.1em;color:#1976d2;">処置群と対照群の時系列推移</div>', unsafe_allow_html=True)
                 # 二群比較の時系列可視化（処置群 + 対照群）
                 # 列名を動的に取得
                 treatment_col = [col for col in dataset.columns if col != 'ymd' and '処置群' in col][0]
@@ -1122,7 +1094,6 @@ if st.session_state.get('data_loaded', False):
                 
                 # レイアウトの設定（凡例を中央に配置、range sliderを追加）
                 fig.update_layout(
-                    title="処置群と対照群の時系列推移",
                     height=500,
                     hovermode='x unified',
                     legend=dict(
@@ -1140,6 +1111,8 @@ if st.session_state.get('data_loaded', False):
                 
             else:
                 # 単群推定の時系列可視化
+                st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.1em;color:#1976d2;">処置群の時系列推移</div>', unsafe_allow_html=True)
+                
                 # 列名を動的に取得
                 treatment_col = [col for col in dataset.columns if col != 'ymd'][0]
                 
@@ -1160,7 +1133,6 @@ if st.session_state.get('data_loaded', False):
                 
                 # レイアウトの設定（凡例表示、range slider追加）
                 fig.update_layout(
-                    title="処置群の時系列推移",
                     legend=dict(
                         orientation="h", 
                         yanchor="bottom", 
@@ -1202,10 +1174,11 @@ if st.session_state.get('data_loaded', False):
 <div style="line-height:1.7;">
 <ul>
 <li><b>データ確認</b>：グラフ上の線やポイントにマウスを置くと、詳細値がポップアップ表示されます</li>
-<li><b>拡大表示</b>：見たい期間をドラッグして範囲選択すると拡大表示されます</li>
+<li><b>拡大表示</b>：グラフ内で見たい期間をドラッグして範囲選択すると拡大表示されます</li>
+<li><b>レンジスライダー</b>：グラフ下部のスライダーバーで表示期間を調整できます（ハンドルをドラッグして範囲を変更）</li>
 <li><b>表示移動</b>：拡大後、右クリックドラッグで表示位置を調整できます</li>
 <li><b>初期表示</b>：ダブルクリックすると全期間表示に戻ります</li>
-<li><b>系列表示切替</b>：凡例をクリックすると系列の表示/非表示を切り替えできます</li>
+<li><b>系列表示切替</b>：グラフ上部の凡例をクリックすると系列の表示/非表示を切り替えできます</li>
 </ul>
 </div>
                 """, unsafe_allow_html=True)
@@ -1223,6 +1196,7 @@ if st.session_state.get('data_loaded', False):
       <li><b>イレギュラー要因</b>：外部要因による大きな影響がある期間は、介入前期間に含めないことをおすすめします</li>
     </ul>
   </li>
+  <li><b>データ量の推奨</b>：分析の信頼性向上のため、介入前後を合わせて30日以上のデータを推奨します</li>
 </ul>
 </div>
                     """, unsafe_allow_html=True)
@@ -1235,9 +1209,12 @@ if st.session_state.get('data_loaded', False):
     <ul>
       <li><b>季節性</b>：介入前期間に季節性がある場合は、少なくとも2〜3周期分のデータを含めるのが望ましいです</li>
       <li><b>イレギュラー要因</b>：外部要因による大きな影響がある期間は、介入前期間に含めないことをおすすめします</li>
-      <li><b>単群推定</b>：対照群がないため、介入前のトレンドと季節性パターンから反事実シナリオを構築します</li>
+      <li><b>単群推定の特徴</b>：対照群がないため、介入前のトレンドと季節性パターンから反事実シナリオを構築します</li>
+      <li><b>介入前期間の重要性</b>：単群推定では介入前期間のデータ品質が分析結果に大きく影響するため、全体の60%以上を介入前期間に設定することを推奨します</li>
     </ul>
   </li>
+  <li><b>データ量の推奨</b>：単群推定では季節性学習のため、37日以上のデータを強く推奨します（介入前期間：約25日、介入後期間：約12日）</li>
+  <li><b>介入日の設定</b>：実際の施策実施日を正確に設定してください。不正確な介入日設定は分析結果の信頼性を大きく損ないます</li>
 </ul>
 </div>
                     """, unsafe_allow_html=True)

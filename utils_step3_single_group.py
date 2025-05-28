@@ -108,8 +108,11 @@ def validate_single_group_data(data, min_pre_period_days=30):
         if data.empty:
             return False, "データが空です"
         
-        if len(data) < min_pre_period_days + 7:  # 介入前期間 + 最低限の介入後期間
-            return False, f"データが不十分です。最低{min_pre_period_days + 7}日間のデータが必要です"
+        total_days = len(data)
+        min_total_days = min_pre_period_days + 7  # 介入前期間 + 最低限の介入後期間
+        
+        if total_days < min_total_days:
+            return False, f"データが不十分です。現在{total_days}日間ですが、単群推定では最低{min_total_days}日間のデータが必要です。より信頼性の高い分析のため、37日以上のデータを推奨します。"
         
         # 欠損値チェック
         if data.isnull().any().any():
