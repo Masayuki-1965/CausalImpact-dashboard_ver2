@@ -814,13 +814,14 @@ if st.session_state.get('data_loaded', False):
             options=["月次", "旬次"],
             label_visibility="collapsed"
         )
+    # データ集計方法をセッションに保存
+    st.session_state['freq_option'] = freq_option
     with col2:
         if freq_option == "月次":
             st.markdown("""
 <div style="font-size:0.98em;margin-top:0.1em;padding-left:0;">
 <span style="font-weight:bold;">月次集計：</span>月単位で集計し、日付はその月の1日になります<br>
 <span style="font-weight:normal;color:#666;">旬次集計：</span>月を上旬・中旬・下旬に3分割して集計し、日付はそれぞれ1日（上旬）、11日（中旬）、21日（下旬）になります<br>
-<div style="color:#1976d2;font-size:0.9em;margin-top:0.3em;padding-left:0;">※欠損値は自動的に0で埋められます。</div>
 </div>
             """, unsafe_allow_html=True)
         else:
@@ -828,7 +829,6 @@ if st.session_state.get('data_loaded', False):
 <div style="font-size:0.98em;margin-top:0.1em;padding-left:0;">
 <span style="font-weight:normal;color:#666;">月次集計：</span>月単位で集計し、日付はその月の1日になります<br>
 <span style="font-weight:bold;">旬次集計：</span>月を上旬・中旬・下旬に3分割して集計し、日付はそれぞれ1日（上旬）、11日（中旬）、21日（下旬）になります<br>
-<div style="color:#1976d2;font-size:0.9em;margin-top:0.3em;padding-left:0;">※欠損値は自動的に0で埋められます。</div>
 </div>
             """, unsafe_allow_html=True)
     
@@ -930,6 +930,9 @@ if st.session_state.get('data_loaded', False):
                             suggested_date_obj = None
                         
                         if suggested_date_obj is not None:
+                            # 推奨介入ポイントをセッションに保存
+                            st.session_state['suggested_intervention_date'] = pd.to_datetime(suggested_date_obj)
+                            
                             # データセット内で推奨日に最も近い日付を見つける
                             dataset_dates = dataset['ymd'].dt.date
                             closest_idx = (dataset_dates - suggested_date_obj).abs().idxmin()
@@ -963,7 +966,6 @@ if st.session_state.get('data_loaded', False):
 <div style="display:flex;align-items:center;margin-bottom:0.5em;">
   <div style="font-weight:bold;font-size:1.05em;margin-right:0.5em;">対象期間：</div>
 <div>{dataset['ymd'].min().strftime('%Y/%m/%d')} ～ {dataset['ymd'].max().strftime('%Y/%m/%d')}</div>
-  <div style="color:#1976d2;font-size:0.9em;margin-left:2em;">　※{current_analysis_type}に基づいてデータセットを作成しています。</div>
 </div>
 <div style="display:flex;align-items:center;margin-bottom:0.5em;">
   <div style="font-weight:bold;font-size:1.05em;margin-right:0.5em;">データ数：</div>
@@ -1226,17 +1228,361 @@ if st.session_state.get('data_loaded', False):
             # 分析期間とパラメータを設定するボタンを追加
             next_step_btn = st.button("分析期間とパラメータを設定する", key="next_step", help="次のステップ（分析期間とパラメータ設定）に進みます。", type="primary", use_container_width=True)
             
-            # STEP2への遷移処理（今後実装予定）
+            # STEP2への遷移処理
             if next_step_btn:
                 st.session_state['show_step2'] = True
-                st.info("🚧 STEP2の実装は現在進行中です。単群推定に対応した期間設定機能を実装予定です。")
+            
+            # --- STEP 2: 分析期間／パラメータ設定 ---
+            # データセット作成完了後、ボタンを押すか既にパラメータ設定画面を表示中ならSTEP 2を表示
+            if st.session_state.get('show_step2', False):
+                dataset = st.session_state['dataset']  # セッションから取得
+                current_analysis_type = st.session_state.get('analysis_type', analysis_type)
+                
+                st.markdown(STEP2_CARD_HTML, unsafe_allow_html=True)
+                
+                # --- 分析期間設定 ---
+                st.markdown('<div class="section-title">分析期間の設定</div>', unsafe_allow_html=True)
+                
+                if current_analysis_type == "二群比較（処置群＋対照群を使用）":
+                    st.info("注意：介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。")
+                else:
+                    # 推奨介入ポイントの日付を取得
+                    suggested_date = st.session_state.get('suggested_intervention_date')
+                    if suggested_date:
+                        suggested_date_str = suggested_date.strftime('%Y-%m-%d')
+                        st.info(f"推奨：介入前期間はデータ全体の60%以上（例：{suggested_date_str}以降）を確保してください。\n注意：介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。")
+                    else:
+                        st.info("推奨：介入前期間はデータ全体の60%以上を確保してください。\n注意：介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。")
+                
+                # デフォルト値をセッションから取得
+                pre_start, pre_end, post_start, post_end = get_period_defaults(st.session_state, dataset)
+                
+                # 単群推定の場合、推奨介入ポイントを表示
+                if current_analysis_type == "単群推定（処置群のみを使用）":
+                    suggested_date = st.session_state.get('suggested_intervention_date')
+                    if suggested_date:
+                        st.info(f"推奨介入ポイント: {suggested_date.strftime('%Y-%m-%d')} （データ全体の60%地点）")
+                
+                # 介入前期間の設定
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">介入前期間 (Pre-Period)</div>', unsafe_allow_html=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    pre_start_date = st.date_input(
+                        "開始日",
+                        value=pre_start,
+                        min_value=dataset['ymd'].min().date(),
+                        max_value=dataset['ymd'].max().date(),
+                        key="pre_start",
+                        help="介入前期間の開始日を選択してください"
+                    )
+                with col2:
+                    pre_end_date = st.date_input(
+                        "終了日",
+                        value=pre_end,
+                        min_value=dataset['ymd'].min().date(),
+                        max_value=dataset['ymd'].max().date(),
+                        key="pre_end",
+                        help="介入前期間の終了日を選択してください"
+                    )
+                
+                # 介入期間の設定
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;margin-top:1.5em;">介入期間 (Post-Period)</div>', unsafe_allow_html=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    post_start_date = st.date_input(
+                        "開始日",
+                        value=post_start,
+                        min_value=dataset['ymd'].min().date(),
+                        max_value=dataset['ymd'].max().date(),
+                        key="post_start",
+                        help="介入期間の開始日を選択してください"
+                    )
+                with col2:
+                    post_end_date = st.date_input(
+                        "終了日",
+                        value=post_end,
+                        min_value=dataset['ymd'].min().date(),
+                        max_value=dataset['ymd'].max().date(),
+                        key="post_end",
+                        help="介入期間の終了日を選択してください"
+                    )
+                
+                # 期間設定の妥当性チェック
+                is_valid, error_msg = validate_periods(pre_end_date, post_start_date)
+                if not is_valid:
+                    st.error(error_msg)
+                
+                # 日数計算と表示
+                try:
+                    pre_days = (pre_end_date - pre_start_date).days + 1
+                    post_days = (post_end_date - post_start_date).days + 1
+                    total_days = pre_days + post_days
+                    pre_ratio = pre_days / total_days * 100
+                    
+                    # 単群推定の場合、介入前期間比率をチェック
+                    if current_analysis_type == "単群推定（処置群のみを使用）":
+                        if pre_ratio >= 60:
+                            st.success(f"✅ 介入前期間比率: {pre_ratio:.1f}% （推奨: 60%以上）")
+                        else:
+                            st.warning(f"⚠️ 介入前期間比率: {pre_ratio:.1f}% （推奨: 60%以上）")
+                        
+                        st.markdown(f"""
+<div style="margin-bottom:1em;">
+<p>介入前期間: {pre_start_date.strftime('%Y-%m-%d')} 〜 {pre_end_date.strftime('%Y-%m-%d')} （{pre_days}ポイント）</p>
+<p>介入期間: {post_start_date.strftime('%Y-%m-%d')} 〜 {post_end_date.strftime('%Y-%m-%d')} （{post_days}ポイント）</p>
+</div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.success(f"期間設定が完了しました。介入前期間: {pre_days}ポイント、介入期間: {post_days}ポイント")
+                        
+                        st.markdown(f"""
+<div style="margin-bottom:1em;">
+<p>介入前期間: {pre_start_date.strftime('%Y-%m-%d')} 〜 {pre_end_date.strftime('%Y-%m-%d')} （{pre_days}ポイント）</p>
+<p>介入期間: {post_start_date.strftime('%Y-%m-%d')} 〜 {post_end_date.strftime('%Y-%m-%d')} （{post_days}ポイント）</p>
+</div>
+                        """, unsafe_allow_html=True)
+                        
+                except (TypeError, AttributeError):
+                    st.info("日付を正しく設定してください。全ての日付が設定されると、日数が計算されます。")
+                
+                # 分析期間をセッションに保存
+                st.session_state['analysis_period'] = {
+                    'pre_start': pre_start_date,
+                    'pre_end': pre_end_date,
+                    'post_start': post_start_date,
+                    'post_end': post_end_date
+                }
+                
+                # --- モデル・パラメータ設定 ---
+                st.markdown('<div class="section-title">モデル・パラメータの設定</div>', unsafe_allow_html=True)
+                
+                # 基本パラメータ
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">基本設定</div>', unsafe_allow_html=True)
+                
+                alpha_percent = st.slider(
+                    "信頼区間レベル",
+                    min_value=90,
+                    max_value=99,
+                    value=95,
+                    step=1,
+                    format="%d%%",
+                    help="統計的有意性の判定基準。95% = 95%信頼区間（α=0.05）"
+                )
+                # 内部処理用にalphaを計算
+                alpha = (100 - alpha_percent) / 100
+                
+                # 基本パラメータの注釈
+                with st.expander("基本パラメータの設定とデフォルト値"):
+                    st.markdown("""
+<div style="margin-top:0.5em;">
+<table style="width:100%;border-collapse:collapse;font-size:0.9em;">
+<thead>
+<tr style="background-color:#f8f9fa;">
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;">パラメータ名</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;">意味</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:center;font-weight:bold;">デフォルト値</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;">信頼区間レベル</td>
+<td style="border:1px solid #dee2e6;padding:8px;">分析結果の不確実性を表現する範囲です。値が大きいほど信頼区間は広くなり、効果の推定に対する確度が高まりますが、区間自体は広くなります。</td>
+<td style="border:1px solid #dee2e6;padding:8px;text-align:center;">95%</td>
+</tr>
+</tbody>
+</table>
+</div>
+                     """, unsafe_allow_html=True)
+                
+                # 季節性設定
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;margin-top:1.5em;">季節性設定</div>', unsafe_allow_html=True)
+                
+                seasonality = st.checkbox(
+                    "季節性を考慮する",
+                    value=True,
+                    help="データに周期的なパターンがある場合にチェック"
+                )
+                
+                if seasonality:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        # データ集計方法に応じてデフォルト値を設定
+                        if 'freq_option' in st.session_state:
+                            freq_option = st.session_state.get('freq_option', '月次')
+                        else:
+                            # セッションから取得できない場合は、現在の設定を推測
+                            freq_option = '月次'  # デフォルト
+                        
+                        if freq_option == "月次":
+                            default_index = 2  # 月次 (30日)
+                        else:  # 旬次
+                            default_index = 0  # 週次 (7日)
+                        
+                        seasonality_type = st.selectbox(
+                            "季節性の種類",
+                            options=["週次 (7日)", "旬次 (10日)", "月次 (30日)", "四半期 (90日)", "年次 (365日)", "カスタム"],
+                            index=default_index,
+                            help="データの周期性に応じて選択。月次データには月次、旬次データには週次が推奨されます。"
+                        )
+                    with col2:
+                        if seasonality_type == "カスタム":
+                            custom_period = st.number_input(
+                                "カスタム周期（日数）",
+                                min_value=2,
+                                max_value=365,
+                                value=30,
+                                help="独自の季節性周期を指定"
+                            )
+                
+                # パラメータ設定の注釈を追加
+                st.markdown("""
+<div style="background-color:#f8f9fa;padding:15px;border-radius:8px;margin:1.5em 0;border-left:4px solid #1976d2;">
+<div style="font-weight:bold;color:#1976d2;margin-bottom:8px;">📋 パラメータ設定について</div>
+<div style="line-height:1.6;font-size:0.95em;">
+<p><strong>信頼区間レベル：</strong>分析結果の不確実性を表現する範囲です。値が大きいほど信頼区間は広くなり、効果の推定に対する確度が高まりますが、区間自体は広くなります。</p>
+<p><strong>季節性を考慮する：</strong>時系列データに含まれる周期的なパターンを考慮するかどうかを指定します。曜日・月・季節などの影響がある場合はオンにします。</p>
+<p><strong>周期タイプ：</strong>以下の選択肢があります：</p>
+<ul style="margin-left:1em;">
+<li><strong>週次 (7日)：</strong>週単位で繰り返すパターンがある場合（平日と週末の違いなど）</li>
+<li><strong>旬次 (10日)：</strong>上旬・中旬・下旬の周期がある場合</li>
+<li><strong>月次 (30日)：</strong>月単位で繰り返すパターンがある場合（月初・月末の変動など）</li>
+<li><strong>四半期 (90日)：</strong>四半期単位で繰り返すパターンがある場合（決算の影響など）</li>
+<li><strong>年次 (365日)：</strong>年単位で繰り返すパターンがある場合（季節変動など）</li>
+<li><strong>カスタム：</strong>上記以外の特定の周期がある場合</li>
+</ul>
+</div>
+</div>
+                 """, unsafe_allow_html=True)
+                 
+                # 高度な設定
+                with st.expander("高度なオプション設定（デフォルト設定でも十分な性能を発揮するため、変更は必須ではありません）"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        prior_level_sd = st.slider(
+                            "レベル変動の事前分散",
+                            min_value=0.001,
+                            max_value=0.1,
+                            value=0.01,
+                            step=0.001,
+                            format="%.3f",
+                            help="ベイズモデルにおける事前分布のパラメータ。時系列の水準（レベル）の変動性を制御します。値が大きいほど水準変化に対して寛容になります。"
+                        )
+                        standardize = st.checkbox(
+                            "データを標準化する",
+                            value=True,
+                            help="分析前にデータを標準化（推奨）"
+                        )
+                    with col2:
+                        niter = st.number_input(
+                            "MCMC反復回数",
+                            min_value=500,
+                            max_value=5000,
+                            value=1000,
+                            step=100,
+                            help="ベイズ推定の精度を制御（多いほど精密だが時間がかかる）"
+                        )
+                        if current_analysis_type == "単群推定（処置群のみを使用）":
+                            st.markdown("""
+<div style="background-color:#e3f2fd;padding:10px;border-radius:5px;margin-top:10px;">
+<b>単群推定の特別設定:</b><br>
+• より多いMCMC反復回数を推奨<br>
+• 季節性パラメータの慎重な調整が重要<br>
+• データ標準化は必須
+</div>
+                            """, unsafe_allow_html=True)
+                    
+                    # 高度なパラメータの注釈
+                    st.markdown("---")
+                    st.markdown("**高度なパラメータの設定とデフォルト値**")
+                    st.markdown("""
+<div style="margin-top:0.5em;">
+<table style="width:100%;border-collapse:collapse;font-size:0.9em;">
+<thead>
+<tr style="background-color:#f8f9fa;">
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;">パラメータ名</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;">意味</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:center;font-weight:bold;">デフォルト値</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;">レベル変動の事前分散</td>
+<td style="border:1px solid #dee2e6;padding:8px;">ベイズモデルにおける事前分布のパラメータで、時系列の水準（レベル）の変動性をどの程度許容するかを指定します。値が大きいほど水準変化に対して寛容になります。</td>
+<td style="border:1px solid #dee2e6;padding:8px;text-align:center;">0.010</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;">データを標準化する</td>
+<td style="border:1px solid #dee2e6;padding:8px;">分析前にデータを平均0、標準偏差1になるように変換するかどうかを指定します。データのスケールが大きく異なる場合や、単位の影響を排除したい場合にオンにします。</td>
+<td style="border:1px solid #dee2e6;padding:8px;text-align:center;">オン</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;">MCMC反復回数</td>
+<td style="border:1px solid #dee2e6;padding:8px;">モンテカルロマルコフ連鎖（MCMC）シミュレーションの反復回数を指定します。値が大きいほど推定精度が向上しますが、計算時間も長くなります。</td>
+<td style="border:1px solid #dee2e6;padding:8px;text-align:center;">1000</td>
+</tr>
+</tbody>
+</table>
+</div>
+                     """, unsafe_allow_html=True)
+                
+                # パラメータをセッションに保存
+                seasonality_period = None
+                if seasonality:
+                    if seasonality_type == "週次 (7日)":
+                        seasonality_period = 7
+                    elif seasonality_type == "旬次 (10日)":
+                        seasonality_period = 10
+                    elif seasonality_type == "月次 (30日)":
+                        seasonality_period = 30
+                    elif seasonality_type == "四半期 (90日)":
+                        seasonality_period = 90
+                    elif seasonality_type == "年次 (365日)":
+                        seasonality_period = 365
+                    else:  # カスタム
+                        seasonality_period = custom_period if 'custom_period' in locals() else 30
+                
+                st.session_state['analysis_params'] = build_analysis_params(
+                    alpha,
+                    seasonality,
+                    seasonality_type if seasonality else None,
+                    custom_period if seasonality and seasonality_type == "カスタム" else None,
+                    prior_level_sd,
+                    standardize,
+                    niter
+                )
+                
+                # --- 分析実行準備 ---
+                st.markdown('<div class="section-title">分析実行</div>', unsafe_allow_html=True)
+                
+                # 設定確認
+                if is_valid:
+                    st.success("✅ 分析実行の準備が完了しました。以下のボタンをクリックして分析を開始してください。")
+                    
+                    # 分析実行ボタン
+                    analyze_btn = st.button(
+                        "Causal Impact分析を実行する",
+                        key="analyze",
+                        help="設定したパラメータで分析を実行します",
+                        type="primary",
+                        use_container_width=True
+                    )
+                    
+                    if analyze_btn:
+                        st.session_state['params_saved'] = True
+                        st.session_state['show_step3'] = True
+                        st.info("🚧 STEP3の実装は現在進行中です。分析実行・結果表示機能を実装予定です。")
+                else:
+                    st.error("❌ 期間設定に問題があります。上記のエラーを修正してから分析を実行してください。")
 
 st.markdown("---")
 st.markdown("### 🚧 開発中")
 st.markdown("**単群推定機能**は現在開発中です。既存の二群比較機能をベースに、以下の拡張を実装予定：")
 st.markdown("""
 - ✅ 処置群のみデータの取り込み機能
-- 🔄 介入ポイント自動推奨機能  
-- 🔄 季節性パラメータ最適化
+- ✅ 介入ポイント自動推奨機能  
+- ✅ 期間設定・パラメータ設定機能
+- 🔄 分析実行・結果表示機能
 - 🔄 結果解釈の強化（対照群なし分析特有の注意事項）
 """) 
