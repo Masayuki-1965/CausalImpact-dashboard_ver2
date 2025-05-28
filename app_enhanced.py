@@ -768,10 +768,10 @@ if st.session_state.get('data_loaded', False):
         
         # データ量の簡潔な表示（統計情報表の下に移動）
         total_days = len(df_treat)
-        if total_days >= 37:
-            st.success(f"✅ データ量：{total_days}日間（分析に十分なデータ量が確保されています）")
+        if total_days >= 36:
+            st.success(f"✅ データ量：{total_days}ポイント（分析に十分なデータ量が確保されています）")
         else:
-            st.warning(f"⚠️ データ量：{total_days}日間（より信頼性の高い分析のため、37日以上のデータを推奨します）")
+            st.warning(f"⚠️ データ量：{total_days}ポイント（より信頼性の高い分析のため、36ポイント以上のデータを推奨します）")
 
     # --- 統計情報（二群比較のみ） ---
     if current_analysis_type == "二群比較（処置群＋対照群を使用）" and df_ctrl is not None:
@@ -798,10 +798,10 @@ if st.session_state.get('data_loaded', False):
         treat_days = len(df_treat)
         ctrl_days = len(df_ctrl)
         min_days = min(treat_days, ctrl_days)
-        if min_days >= 30:
-            st.success(f"✅ データ量：処置群{treat_days}日間、対照群{ctrl_days}日間（分析に十分なデータ量が確保されています）")
+        if min_days >= 24:
+            st.success(f"✅ データ量：処置群{treat_days}ポイント、対照群{ctrl_days}ポイント（分析に十分なデータ量が確保されています）")
         else:
-            st.warning(f"⚠️ データ量：処置群{treat_days}日間、対照群{ctrl_days}日間（より信頼性の高い分析のため、30日以上のデータを推奨します）")
+            st.warning(f"⚠️ データ量：処置群{treat_days}ポイント、対照群{ctrl_days}ポイント（より信頼性の高い分析のため、24ポイント以上のデータを推奨します）")
 
     # --- 分析用データセット作成セクション ---
     st.markdown('<div class="section-title">分析用データセットの作成</div>', unsafe_allow_html=True)
@@ -1030,7 +1030,7 @@ if st.session_state.get('data_loaded', False):
             st.markdown('<div class="section-title">時系列プロット</div>', unsafe_allow_html=True)
             
             if current_analysis_type == "二群比較（処置群＋対照群を使用）" and len(dataset.columns) >= 3:
-                st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.1em;color:#1976d2;">処置群と対照群の時系列推移</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.05em;">処置群と対照群の時系列推移</div>', unsafe_allow_html=True)
                 # 二群比較の時系列可視化（処置群 + 対照群）
                 # 列名を動的に取得
                 treatment_col = [col for col in dataset.columns if col != 'ymd' and '処置群' in col][0]
@@ -1111,7 +1111,7 @@ if st.session_state.get('data_loaded', False):
                 
             else:
                 # 単群推定の時系列可視化
-                st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.1em;color:#1976d2;">処置群の時系列推移</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.05em;">処置群の時系列推移</div>', unsafe_allow_html=True)
                 
                 # 列名を動的に取得
                 treatment_col = [col for col in dataset.columns if col != 'ymd'][0]
@@ -1133,6 +1133,7 @@ if st.session_state.get('data_loaded', False):
                 
                 # レイアウトの設定（凡例表示、range slider追加）
                 fig.update_layout(
+                    showlegend=True,  # 凡例を明示的に表示
                     legend=dict(
                         orientation="h", 
                         yanchor="bottom", 
@@ -1196,7 +1197,7 @@ if st.session_state.get('data_loaded', False):
       <li><b>イレギュラー要因</b>：外部要因による大きな影響がある期間は、介入前期間に含めないことをおすすめします</li>
     </ul>
   </li>
-  <li><b>データ量の推奨</b>：分析の信頼性向上のため、介入前後を合わせて30日以上のデータを推奨します</li>
+  <li><b>データ量の推奨</b>：分析の信頼性向上のため、介入前後を合わせて24ポイント以上のデータを推奨します</li>
 </ul>
 </div>
                     """, unsafe_allow_html=True)
@@ -1213,7 +1214,7 @@ if st.session_state.get('data_loaded', False):
       <li><b>介入前期間の重要性</b>：単群推定では介入前期間のデータ品質が分析結果に大きく影響するため、全体の60%以上を介入前期間に設定することを推奨します</li>
     </ul>
   </li>
-  <li><b>データ量の推奨</b>：単群推定では季節性学習のため、37日以上のデータを強く推奨します（介入前期間：約25日、介入後期間：約12日）</li>
+  <li><b>データ量の推奨</b>：単群推定では季節性学習のため、36ポイント以上のデータを強く推奨します（月次データ：3年分、旬次データ：1年分程度）</li>
   <li><b>介入日の設定</b>：実際の施策実施日を正確に設定してください。不正確な介入日設定は分析結果の信頼性を大きく損ないます</li>
 </ul>
 </div>

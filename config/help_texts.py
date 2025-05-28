@@ -13,17 +13,18 @@ CSVファイルには、<b>ymd（日付）</b> と <b>qty（数量）</b> の2�
 </div>
 
 <div style="background-color:#e3f2fd;border-radius:8px;padding:15px;margin-bottom:1.5em;border-left:4px solid #1976d2;">
-<div style="font-weight:bold;margin-bottom:8px;color:#1976d2;font-size:1.1em;">📊 データ量の推奨値</div>
+<div style="font-weight:bold;margin-bottom:8px;color:#1976d2;font-size:1.1em;">データ量の推奨値</div>
 <ul style="margin:0;padding-left:1.2em;line-height:1.6;">
-<li><b>二群比較（処置群＋対照群）：</b>介入前後を合わせて30日以上のデータを推奨</li>
-<li><b>単群推定（処置群のみ）：</b>季節性学習のため、37日以上のデータを強く推奨<br>
-<span style="color:#666;font-size:0.95em;">（介入前期間：約25日、介入後期間：約12日の配分を推奨）</span></li>
+<li><b>二群比較（処置群＋対照群）：</b>介入前後を合わせて24ポイント以上のデータを推奨<br>
+<span style="color:#666;font-size:0.95em;">（月次データ：2年分、旬次データ：8ヶ月分程度）</span></li>
+<li><b>単群推定（処置群のみ）：</b>季節性学習のため、36ポイント以上のデータを強く推奨<br>
+<span style="color:#666;font-size:0.95em;">（月次データ：3年分、旬次データ：1年分程度。介入前期間は全体の60%以上を推奨）</span></li>
 </ul>
 </div>
 
 <div style="display:flex;gap:2.5em;margin-bottom:1.5em;">
 <div style="flex:1;">
-<div style="font-weight:bold;font-size:1.1em;margin-bottom:0.5em;color:#1976d2;">基本レイアウト</div>
+<div style="font-weight:bold;font-size:1.1em;margin-bottom:0.5em;">基本レイアウト</div>
 <table class="data-format-table">
 <tr><th>ymd</th><th>qty</th></tr>
 <tr><td>20170403</td><td>29</td></tr>
@@ -36,7 +37,7 @@ CSVファイルには、<b>ymd（日付）</b> と <b>qty（数量）</b> の2�
 </table>
 </div>
 <div style="flex:1;">
-<div style="font-weight:bold;font-size:1.1em;margin-bottom:0.5em;color:#1976d2;">追加カラムがある場合の例</div>
+<div style="font-weight:bold;font-size:1.1em;margin-bottom:0.5em;">追加カラムがある場合の例</div>
 <table class="data-format-table">
 <tr><th>product_category</th><th>ymd</th><th>qty</th></tr>
 <tr><td>ﾒｳ3</td><td>20170403</td><td>29</td></tr>
