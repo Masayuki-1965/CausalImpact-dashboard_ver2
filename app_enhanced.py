@@ -1248,13 +1248,8 @@ if st.session_state.get('data_loaded', False):
                 if current_analysis_type == "二群比較（処置群＋対照群を使用）":
                     st.info("注意：介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。")
                 else:
-                    # 推奨介入ポイントの日付を取得して統合メッセージを表示
-                    suggested_date = st.session_state.get('suggested_intervention_date')
-                    if suggested_date:
-                        suggested_date_str = suggested_date.strftime('%Y-%m-%d')
-                        st.info(f"介入前期間は、データ全体の60%以上（{suggested_date_str}以降）を確保することを推奨します。また、介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。")
-                    else:
-                        st.info("介入前期間は、データ全体の60%以上を確保することを推奨します。また、介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。")
+                    # 割合ベースの説明に統一（日付は表示せず誤解を防ぐ）
+                    st.info("介入前期間は、データ全体の60%以上を確保することを推奨します。介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。")
                 
                 # デフォルト値をセッションから取得
                 pre_start, pre_end, post_start, post_end = get_period_defaults(st.session_state, dataset)
