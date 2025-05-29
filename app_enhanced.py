@@ -984,7 +984,9 @@ if st.session_state.get('data_loaded', False):
 <p><b>処置群期間：</b>{period_info['treat_period']}</p>
 <p><b>対照群期間：</b>{period_info['ctrl_period']}</p>
 <p><b>共通期間：</b>{period_info['common_period']}</p>
-<p style="margin-top:1em;font-size:0.9em;color:#666;">※共通期間は「処置群と対照群の開始日のうち遅い方」から「終了日のうち早い方」までとして計算しています。<br>※欠損値はすべてゼロ埋めされています。</p>
+<p style="margin-top:1em;font-size:0.9em;color:#666;">※処置群と対照群の共通期間に基づいてデータセットを作成しています。
+<br>※共通期間は「処置群と対照群の開始日のうち遅い方」から「終了日のうち早い方」までとして計算しています。
+<br>※欠損値はすべてゼロ埋めされています。</p>
 </div>
                         """, unsafe_allow_html=True)
                     else:
@@ -1178,7 +1180,7 @@ if st.session_state.get('data_loaded', False):
 <ul>
 <li><b>データ確認</b>：グラフ上の線やポイントにマウスを置くと、詳細値がポップアップ表示されます</li>
 <li><b>拡大表示</b>：グラフ内で見たい期間をドラッグして範囲選択すると拡大表示されます</li>
-<li><b>レンジスライダー</b>：グラフ下部のスライダーバーで表示期間を調整できます（ハンドルをドラッグして範囲を変更）</li>
+<li><b>レンジ(範囲)スライダー</b>：グラフ下部のスライダーバーで表示期間を調整できます（ハンドルをドラッグして範囲を変更）</li>
 <li><b>表示移動</b>：拡大後、右クリックドラッグで表示位置を調整できます</li>
 <li><b>初期表示</b>：ダブルクリックすると全期間表示に戻ります</li>
 <li><b>系列表示切替</b>：グラフ上部の凡例をクリックすると系列の表示/非表示を切り替えできます</li>
@@ -1246,22 +1248,16 @@ if st.session_state.get('data_loaded', False):
                 if current_analysis_type == "二群比較（処置群＋対照群を使用）":
                     st.info("注意：介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。")
                 else:
-                    # 推奨介入ポイントの日付を取得
+                    # 推奨介入ポイントの日付を取得して統合メッセージを表示
                     suggested_date = st.session_state.get('suggested_intervention_date')
                     if suggested_date:
                         suggested_date_str = suggested_date.strftime('%Y-%m-%d')
-                        st.info(f"推奨：介入前期間はデータ全体の60%以上（例：{suggested_date_str}以降）を確保してください。\n注意：介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。")
+                        st.info(f"介入前期間は、データ全体の60%以上（{suggested_date_str}以降）を確保することを推奨します。また、介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。")
                     else:
-                        st.info("推奨：介入前期間はデータ全体の60%以上を確保してください。\n注意：介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。")
+                        st.info("介入前期間は、データ全体の60%以上を確保することを推奨します。また、介入期間の開始日は、介入前期間の終了日より後の日付を指定してください。")
                 
                 # デフォルト値をセッションから取得
                 pre_start, pre_end, post_start, post_end = get_period_defaults(st.session_state, dataset)
-                
-                # 単群推定の場合、推奨介入ポイントを表示
-                if current_analysis_type == "単群推定（処置群のみを使用）":
-                    suggested_date = st.session_state.get('suggested_intervention_date')
-                    if suggested_date:
-                        st.info(f"推奨介入ポイント: {suggested_date.strftime('%Y-%m-%d')} （データ全体の60%地点）")
                 
                 # 介入前期間の設定
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">介入前期間 (Pre-Period)</div>', unsafe_allow_html=True)
@@ -1356,10 +1352,10 @@ if st.session_state.get('data_loaded', False):
                 }
                 
                 # --- モデル・パラメータ設定 ---
-                st.markdown('<div class="section-title">モデル・パラメータの設定</div>', unsafe_allow_html=True)
+                st.markdown('<div class="section-title">モデルの基本パラメータの設定</div>', unsafe_allow_html=True)
                 
-                # 基本パラメータ
-                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">基本設定</div>', unsafe_allow_html=True)
+                # 信頼区間の設定
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">信頼区間の設定</div>', unsafe_allow_html=True)
                 
                 alpha_percent = st.slider(
                     "信頼区間レベル",
@@ -1373,31 +1369,8 @@ if st.session_state.get('data_loaded', False):
                 # 内部処理用にalphaを計算
                 alpha = (100 - alpha_percent) / 100
                 
-                # 基本パラメータの注釈
-                with st.expander("基本パラメータの設定とデフォルト値"):
-                    st.markdown("""
-<div style="margin-top:0.5em;">
-<table style="width:100%;border-collapse:collapse;font-size:0.9em;">
-<thead>
-<tr style="background-color:#f8f9fa;">
-<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;">パラメータ名</th>
-<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;">意味</th>
-<th style="border:1px solid #dee2e6;padding:8px;text-align:center;font-weight:bold;">デフォルト値</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="border:1px solid #dee2e6;padding:8px;">信頼区間レベル</td>
-<td style="border:1px solid #dee2e6;padding:8px;">分析結果の不確実性を表現する範囲です。値が大きいほど信頼区間は広くなり、効果の推定に対する確度が高まりますが、区間自体は広くなります。</td>
-<td style="border:1px solid #dee2e6;padding:8px;text-align:center;">95%</td>
-</tr>
-</tbody>
-</table>
-</div>
-                     """, unsafe_allow_html=True)
-                
-                # 季節性設定
-                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;margin-top:1.5em;">季節性設定</div>', unsafe_allow_html=True)
+                # 季節性の設定
+                st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;margin-top:1.5em;">季節性の設定</div>', unsafe_allow_html=True)
                 
                 seasonality = st.checkbox(
                     "季節性を考慮する",
@@ -1408,23 +1381,25 @@ if st.session_state.get('data_loaded', False):
                 if seasonality:
                     col1, col2 = st.columns(2)
                     with col1:
-                        # データ集計方法に応じてデフォルト値を設定
+                        # データ集計方法に応じてデフォルト値を最適化
                         if 'freq_option' in st.session_state:
                             freq_option = st.session_state.get('freq_option', '月次')
                         else:
-                            # セッションから取得できない場合は、現在の設定を推測
                             freq_option = '月次'  # デフォルト
                         
+                        # 最適なデフォルト値の設定
                         if freq_option == "月次":
                             default_index = 2  # 月次 (30日)
+                            optimal_default = "月次 (30日)"
                         else:  # 旬次
-                            default_index = 0  # 週次 (7日)
+                            default_index = 1  # 旬次 (10日)
+                            optimal_default = "旬次 (10日)"
                         
                         seasonality_type = st.selectbox(
                             "季節性の種類",
                             options=["週次 (7日)", "旬次 (10日)", "月次 (30日)", "四半期 (90日)", "年次 (365日)", "カスタム"],
                             index=default_index,
-                            help="データの周期性に応じて選択。月次データには月次、旬次データには週次が推奨されます。"
+                            help=f"データの周期性に応じて選択。{freq_option}データには{optimal_default}が推奨されます。"
                         )
                     with col2:
                         if seasonality_type == "カスタム":
@@ -1435,26 +1410,54 @@ if st.session_state.get('data_loaded', False):
                                 value=30,
                                 help="独自の季節性周期を指定"
                             )
-                
-                # パラメータ設定の注釈を追加
-                st.markdown("""
-<div style="background-color:#f8f9fa;padding:15px;border-radius:8px;margin:1.5em 0;border-left:4px solid #1976d2;">
-<div style="font-weight:bold;color:#1976d2;margin-bottom:8px;">📋 パラメータ設定について</div>
-<div style="line-height:1.6;font-size:0.95em;">
-<p><strong>信頼区間レベル：</strong>分析結果の不確実性を表現する範囲です。値が大きいほど信頼区間は広くなり、効果の推定に対する確度が高まりますが、区間自体は広くなります。</p>
-<p><strong>季節性を考慮する：</strong>時系列データに含まれる周期的なパターンを考慮するかどうかを指定します。曜日・月・季節などの影響がある場合はオンにします。</p>
-<p><strong>周期タイプ：</strong>以下の選択肢があります：</p>
-<ul style="margin-left:1em;">
-<li><strong>週次 (7日)：</strong>週単位で繰り返すパターンがある場合（平日と週末の違いなど）</li>
-<li><strong>旬次 (10日)：</strong>上旬・中旬・下旬の周期がある場合</li>
-<li><strong>月次 (30日)：</strong>月単位で繰り返すパターンがある場合（月初・月末の変動など）</li>
-<li><strong>四半期 (90日)：</strong>四半期単位で繰り返すパターンがある場合（決算の影響など）</li>
-<li><strong>年次 (365日)：</strong>年単位で繰り返すパターンがある場合（季節変動など）</li>
-<li><strong>カスタム：</strong>上記以外の特定の周期がある場合</li>
-</ul>
+
+                # 基本パラメータの注釈（季節性の設定の直下に配置）
+                with st.expander("基本パラメータの設定とデフォルト値"):
+                    # データ集計方法に応じて動的にデフォルト値を表示
+                    freq_option = st.session_state.get('freq_option', '月次')
+                    if freq_option == "月次":
+                        seasonality_default = "月次 (30日)"
+                    else:
+                        seasonality_default = "旬次 (10日)"
+                    
+                    st.markdown(f"""
+<div style="margin-top:0.5em;">
+<table style="width:100%;border-collapse:collapse;font-size:0.9em;">
+<thead>
+<tr style="background-color:#f8f9fa;">
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:20%;">パラメータ名</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:65%;">意味</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:center;font-weight:bold;width:15%;">デフォルト値</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">信頼区間レベル</td>
+<td style="border:1px solid #dee2e6;padding:8px;">分析結果の不確実性を表現する範囲です。値が大きいほど信頼区間は広くなり、効果の推定に対する確度が高まりますが、区間自体は広くなります。</td>
+<td style="border:1px solid #dee2e6;padding:8px;text-align:center;white-space:nowrap;">95%</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">季節性を考慮する</td>
+<td style="border:1px solid #dee2e6;padding:8px;">時系列データに含まれる周期的なパターン（曜日・月・季節など）を考慮するかどうかを指定します。これらの影響が分析対象に含まれる場合はオンにします。</td>
+<td style="border:1px solid #dee2e6;padding:8px;text-align:center;white-space:nowrap;">オン</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">周期タイプ</td>
+<td style="border:1px solid #dee2e6;padding:8px;">季節性を考慮する場合に、データのパターンに合わせた周期を選択します。
+<ul style="margin-top:0.5em;margin-bottom:0;">
+<li><strong>週次 (7日)</strong>：週単位で繰り返すパターン（例：平日と週末の差）</li>
+<li><strong>旬次 (10日)</strong>：上旬・中旬・下旬など、10日単位のパターン</li>
+<li><strong>月次 (30日)</strong>：月単位の繰り返し（例：月初・月末の需要変動）</li>
+<li><strong>四半期 (90日)</strong>：四半期ごとのパターン（例：決算期の影響）</li>
+<li><strong>年次 (365日)</strong>：季節変動など年単位の周期</li>
+<li><strong>カスタム</strong>：上記以外の特定の周期を対象とする場合に選択</li>
+</ul></td>
+<td style="border:1px solid #dee2e6;padding:8px;text-align:center;white-space:nowrap;">{seasonality_default}</td>
+</tr>
+</tbody>
+</table>
 </div>
-</div>
-                 """, unsafe_allow_html=True)
+                     """, unsafe_allow_html=True)
                  
                 # 高度な設定
                 with st.expander("高度なオプション設定（デフォルト設定でも十分な性能を発揮するため、変更は必須ではありません）"):
@@ -1493,7 +1496,7 @@ if st.session_state.get('data_loaded', False):
 </div>
                             """, unsafe_allow_html=True)
                     
-                    # 高度なパラメータの注釈
+                    # 高度なパラメータの注釈（デザインを基本パラメータと統一）
                     st.markdown("---")
                     st.markdown("**高度なパラメータの設定とデフォルト値**")
                     st.markdown("""
@@ -1501,26 +1504,26 @@ if st.session_state.get('data_loaded', False):
 <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
 <thead>
 <tr style="background-color:#f8f9fa;">
-<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;">パラメータ名</th>
-<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;">意味</th>
-<th style="border:1px solid #dee2e6;padding:8px;text-align:center;font-weight:bold;">デフォルト値</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:20%;">パラメータ名</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:65%;">意味</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:center;font-weight:bold;width:15%;">デフォルト値</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="border:1px solid #dee2e6;padding:8px;">レベル変動の事前分散</td>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">レベル変動の事前分散</td>
 <td style="border:1px solid #dee2e6;padding:8px;">ベイズモデルにおける事前分布のパラメータで、時系列の水準（レベル）の変動性をどの程度許容するかを指定します。値が大きいほど水準変化に対して寛容になります。</td>
-<td style="border:1px solid #dee2e6;padding:8px;text-align:center;">0.010</td>
+<td style="border:1px solid #dee2e6;padding:8px;text-align:center;white-space:nowrap;">0.010</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:8px;">データを標準化する</td>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">データを標準化する</td>
 <td style="border:1px solid #dee2e6;padding:8px;">分析前にデータを平均0、標準偏差1になるように変換するかどうかを指定します。データのスケールが大きく異なる場合や、単位の影響を排除したい場合にオンにします。</td>
-<td style="border:1px solid #dee2e6;padding:8px;text-align:center;">オン</td>
+<td style="border:1px solid #dee2e6;padding:8px;text-align:center;white-space:nowrap;">オン</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:8px;">MCMC反復回数</td>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">MCMC反復回数</td>
 <td style="border:1px solid #dee2e6;padding:8px;">モンテカルロマルコフ連鎖（MCMC）シミュレーションの反復回数を指定します。値が大きいほど推定精度が向上しますが、計算時間も長くなります。</td>
-<td style="border:1px solid #dee2e6;padding:8px;text-align:center;">1000</td>
+<td style="border:1px solid #dee2e6;padding:8px;text-align:center;white-space:nowrap;">1000</td>
 </tr>
 </tbody>
 </table>
