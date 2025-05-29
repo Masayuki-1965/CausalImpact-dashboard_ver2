@@ -118,7 +118,7 @@ else:
 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;margin-top:1em;">アップロード方法の選択</div>', unsafe_allow_html=True)
 upload_method = st.radio(
     "アップロード方法選択",
-    options=["ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）", "CSVテキスト直接入力"],
+    options=["ファイルアップロード（推奨）", "CSVテキスト直接入力"],
     index=0,
     label_visibility="collapsed",
     help="CSVデータを直接入力する方法と、ファイルをアップロードする方法があります。"
@@ -139,7 +139,7 @@ read_btn_single_text = False
 # 分析タイプに応じてUIを切り替え
 if analysis_type == "二群比較（処置群＋対照群を使用）":
     # 既存の標準分析UI
-    if upload_method == "ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）":
+    if upload_method == "ファイルアップロード（推奨）":
         # 処置群と対照群の名称入力欄（ファイルアップロード・CSVテキスト共通）
         col1, col2 = st.columns(2)
         with col1:
@@ -223,7 +223,7 @@ if analysis_type == "二群比較（処置群＋対照群を使用）":
 
 else:
     # 単群推定UI
-    if upload_method == "ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）":
+    if upload_method == "ファイルアップロード（推奨）":
         st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群データ</div>', unsafe_allow_html=True)
         
         treatment_file = st.file_uploader(
@@ -551,7 +551,7 @@ def create_single_group_dataset(df_treat, treatment_name, freq_option):
 
 # --- 二群比較のファイルアップロード後のデータ読み込み ---
 if analysis_type == "二群比較（処置群＋対照群を使用）":
-    if upload_method == "ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）" and read_btn_upload and treatment_file and control_file:
+    if upload_method == "ファイルアップロード（推奨）" and read_btn_upload and treatment_file and control_file:
         with st.spinner("データ読み込み中..."):
             try:
                 # Streamlit Cloud環境かどうかを確認（環境変数などで判定可能）
@@ -649,7 +649,7 @@ if analysis_type == "二群比較（処置群＋対照群を使用）":
 
 # --- 単群推定のデータ読み込み ---
 else:  # analysis_type == "単群推定（処置群のみを使用）"
-    if upload_method == "ファイルアップロード（※日本語ファイル名は非対応／英数字のみ使用可）" and read_btn_single_upload and treatment_file:
+    if upload_method == "ファイルアップロード（推奨）" and read_btn_single_upload and treatment_file:
         with st.spinner("処置群のみデータ読み込み中..."):
             try:
                 # Streamlit Cloud環境かどうかを確認
@@ -1570,17 +1570,202 @@ if st.session_state.get('data_loaded', False):
                     if analyze_btn:
                         st.session_state['params_saved'] = True
                         st.session_state['show_step3'] = True
-                        st.info("🚧 STEP3の実装は現在進行中です。分析実行・結果表示機能を実装予定です。")
+                        
+                        # 分析実行処理を開始
+                        with st.spinner("Causal Impact分析を実行中..."):
+                            try:
+                                # 分析期間の取得
+                                analysis_period = st.session_state['analysis_period']
+                                analysis_params = st.session_state['analysis_params']
+                                dataset = st.session_state['dataset']
+                                
+                                # 分析期間をリスト形式に変換
+                                pre_period = [analysis_period['pre_start'], analysis_period['pre_end']]
+                                post_period = [analysis_period['post_start'], analysis_period['post_end']]
+                                
+                                # 分析タイプに応じて分析実行
+                                if current_analysis_type == "単群推定（処置群のみを使用）":
+                                    # 処置群のみ分析実行
+                                    from utils_step3_single_group import run_single_group_causal_impact_analysis
+                                    
+                                    # データセットを処置群のみ分析用に準備
+                                    # データセットの列名を取得（ymd以外の最初の列が処置群データ）
+                                    data_columns = [col for col in dataset.columns if col != 'ymd']
+                                    if len(data_columns) == 0:
+                                        st.error("データセットに処置群データが見つかりません。")
+                                        st.stop()
+                                    
+                                    # 処置群のみ分析用データフレーム作成
+                                    single_group_data = dataset[['ymd', data_columns[0]]].copy()
+                                    single_group_data.columns = ['date', 'y']  # CausalImpact用の標準列名
+                                    
+                                    # 日付をpandasのTimestamp形式に確実に変換
+                                    single_group_data['date'] = pd.to_datetime(single_group_data['date'])
+                                    single_group_data = single_group_data.set_index('date')
+                                    
+                                    # 分析期間の日付もpandasのTimestamp形式に変換
+                                    pre_period_converted = [pd.to_datetime(pre_period[0]), pd.to_datetime(pre_period[1])]
+                                    post_period_converted = [pd.to_datetime(post_period[0]), pd.to_datetime(post_period[1])]
+                                    
+                                    # 季節性パラメータの設定
+                                    if analysis_params.get('seasonality', False):
+                                        nseasons = analysis_params.get('seasonality_period', 7)
+                                        season_duration = 1
+                                    else:
+                                        nseasons = 1
+                                        season_duration = 1
+                                    
+                                    # 処置群のみ分析実行
+                                    ci, summary, report, fig = run_single_group_causal_impact_analysis(
+                                        single_group_data, 
+                                        pre_period_converted, 
+                                        post_period_converted,
+                                        nseasons=nseasons,
+                                        season_duration=season_duration
+                                    )
+                                    
+                                    # 結果をセッションに保存
+                                    st.session_state['causal_impact_result'] = ci
+                                    st.session_state['analysis_summary'] = summary
+                                    st.session_state['analysis_report'] = report
+                                    st.session_state['analysis_figure'] = fig
+                                    st.session_state['analysis_completed'] = True
+                                    
+                                else:
+                                    # 二群比較分析実行（既存機能）
+                                    from utils_step3 import run_causal_impact_analysis
+                                    
+                                    # 分析期間の日付をpandasのTimestamp形式に変換
+                                    pre_period_converted = [pd.to_datetime(pre_period[0]), pd.to_datetime(pre_period[1])]
+                                    post_period_converted = [pd.to_datetime(post_period[0]), pd.to_datetime(post_period[1])]
+                                    
+                                    # 二群比較分析用データセットを適切な形式に変換
+                                    # CausalImpactは日付をインデックスとしたデータフレームを期待
+                                    analysis_dataset = dataset.copy()
+                                    analysis_dataset['ymd'] = pd.to_datetime(analysis_dataset['ymd'])
+                                    analysis_dataset = analysis_dataset.set_index('ymd')
+                                    
+                                    # 既存の二群比較分析を実行（引数を3つに修正）
+                                    ci, summary, report, fig = run_causal_impact_analysis(
+                                        analysis_dataset, 
+                                        pre_period_converted, 
+                                        post_period_converted
+                                    )
+                                    
+                                    # 結果をセッションに保存
+                                    st.session_state['causal_impact_result'] = ci
+                                    st.session_state['analysis_summary'] = summary
+                                    st.session_state['analysis_report'] = report
+                                    st.session_state['analysis_figure'] = fig
+                                    st.session_state['analysis_completed'] = True
+                                
+                                # 分析完了メッセージ
+                                st.success("✅ Causal Impact分析が完了しました！下記の結果をご確認ください。")
+                                
+                            except Exception as e:
+                                st.error(f"❌ 分析実行中にエラーが発生しました: {str(e)}")
+                                st.error("パラメータ設定を確認して再度実行してください。")
+                                st.session_state['analysis_completed'] = False
                 else:
                     st.error("❌ 期間設定に問題があります。上記のエラーを修正してから分析を実行してください。")
 
+# --- STEP 3: 分析結果表示 ---
+# 分析が完了している場合、結果を表示
+if st.session_state.get('analysis_completed', False) and st.session_state.get('show_step3', False):
+    
+    st.markdown("""
+<div class="step-card">
+    <h2 style="font-size:1.8em;font-weight:bold;color:#1565c0;margin-bottom:0.5em;">STEP 3：分析結果の確認</h2>
+    <div style="color:#1976d2;font-size:1.1em;line-height:1.5;">Causal Impact分析の結果をグラフと数値で確認できます。</div>
+</div>
+    """, unsafe_allow_html=True)
+    
+    # 分析結果の取得
+    ci = st.session_state.get('causal_impact_result')
+    summary = st.session_state.get('analysis_summary')
+    report = st.session_state.get('analysis_report')
+    fig = st.session_state.get('analysis_figure')
+    current_analysis_type = st.session_state.get('analysis_type', analysis_type)
+    
+    if ci is not None:
+        # --- 分析結果サマリー ---
+        st.markdown('<div class="section-title">分析結果サマリー</div>', unsafe_allow_html=True)
+        
+        # 分析タイプによる結果表示の分岐
+        if current_analysis_type == "単群推定（処置群のみを使用）":
+            st.info("📊 **処置群のみ分析結果**：対照群なしでの分析結果です。介入前のトレンドと季節性から推定した反事実シナリオとの比較となります。")
+        else:
+            st.info("📊 **二群比較分析結果**：処置群と対照群の関係性をもとにした分析結果です。")
+        
+        # サマリーテーブルの表示
+        if summary is not None:
+            try:
+                # サマリーを文字列として表示（テーブル形式）
+                st.text(str(summary))
+            except Exception as e:
+                st.error(f"サマリー表示でエラーが発生しました: {str(e)}")
+        
+        # --- 分析結果グラフ ---
+        st.markdown('<div class="section-title">分析結果グラフ</div>', unsafe_allow_html=True)
+        
+        if fig is not None:
+            try:
+                # matplotlibの図をStreamlitに表示
+                st.pyplot(fig)
+            except Exception as e:
+                st.error(f"グラフ表示でエラーが発生しました: {str(e)}")
+        
+        # --- 詳細レポート ---
+        with st.expander("詳細レポート", expanded=False):
+            if report is not None:
+                try:
+                    # レポートを文字列として表示
+                    st.text(str(report))
+                except Exception as e:
+                    st.error(f"レポート表示でエラーが発生しました: {str(e)}")
+        
+        # --- 結果の解釈ガイド ---
+        with st.expander("結果の解釈ガイド", expanded=False):
+            if current_analysis_type == "単群推定（処置群のみを使用）":
+                st.markdown("""
+<div style="line-height:1.7;">
+<h4>処置群のみ分析の解釈における注意点</h4>
+<ul>
+<li><b>反事実シナリオ</b>：対照群がないため、介入前のトレンドと季節性パターンから「介入がなかった場合の予測値」を推定しています</li>
+<li><b>信頼性</b>：二群比較と比べて仮定が強く、外部要因の影響を受けやすい可能性があります</li>
+<li><b>有意性の判断</b>：信頼区間が0を含まない場合に統計的に有意とみなされます</li>
+<li><b>実用性</b>：対照群が設定困難な場合の有効な分析手法ですが、結果の解釈には注意が必要です</li>
+</ul>
+</div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+<div style="line-height:1.7;">
+<h4>二群比較分析の解釈</h4>
+<ul>
+<li><b>因果効果</b>：処置群と対照群の関係性をもとに、介入の純粋な効果を推定します</li>
+<li><b>反事実シナリオ</b>：対照群との関係から「介入がなかった場合の処置群の予測値」を算出します</li>
+<li><b>有意性の判断</b>：信頼区間が0を含まない場合に統計的に有意とみなされます</li>
+<li><b>信頼性</b>：対照群があることで、外部要因の影響をより適切に除去できます</li>
+</ul>
+</div>
+                """, unsafe_allow_html=True)
+        
+        # --- ダウンロード機能（Phase 3.3で実装予定） ---
+        st.markdown('<div class="section-title">結果のダウンロード</div>', unsafe_allow_html=True)
+        st.info("📥 **ダウンロード機能**：CSV・PDFダウンロード機能は次回実装予定です。")
+    
+    else:
+        st.error("分析結果が見つかりません。再度分析を実行してください。")
+
 st.markdown("---")
-st.markdown("### 🚧 開発中")
-st.markdown("**単群推定機能**は現在開発中です。既存の二群比較機能をベースに、以下の拡張を実装予定：")
+st.markdown("### 🚧 開発進捗")
+st.markdown("**処置群のみ分析機能**の実装進捗：")
 st.markdown("""
 - ✅ 処置群のみデータの取り込み機能
 - ✅ 介入ポイント自動推奨機能  
 - ✅ 期間設定・パラメータ設定機能
-- 🔄 分析実行・結果表示機能
-- 🔄 結果解釈の強化（対照群なし分析特有の注意事項）
+- ✅ 分析実行機能（Phase 3.1完了）
+- 🔄 結果表示機能（Phase 3.2実装中）
+- 🔄 ダウンロード機能（Phase 3.3実装予定）
 """) 
