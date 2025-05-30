@@ -1736,53 +1736,379 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
     current_analysis_type = st.session_state.get('analysis_type', analysis_type)
     
     if ci is not None:
-        # --- 分析結果サマリー ---
+        # --- 分析結果サマリー（改善版） ---
         st.markdown('<div class="section-title">分析結果サマリー</div>', unsafe_allow_html=True)
         
-        # 分析タイプによる結果表示の分岐
-        if current_analysis_type == "単群推定（処置群のみを使用）":
-            st.info("📊 **処置群のみ分析結果**：対照群なしでの分析結果です。介入前のトレンドと季節性から推定した反事実シナリオとの比較となります。")
-        else:
-            st.info("📊 **二群比較分析結果**：処置群と対照群の関係性をもとにした分析結果です。")
+        # 分析条件の表示（シンプルな中項目デザイン）
+        analysis_period = st.session_state.get('analysis_period', {})
+        analysis_params = st.session_state.get('analysis_params', {})
+        treatment_name = st.session_state.get('treatment_name', '処置群')
+        control_name = st.session_state.get('control_name', '対照群')
+        freq_option = st.session_state.get('freq_option', '月次')
         
-        # サマリーテーブルの表示
+        # 分析条件の構築
+        if current_analysis_type == "単群推定（処置群のみを使用）":
+            analysis_target = treatment_name
+            analysis_method = "単群推定（Single Group Causal Impact）"
+        else:
+            analysis_target = f"{treatment_name}（vs {control_name}）"
+            analysis_method = "二群比較（Two-Group Causal Impact）"
+        
+        # 分析期間の表示用文字列
+        if analysis_period:
+            try:
+                analysis_period_str = f"{analysis_period['pre_start'].strftime('%Y-%m-%d')} ～ {analysis_period['post_end'].strftime('%Y-%m-%d')}"
+            except:
+                analysis_period_str = "期間情報取得エラー"
+        else:
+            analysis_period_str = "期間情報なし"
+        
+        # 信頼水準の取得
+        confidence_level = int((1 - analysis_params.get('alpha', 0.05)) * 100) if analysis_params else 95
+        
+        # データ粒度の表示
+        data_granularity = freq_option
+        
+        # 分析条件をシンプルな形式で表示（中項目デザイン）
+        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">分析対象</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="margin-bottom:1em;color:#424242;">{analysis_target}</div>', unsafe_allow_html=True)
+        
+        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">分析期間</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="margin-bottom:1em;color:#424242;">{analysis_period_str}</div>', unsafe_allow_html=True)
+        
+        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">分析手法</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="margin-bottom:1em;color:#424242;">{analysis_method}</div>', unsafe_allow_html=True)
+        
+        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">データ粒度</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="margin-bottom:1em;color:#424242;">{data_granularity}</div>', unsafe_allow_html=True)
+        
+        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">信頼水準</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="margin-bottom:1.5em;color:#424242;">{confidence_level}%</div>', unsafe_allow_html=True)
+        
+        # サマリー情報の詳細表示（表形式に改善）
         if summary is not None:
             try:
-                # サマリーを文字列として表示（テーブル形式）
-                st.text(str(summary))
+                # CausalImpactの結果から主要指標を抽出して表形式で表示
+                if hasattr(ci, 'summary') and hasattr(ci.summary, 'iloc'):
+                    # pandas DataFrameとして処理
+                    summary_df = ci.summary.copy()
+                    
+                    # 主要指標の抽出と表形式での表示
+                    if 'Average' in summary_df.columns and 'Cumulative' in summary_df.columns:
+                        # 分析結果テーブルの作成
+                        results_data = []
+                        
+                        # 各指標の行を作成
+                        if 'Actual' in summary_df.index:
+                            avg_actual = summary_df.loc['Actual', 'Average']
+                            cum_actual = summary_df.loc['Actual', 'Cumulative']
+                            results_data.append(['実測値', f"{avg_actual:.1f}", f"{cum_actual:,.0f}"])
+                        
+                        if 'Predicted' in summary_df.index:
+                            avg_pred = summary_df.loc['Predicted', 'Average']
+                            cum_pred = summary_df.loc['Predicted', 'Cumulative']
+                            # 標準偏差がある場合は括弧内に表示
+                            if hasattr(summary_df.loc['Predicted', 'Average'], '__iter__'):
+                                # 複数値の場合（標準偏差含む）
+                                pred_str = str(summary_df.loc['Predicted', 'Average'])
+                                cum_pred_str = str(summary_df.loc['Predicted', 'Cumulative'])
+                            else:
+                                pred_str = f"{avg_pred:.1f}"
+                                cum_pred_str = f"{cum_pred:,.0f}"
+                            results_data.append(['予測値（標準偏差）', pred_str, cum_pred_str])
+                        
+                        if '95% CI' in summary_df.index:
+                            avg_ci = str(summary_df.loc['95% CI', 'Average'])
+                            cum_ci = str(summary_df.loc['95% CI', 'Cumulative'])
+                            results_data.append(['予測値 95% 信頼区間', avg_ci, cum_ci])
+                        
+                        if 'AbsEffect' in summary_df.index:
+                            avg_abs = summary_df.loc['AbsEffect', 'Average']
+                            cum_abs = summary_df.loc['AbsEffect', 'Cumulative']
+                            # 標準偏差がある場合は括弧内に表示
+                            if hasattr(avg_abs, '__iter__'):
+                                abs_str = str(avg_abs)
+                                cum_abs_str = str(cum_abs)
+                            else:
+                                abs_str = f"{avg_abs:.1f}"
+                                cum_abs_str = f"{cum_abs:,.0f}"
+                            results_data.append(['絶対効果（標準偏差）', abs_str, cum_abs_str])
+                        
+                        if 'AbsEffect_lower' in summary_df.index and 'AbsEffect_upper' in summary_df.index:
+                            avg_abs_ci = f"[{summary_df.loc['AbsEffect_lower', 'Average']:.1f}, {summary_df.loc['AbsEffect_upper', 'Average']:.1f}]"
+                            cum_abs_ci = f"[{summary_df.loc['AbsEffect_lower', 'Cumulative']:,.0f}, {summary_df.loc['AbsEffect_upper', 'Cumulative']:,.0f}]"
+                            results_data.append(['絶対効果 95% 信頼区間', avg_abs_ci, cum_abs_ci])
+                        
+                        if 'RelEffect' in summary_df.index:
+                            avg_rel = summary_df.loc['RelEffect', 'Average']
+                            cum_rel = summary_df.loc['RelEffect', 'Cumulative']
+                            # パーセンテージ表示
+                            if hasattr(avg_rel, '__iter__'):
+                                rel_str = str(avg_rel)
+                                cum_rel_str = str(cum_rel)
+                            else:
+                                rel_str = f"{avg_rel*100:.1f}%"
+                                cum_rel_str = f"{cum_rel*100:.1f}%"
+                            results_data.append(['相対効果（標準偏差）', rel_str, cum_rel_str])
+                        
+                        if 'RelEffect_lower' in summary_df.index and 'RelEffect_upper' in summary_df.index:
+                            avg_rel_ci = f"[{summary_df.loc['RelEffect_lower', 'Average']*100:.1f}%, {summary_df.loc['RelEffect_upper', 'Average']*100:.1f}%]"
+                            cum_rel_ci = f"[{summary_df.loc['RelEffect_lower', 'Cumulative']*100:.1f}%, {summary_df.loc['RelEffect_upper', 'Cumulative']*100:.1f}%]"
+                            results_data.append(['相対効果 95% 信頼区間', avg_rel_ci, cum_rel_ci])
+                        
+                        # 事後確率の追加
+                        if hasattr(ci, 'p_value'):
+                            p_value = ci.p_value if ci.p_value is not None else "N/A"
+                            results_data.append(['p値（事後確率）', str(p_value), "同左"])
+                        
+                        # 結果テーブルの表示
+                        if results_data:
+                            results_df = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+                            st.dataframe(results_df, use_container_width=True, hide_index=True)
+                            
+                            # 指標の説明（展開可能）
+                            with st.expander("指標の説明", expanded=False):
+                                st.markdown("""
+<div style="line-height:1.7;">
+<table style="width:100%;border-collapse:collapse;font-size:0.9em;">
+<thead>
+<tr style="background-color:#f8f9fa;">
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:25%;">指標名</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:75%;">意味</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">実測値</td>
+<td style="border:1px solid #dee2e6;padding:8px;">介入期間中に実際に観測された応答変数の値です。対象となる処置群の実際の測定値を表します。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">予測値（標準偏差）</td>
+<td style="border:1px solid #dee2e6;padding:8px;">介入が行われなかった場合に予測される応答値です。括弧内の数値は予測の不確実性を示す標準偏差です。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">予測値 XX% 信頼区間</td>
+<td style="border:1px solid #dee2e6;padding:8px;">予測値の信頼区間を示します。実際の効果がこの範囲内に収まる確率がXX%であることを意味します。区間は[下限値, 上限値]として表示されます。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">絶対効果（標準偏差）</td>
+<td style="border:1px solid #dee2e6;padding:8px;">実測値から予測値を引いた差分で、介入による効果の絶対値を示します。プラスの値は正の効果、マイナスの値は負の効果を意味します。括弧内の数値は標準偏差です。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">絶対効果 XX% 信頼区間</td>
+<td style="border:1px solid #dee2e6;padding:8px;">絶対効果の信頼区間です。この範囲に0が含まれていない場合、効果は統計的に有意と判断できます。区間は[下限値, 上限値]として表示されます。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">相対効果（標準偏差）</td>
+<td style="border:1px solid #dee2e6;padding:8px;">絶対効果を予測値で割った比率で、効果のパーセンテージを示します。予測値に対して何%の変化があったかを表します。相対効果については、分析期間の平均値の欄に表示しています。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">相対効果 XX% 信頼区間</td>
+<td style="border:1px solid #dee2e6;padding:8px;">相対効果の信頼区間です。この範囲に0%が含まれていない場合、相対効果は統計的に有意と判断できます。相対効果の信頼区間についても、分析期間の平均値の欄に表示しています。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">p値（事後確率）</td>
+<td style="border:1px solid #dee2e6;padding:8px;">観測された効果（または、より極端な効果）が単なる偶然で生じる確率です。一般的に0.05未満の場合、効果は統計的に有意と判断されます。数値が小さいほど、効果が偶然ではなく介入によるものである可能性が高いことを示します。p値については、分析期間の平均値の欄に表示しています。</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div style="margin-top:1em;font-size:0.9em;color:#666;">
+<p><strong>分析期間の平均値：</strong> 介入期間中の1日あたりの平均値を示します。</p>
+<p><strong>分析期間の累積値：</strong> 介入期間全体での合計値を示します。</p>
+<p style="margin-top:1em;">※相対効果、相対効果の信頼区間、およびp値については、分析期間の平均値の欄に集約して表示しています。</p>
+</div>
+                                """, unsafe_allow_html=True)
+                    
+                    # 完全なサマリーテーブルをexpanderで表示
+                    with st.expander("完全なサマリーテーブル", expanded=False):
+                        st.dataframe(summary_df, use_container_width=True)
+                else:
+                    # フォールバック：テキスト形式で表示
+                    st.text(str(summary))
+                    
             except Exception as e:
-                st.error(f"サマリー表示でエラーが発生しました: {str(e)}")
+                st.warning("サマリー情報の詳細表示でエラーが発生しました。基本情報を表示します。")
+                st.text(str(summary))
         
-        # --- 分析結果グラフ ---
+        # --- 統計的有意性の判定 ---
+        try:
+            if hasattr(ci, 'summary') and hasattr(ci.summary, 'iloc'):
+                summary_df = ci.summary
+                if 'Cumulative' in summary_df.columns:
+                    # 信頼区間の確認
+                    cumulative_data = summary_df['Cumulative']
+                    
+                    # 効果の有意性判定
+                    if 'AbsEffect_lower' in cumulative_data.index and 'AbsEffect_upper' in cumulative_data.index:
+                        lower_bound = cumulative_data['AbsEffect_lower']
+                        upper_bound = cumulative_data['AbsEffect_upper']
+                        effect = cumulative_data.get('AbsEffect', 0)
+                        
+                        # 信頼区間が0を含むかどうかで有意性を判定
+                        if (lower_bound > 0 and upper_bound > 0) or (lower_bound < 0 and upper_bound < 0):
+                            # 統計的に有意
+                            significance_color = "#4caf50"
+                            significance_text = "統計的に有意"
+                            significance_icon = "✅"
+                            significance_detail = f"信頼区間 [{lower_bound:,.0f}, {upper_bound:,.0f}] が0を含まないため、統計的に有意な効果が検出されました。"
+                        else:
+                            # 統計的に非有意
+                            significance_color = "#ff9800"
+                            significance_text = "統計的に非有意"
+                            significance_icon = "⚠️"
+                            significance_detail = f"信頼区間 [{lower_bound:,.0f}, {upper_bound:,.0f}] が0を含むため、統計的に有意な効果は検出されませんでした。"
+                        
+                        st.markdown(f"""
+<div style="background-color:{significance_color}15;padding:15px;border-radius:8px;margin:15px 0;border-left:4px solid {significance_color};">
+<h4 style="color:{significance_color};margin-bottom:8px;">{significance_icon} {significance_text}</h4>
+<p style="margin:0;color:#424242;">{significance_detail}</p>
+</div>
+                        """, unsafe_allow_html=True)
+        except Exception as e:
+            pass  # 有意性判定でエラーが発生した場合はスキップ
+
+        # --- 分析結果グラフ（改善版） ---
         st.markdown('<div class="section-title">分析結果グラフ</div>', unsafe_allow_html=True)
         
         if fig is not None:
             try:
+                # グラフのタイトルを分析タイプに応じて追加（日本語対応）
+                if current_analysis_type == "単群推定（処置群のみを使用）":
+                    st.markdown('<div style="font-weight:bold;margin-bottom:1em;color:#1976d2;">処置群のみ分析：介入前トレンドからの予測との比較</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown('<div style="font-weight:bold;margin-bottom:1em;color:#1976d2;">二群比較分析：対照群との関係性による予測との比較</div>', unsafe_allow_html=True)
+                
+                # matplotlibのフォント設定を確認・修正してからグラフ表示
+                import matplotlib
+                import matplotlib.pyplot as plt
+                
+                # Windows環境の日本語フォント設定
+                try:
+                    # Windows標準の日本語フォントを優先設定
+                    matplotlib.rcParams['font.family'] = ['Yu Gothic', 'Meiryo', 'MS Gothic', 'DejaVu Sans']
+                    matplotlib.rcParams['font.sans-serif'] = ['Yu Gothic', 'Meiryo', 'MS Gothic', 'DejaVu Sans']
+                    # 警告を抑制
+                    matplotlib.rcParams['axes.unicode_minus'] = False
+                except Exception as e:
+                    pass  # フォント設定に失敗してもエラーで止まらないように
+                
+                # 図のタイトルを日本語で設定（図のタイトル自体を修正）
+                try:
+                    if hasattr(fig, 'suptitle'):
+                        if current_analysis_type == "単群推定（処置群のみを使用）":
+                            fig.suptitle(f"{treatment_name}", fontsize=14, weight='bold')
+                        else:
+                            fig.suptitle(f"{treatment_name} vs {control_name}", fontsize=14, weight='bold')
+                except Exception as e:
+                    pass  # タイトル設定に失敗してもエラーで止まらないように
+                
                 # matplotlibの図をStreamlitに表示
                 st.pyplot(fig)
+                
+                # グラフの解説
+                with st.expander("グラフの見方", expanded=False):
+                    if current_analysis_type == "単群推定（処置群のみを使用）":
+                        st.markdown("""
+<div style="line-height:1.7;">
+<h4>処置群のみ分析グラフの解釈</h4>
+<ul>
+<li><b>実測データ（黒線）</b>：実際に観測された処置群のデータ</li>
+<li><b>予測データ（青線）</b>：介入前のトレンドと季節性から推定した「介入がなかった場合」の予測値</li>
+<li><b>効果（中段）</b>：実測値と予測値の差分（介入効果）</li>
+<li><b>累積効果（下段）</b>：効果の時系列的な累積</li>
+<li><b>信頼区間（影部分）</b>：予測の不確実性を示す範囲</li>
+</ul>
+<p><strong>注意：</strong>対照群がないため、外部要因による影響も効果として捉えられる可能性があります。</p>
+</div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown("""
+<div style="line-height:1.7;">
+<h4>二群比較分析グラフの解釈</h4>
+<ul>
+<li><b>実測データ（黒線）</b>：実際に観測された処置群のデータ</li>
+<li><b>予測データ（青線）</b>：対照群との関係から推定した「介入がなかった場合」の処置群予測値</li>
+<li><b>効果（中段）</b>：実測値と予測値の差分（純粋な介入効果）</li>
+<li><b>累積効果（下段）</b>：効果の時系列的な累積</li>
+<li><b>信頼区間（影部分）</b>：予測の不確実性を示す範囲</li>
+</ul>
+<p><strong>利点：</strong>対照群により外部要因の影響が除去され、より信頼性の高い因果効果を推定できます。</p>
+</div>
+                        """, unsafe_allow_html=True)
+                    
             except Exception as e:
                 st.error(f"グラフ表示でエラーが発生しました: {str(e)}")
+                # フォールバック：元の図をそのまま表示
+                try:
+                    st.pyplot(fig)
+                except:
+                    st.error("グラフの表示に失敗しました。")
         
-        # --- 詳細レポート ---
+        # --- 詳細レポート（改善版） ---
         with st.expander("詳細レポート", expanded=False):
             if report is not None:
                 try:
-                    # レポートを文字列として表示
-                    st.text(str(report))
+                    # レポートをより読みやすく表示
+                    st.markdown("**📋 Causal Impact分析の詳細レポート**")
+                    
+                    # レポートを行ごとに分割して表示
+                    report_lines = str(report).split('\n')
+                    formatted_report = []
+                    
+                    for line in report_lines:
+                        if line.strip():
+                            # 重要な統計値を強調表示
+                            if 'Posterior tail-area probability' in line:
+                                formatted_report.append(f"**{line.strip()}**")
+                            elif 'Posterior prob. of a causal effect' in line:
+                                formatted_report.append(f"**{line.strip()}**")
+                            else:
+                                formatted_report.append(line.strip())
+                    
+                    for line in formatted_report:
+                        if line:
+                            st.markdown(line)
+                    
                 except Exception as e:
                     st.error(f"レポート表示でエラーが発生しました: {str(e)}")
+                    st.text(str(report))
         
-        # --- 結果の解釈ガイド ---
+        # --- 結果の解釈ガイド（拡張版） ---
         with st.expander("結果の解釈ガイド", expanded=False):
             if current_analysis_type == "単群推定（処置群のみを使用）":
                 st.markdown("""
 <div style="line-height:1.7;">
 <h4>処置群のみ分析の解釈における注意点</h4>
+
+<h5 style="color:#1976d2;">🔍 分析手法の理解</h5>
 <ul>
-<li><b>反事実シナリオ</b>：対照群がないため、介入前のトレンドと季節性パターンから「介入がなかった場合の予測値」を推定しています</li>
-<li><b>信頼性</b>：二群比較と比べて仮定が強く、外部要因の影響を受けやすい可能性があります</li>
-<li><b>有意性の判断</b>：信頼区間が0を含まない場合に統計的に有意とみなされます</li>
-<li><b>実用性</b>：対照群が設定困難な場合の有効な分析手法ですが、結果の解釈には注意が必要です</li>
+<li><b>反事実シナリオ</b>：対照群がないため、介入前のトレンドと季節性パターンから「介入がなかった場合の予測値」を推定</li>
+<li><b>時系列分解</b>：季節性、トレンド、ノイズ成分を分離し、構造的な時系列モデルを構築</li>
+<li><b>ベイズ推定</b>：不確実性を考慮した確率的な効果推定</li>
+</ul>
+
+<h5 style="color:#1976d2;">⚠️ 信頼性と制約</h5>
+<ul>
+<li><b>強い仮定</b>：介入前の時系列パターンが介入後も継続することを仮定</li>
+<li><b>外部要因</b>：同時期の他の要因による影響も効果として計測される可能性</li>
+<li><b>データ品質</b>：介入前期間のデータ品質が分析結果に大きく影響</li>
+<li><b>季節性の重要性</b>：不適切な季節性設定は予測精度を大幅に低下させる</li>
+</ul>
+
+<h5 style="color:#1976d2;">📊 有意性の判断基準</h5>
+<ul>
+<li><b>信頼区間</b>：95%信頼区間が0を含まない場合に統計的に有意</li>
+<li><b>事後確率</b>：因果効果の事後確率が95%以上で統計的に有意</li>
+<li><b>実用的意義</b>：統計的有意性と実用的な効果サイズを併せて判断</li>
+</ul>
+
+<h5 style="color:#1976d2;">🎯 実用性と適用場面</h5>
+<ul>
+<li><b>適用場面</b>：対照群設定が困難または不可能な場合の有効な手法</li>
+<li><b>補完的使用</b>：他の分析手法と組み合わせて総合的に判断</li>
+<li><b>解釈の慎重さ</b>：結果の解釈には十分な注意と追加検証が必要</li>
 </ul>
 </div>
                 """, unsafe_allow_html=True)
@@ -1790,14 +2116,101 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
                 st.markdown("""
 <div style="line-height:1.7;">
 <h4>二群比較分析の解釈</h4>
+
+<h5 style="color:#2e7d32;">🔍 分析手法の理解</h5>
 <ul>
-<li><b>因果効果</b>：処置群と対照群の関係性をもとに、介入の純粋な効果を推定します</li>
-<li><b>反事実シナリオ</b>：対照群との関係から「介入がなかった場合の処置群の予測値」を算出します</li>
-<li><b>有意性の判断</b>：信頼区間が0を含まない場合に統計的に有意とみなされます</li>
-<li><b>信頼性</b>：対照群があることで、外部要因の影響をより適切に除去できます</li>
+<li><b>因果効果</b>：処置群と対照群の関係性をもとに、介入の純粋な効果を推定</li>
+<li><b>反事実シナリオ</b>：対照群との関係から「介入がなかった場合の処置群の予測値」を算出</li>
+<li><b>共変量統制</b>：対照群により、処置群と対照群の両方に影響する要因を統制</li>
+</ul>
+
+<h5 style="color:#2e7d32;">✅ 信頼性の利点</h5>
+<ul>
+<li><b>外部要因の統制</b>：対照群があることで、外部要因の影響を適切に除去</li>
+<li><b>因果推論の強化</b>：処置群のみでは識別困難な因果関係を明確化</li>
+<li><b>頑健性</b>：異なる外部環境下でも安定した効果推定が可能</li>
+</ul>
+
+<h5 style="color:#2e7d32;">📊 有意性の判断基準</h5>
+<ul>
+<li><b>信頼区間</b>：95%信頼区間が0を含まない場合に統計的に有意</li>
+<li><b>効果サイズ</b>：統計的有意性に加えて、実用的な効果の大きさを評価</li>
+<li><b>持続性</b>：効果の時系列的な持続性・安定性を確認</li>
+</ul>
+
+<h5 style="color:#2e7d32;">🎯 最適な利用方法</h5>
+<ul>
+<li><b>ゴールドスタンダード</b>：因果効果測定における最も信頼性の高い手法の一つ</li>
+<li><b>政策評価</b>：政策や施策の効果測定に最適</li>
+<li><b>ビジネス意思決定</b>：ROI計算や戦略評価の基盤として活用可能</li>
 </ul>
 </div>
                 """, unsafe_allow_html=True)
+        
+        # --- 分析品質の評価（新機能） ---
+        with st.expander("分析品質の評価", expanded=False):
+            st.markdown("**📊 この分析の品質評価**")
+            
+            # 分析品質のチェック項目
+            quality_items = []
+            
+            # データ量の評価
+            analysis_period = st.session_state.get('analysis_period', {})
+            if analysis_period:
+                try:
+                    dataset = st.session_state.get('dataset')
+                    if dataset is not None:
+                        dataset_dates = pd.to_datetime(dataset['ymd']).dt.date
+                        pre_mask = (dataset_dates >= analysis_period['pre_start']) & (dataset_dates <= analysis_period['pre_end'])
+                        post_mask = (dataset_dates >= analysis_period['post_start']) & (dataset_dates <= analysis_period['post_end'])
+                        pre_count = pre_mask.sum()
+                        post_count = post_mask.sum()
+                        total_count = pre_count + post_count
+                        
+                        # データ量評価
+                        if current_analysis_type == "単群推定（処置群のみを使用）":
+                            if total_count >= 36:
+                                quality_items.append(["✅", "データ量", f"{total_count}件（推奨36件以上を満たしています）"])
+                            else:
+                                quality_items.append(["⚠️", "データ量", f"{total_count}件（推奨36件以上に不足）"])
+                        else:
+                            if total_count >= 24:
+                                quality_items.append(["✅", "データ量", f"{total_count}件（推奨24件以上を満たしています）"])
+                            else:
+                                quality_items.append(["⚠️", "データ量", f"{total_count}件（推奨24件以上に不足）"])
+                        
+                        # 介入前期間比率の評価
+                        if total_count > 0:
+                            pre_ratio = pre_count / total_count * 100
+                            if current_analysis_type == "単群推定（処置群のみを使用）":
+                                if pre_ratio >= 60:
+                                    quality_items.append(["✅", "介入前期間比率", f"{pre_ratio:.1f}%（推奨60%以上を満たしています）"])
+                                else:
+                                    quality_items.append(["⚠️", "介入前期間比率", f"{pre_ratio:.1f}%（推奨60%以上に不足）"])
+                            else:
+                                quality_items.append(["ℹ️", "介入前期間比率", f"{pre_ratio:.1f}%"])
+                except Exception as e:
+                    quality_items.append(["❌", "データ評価", "期間データの評価でエラーが発生しました"])
+            
+            # 季節性設定の評価
+            analysis_params = st.session_state.get('analysis_params', {})
+            if analysis_params.get('seasonality', False):
+                quality_items.append(["✅", "季節性考慮", "季節性パターンを考慮した分析が実行されています"])
+            else:
+                quality_items.append(["ℹ️", "季節性考慮", "季節性を考慮しない分析設定です"])
+            
+            # 分析タイプ別の評価
+            if current_analysis_type == "単群推定（処置群のみを使用）":
+                quality_items.append(["ℹ️", "分析手法", "単群推定（対照群なし）"])
+                quality_items.append(["⚠️", "外部要因", "対照群がないため外部要因の影響に注意が必要"])
+            else:
+                quality_items.append(["✅", "分析手法", "二群比較（対照群あり）"])
+                quality_items.append(["✅", "外部要因", "対照群による外部要因の統制が可能"])
+            
+            # 品質評価テーブルの表示
+            if quality_items:
+                quality_df = pd.DataFrame(quality_items, columns=['評価', '項目', '詳細'])
+                st.dataframe(quality_df, use_container_width=True, hide_index=True)
         
         # --- ダウンロード機能（Phase 3.3で実装予定） ---
         st.markdown('<div class="section-title">結果のダウンロード</div>', unsafe_allow_html=True)
