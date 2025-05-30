@@ -389,33 +389,25 @@ def build_enhanced_summary_table(ci):
             # どちらも利用できない場合は空のDataFrameを返す
             return pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
         
-        # デバッグ用：summary_dataの構造を確認
-        print("Summary data structure:")
-        print(f"Index: {summary_data.index.tolist()}")
-        print(f"Columns: {summary_data.columns.tolist()}")
-        print("Sample data:")
-        print(summary_data.head())
-        
         # 表示用のデータを準備
         results_data = []
         
         # 実測値
-        if 'Actual' in summary_data.index:
-            actual_avg = summary_data.loc['Actual', 'Average']
-            actual_cum = summary_data.loc['Actual', 'Cumulative']
+        if 'actual' in summary_data.index:
+            actual_avg = summary_data.loc['actual', 'average']
+            actual_cum = summary_data.loc['actual', 'cumulative']
             results_data.append(['実測値', f"{actual_avg:.1f}", f"{actual_cum:,.0f}"])
         
         # 予測値（標準偏差）
-        if 'Predicted' in summary_data.index:
-            pred_avg = summary_data.loc['Predicted', 'Average']
-            pred_cum = summary_data.loc['Predicted', 'Cumulative']
+        if 'predicted' in summary_data.index:
+            pred_avg = summary_data.loc['predicted', 'average']
+            pred_cum = summary_data.loc['predicted', 'cumulative']
             
-            # 標準偏差の取得
-            pred_sd_avg = summary_data.loc['Predicted', 'Sd'] if 'Sd' in summary_data.columns else None
-            
-            if pred_sd_avg is not None:
-                avg_str = f"{pred_avg:.1f} ({pred_sd_avg:.1f})"
-                cum_str = f"{pred_cum:.0f} ({pred_sd_avg:.0f})"
+            # 標準偏差が利用可能かチェック
+            if 'std' in summary_data.columns:
+                pred_sd = summary_data.loc['predicted', 'std']
+                avg_str = f"{pred_avg:.1f} ({pred_sd:.1f})"
+                cum_str = f"{pred_cum:,.0f} ({pred_sd:.1f})"
             else:
                 avg_str = f"{pred_avg:.1f}"
                 cum_str = f"{pred_cum:,.0f}"
@@ -423,32 +415,26 @@ def build_enhanced_summary_table(ci):
             results_data.append(['予測値（標準偏差）', avg_str, cum_str])
         
         # 予測値95%信頼区間
-        if 'Predicted_lower' in summary_data.index and 'Predicted_upper' in summary_data.index:
-            pred_lower_avg = summary_data.loc['Predicted_lower', 'Average']
-            pred_upper_avg = summary_data.loc['Predicted_upper', 'Average']
-            pred_lower_cum = summary_data.loc['Predicted_lower', 'Cumulative']
-            pred_upper_cum = summary_data.loc['Predicted_upper', 'Cumulative']
+        if 'predicted_lower' in summary_data.index and 'predicted_upper' in summary_data.index:
+            pred_lower_avg = summary_data.loc['predicted_lower', 'average']
+            pred_upper_avg = summary_data.loc['predicted_upper', 'average']
+            pred_lower_cum = summary_data.loc['predicted_lower', 'cumulative']
+            pred_upper_cum = summary_data.loc['predicted_upper', 'cumulative']
             
             avg_ci_str = f"[{pred_lower_avg:.1f}, {pred_upper_avg:.1f}]"
             cum_ci_str = f"[{pred_lower_cum:,.0f}, {pred_upper_cum:,.0f}]"
             results_data.append(['予測値 95% 信頼区間', avg_ci_str, cum_ci_str])
-        elif '95% CI' in summary_data.index:
-            # 代替的な信頼区間取得方法
-            pred_ci_avg = str(summary_data.loc['95% CI', 'Average'])
-            pred_ci_cum = str(summary_data.loc['95% CI', 'Cumulative'])
-            results_data.append(['予測値 95% 信頼区間', pred_ci_avg, pred_ci_cum])
         
         # 絶対効果（標準偏差）
-        if 'AbsEffect' in summary_data.index:
-            abs_avg = summary_data.loc['AbsEffect', 'Average']
-            abs_cum = summary_data.loc['AbsEffect', 'Cumulative']
+        if 'abs_effect' in summary_data.index:
+            abs_avg = summary_data.loc['abs_effect', 'average']
+            abs_cum = summary_data.loc['abs_effect', 'cumulative']
             
-            # 標準偏差の取得
-            abs_sd_avg = summary_data.loc['AbsEffect', 'Sd'] if 'Sd' in summary_data.columns else None
-            
-            if abs_sd_avg is not None:
-                avg_str = f"{abs_avg:.1f} ({abs_sd_avg:.1f})"
-                cum_str = f"{abs_cum:.0f} ({abs_sd_avg:.0f})"
+            # 標準偏差が利用可能かチェック
+            if 'std' in summary_data.columns:
+                abs_sd = summary_data.loc['abs_effect', 'std']
+                avg_str = f"{abs_avg:.1f} ({abs_sd:.1f})"
+                cum_str = f"{abs_cum:,.0f} ({abs_sd:.1f})"
             else:
                 avg_str = f"{abs_avg:.1f}"
                 cum_str = f"{abs_cum:,.0f}"
@@ -456,34 +442,33 @@ def build_enhanced_summary_table(ci):
             results_data.append(['絶対効果（標準偏差）', avg_str, cum_str])
         
         # 絶対効果95%信頼区間
-        if 'AbsEffect_lower' in summary_data.index and 'AbsEffect_upper' in summary_data.index:
-            abs_lower_avg = summary_data.loc['AbsEffect_lower', 'Average']
-            abs_upper_avg = summary_data.loc['AbsEffect_upper', 'Average']
-            abs_lower_cum = summary_data.loc['AbsEffect_lower', 'Cumulative']
-            abs_upper_cum = summary_data.loc['AbsEffect_upper', 'Cumulative']
+        if 'abs_effect_lower' in summary_data.index and 'abs_effect_upper' in summary_data.index:
+            abs_lower_avg = summary_data.loc['abs_effect_lower', 'average']
+            abs_upper_avg = summary_data.loc['abs_effect_upper', 'average']
+            abs_lower_cum = summary_data.loc['abs_effect_lower', 'cumulative']
+            abs_upper_cum = summary_data.loc['abs_effect_upper', 'cumulative']
             
             avg_ci_str = f"[{abs_lower_avg:.1f}, {abs_upper_avg:.1f}]"
             cum_ci_str = f"[{abs_lower_cum:,.0f}, {abs_upper_cum:,.0f}]"
             results_data.append(['絶対効果 95% 信頼区間', avg_ci_str, cum_ci_str])
         
         # 相対効果（標準偏差）
-        if 'RelEffect' in summary_data.index:
-            rel_avg = summary_data.loc['RelEffect', 'Average']
+        if 'rel_effect' in summary_data.index:
+            rel_avg = summary_data.loc['rel_effect', 'average']
             
-            # 標準偏差の取得
-            rel_sd_avg = summary_data.loc['RelEffect', 'Sd'] if 'Sd' in summary_data.columns else None
-            
-            if rel_sd_avg is not None:
-                rel_str = f"{rel_avg*100:.1f}% ({rel_sd_avg*100:.1f}%)"
+            # 標準偏差が利用可能かチェック
+            if 'std' in summary_data.columns:
+                rel_sd = summary_data.loc['rel_effect', 'std']
+                rel_str = f"{rel_avg*100:.1f}% ({rel_sd*100:.1f}%)"
             else:
                 rel_str = f"{rel_avg*100:.1f}%"
             
             results_data.append(['相対効果（標準偏差）', rel_str, '同左'])
         
-        # 相対効果95%信頼区間
-        if 'RelEffect_lower' in summary_data.index and 'RelEffect_upper' in summary_data.index:
-            rel_lower_avg = summary_data.loc['RelEffect_lower', 'Average']
-            rel_upper_avg = summary_data.loc['RelEffect_upper', 'Average']
+        # 相対効果95%信頼区間（データが利用可能な場合のみ）
+        if 'rel_effect_lower' in summary_data.index and 'rel_effect_upper' in summary_data.index:
+            rel_lower_avg = summary_data.loc['rel_effect_lower', 'average']
+            rel_upper_avg = summary_data.loc['rel_effect_upper', 'average']
             
             rel_ci_str = f"[{rel_lower_avg*100:.1f}%, {rel_upper_avg*100:.1f}%]"
             results_data.append(['相対効果 95% 信頼区間', rel_ci_str, '同左'])
@@ -510,9 +495,6 @@ def build_enhanced_summary_table(ci):
         
         # DataFrameを作成
         df = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
-        
-        print(f"Created DataFrame with {len(df)} rows")
-        print(df)
         
         return df
         
