@@ -964,7 +964,7 @@ if st.session_state.get('data_loaded', False):
             st.markdown(f"""
 <div style="margin-bottom:1.5em;">
 <div style="display:flex;align-items:center;margin-bottom:0.5em;">
-  <div style="font-weight:bold;font-size:1.05em;margin-right:0.5em;">対象期間：</div>
+  <div style="font-weight:bold;font-size:1.05em;margin-right:0.5em;">作成期間：</div>
 <div>{dataset['ymd'].min().strftime('%Y/%m/%d')} ～ {dataset['ymd'].max().strftime('%Y/%m/%d')}</div>
 </div>
 <div style="display:flex;align-items:center;margin-bottom:0.5em;">
@@ -1267,6 +1267,11 @@ if st.session_state.get('data_loaded', False):
                         key="pre_start",
                         help="介入前期間の開始日を選択してください"
                     )
+                    # 個別バリデーション: 介入前期間開始日
+                    if pre_start_date < dataset['ymd'].min().date():
+                        st.error(f"⚠️ 開始日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                    elif pre_start_date > dataset['ymd'].max().date():
+                        st.error(f"⚠️ 開始日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
                 with col2:
                     pre_end_date = st.date_input(
                         "終了日",
@@ -1276,6 +1281,11 @@ if st.session_state.get('data_loaded', False):
                         key="pre_end",
                         help="介入前期間の終了日を選択してください"
                     )
+                    # 個別バリデーション: 介入前期間終了日
+                    if pre_end_date < dataset['ymd'].min().date():
+                        st.error(f"⚠️ 終了日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                    elif pre_end_date > dataset['ymd'].max().date():
+                        st.error(f"⚠️ 終了日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
                 
                 # 介入期間の設定
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;margin-top:1.5em;">介入期間 (Post-Period)</div>', unsafe_allow_html=True)
@@ -1290,6 +1300,11 @@ if st.session_state.get('data_loaded', False):
                         key="post_start",
                         help="介入期間の開始日を選択してください"
                     )
+                    # 個別バリデーション: 介入期間開始日
+                    if post_start_date < dataset['ymd'].min().date():
+                        st.error(f"⚠️ 開始日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                    elif post_start_date > dataset['ymd'].max().date():
+                        st.error(f"⚠️ 開始日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
                 with col2:
                     post_end_date = st.date_input(
                         "終了日",
@@ -1299,9 +1314,14 @@ if st.session_state.get('data_loaded', False):
                         key="post_end",
                         help="介入期間の終了日を選択してください"
                     )
+                    # 個別バリデーション: 介入期間終了日
+                    if post_end_date < dataset['ymd'].min().date():
+                        st.error(f"⚠️ 終了日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                    elif post_end_date > dataset['ymd'].max().date():
+                        st.error(f"⚠️ 終了日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
                 
                 # 期間設定の妥当性チェック
-                is_valid, error_msg = validate_periods(pre_end_date, post_start_date)
+                is_valid, error_msg = validate_periods(pre_end_date, post_start_date, dataset, pre_start_date, post_end_date)
                 if not is_valid:
                     st.error(error_msg)
                 

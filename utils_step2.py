@@ -9,12 +9,37 @@ def get_period_defaults(session_state, dataset):
     post_end = period_defaults.get('post_end', dataset['ymd'].max().date())
     return pre_start, pre_end, post_start, post_end
 
-def validate_periods(pre_end_date, post_start_date):
+def validate_periods(pre_end_date, post_start_date, dataset=None, pre_start_date=None, post_end_date=None):
     """
-    介入前期間の終了日と介入期間の開始日の整合性をチェック
+    分析期間の妥当性をチェック
+    - 介入前期間の終了日と介入期間の開始日の整合性をチェック
+    - データセット期間内に収まっているかをチェック
     """
+    # 1. 介入前期間と介入期間の順序チェック
     if pre_end_date is not None and post_start_date is not None and post_start_date <= pre_end_date:
         return False, f"⚠ 分析期間の設定エラー：介入期間の開始日（{post_start_date}）は、介入前期間の終了日（{pre_end_date}）より後の日付を指定してください。"
+    
+    # 2. データセット期間外チェック（datasetが提供された場合のみ）
+    if dataset is not None:
+        dataset_min_date = dataset['ymd'].min().date()
+        dataset_max_date = dataset['ymd'].max().date()
+        
+        # 介入前期間開始日のチェック
+        if pre_start_date is not None and pre_start_date < dataset_min_date:
+            return False, f"⚠ 分析期間の設定エラー：介入前期間の開始日（{pre_start_date}）がデータセット期間（{dataset_min_date} ～ {dataset_max_date}）より前に設定されています。"
+        
+        # 介入前期間終了日のチェック
+        if pre_end_date is not None and pre_end_date > dataset_max_date:
+            return False, f"⚠ 分析期間の設定エラー：介入前期間の終了日（{pre_end_date}）がデータセット期間（{dataset_min_date} ～ {dataset_max_date}）より後に設定されています。"
+        
+        # 介入期間開始日のチェック
+        if post_start_date is not None and post_start_date < dataset_min_date:
+            return False, f"⚠ 分析期間の設定エラー：介入期間の開始日（{post_start_date}）がデータセット期間（{dataset_min_date} ～ {dataset_max_date}）より前に設定されています。"
+        
+        # 介入期間終了日のチェック
+        if post_end_date is not None and post_end_date > dataset_max_date:
+            return False, f"⚠ 分析期間の設定エラー：介入期間の終了日（{post_end_date}）がデータセット期間（{dataset_min_date} ～ {dataset_max_date}）より後に設定されています。"
+    
     return True, ""
 
 def calc_period_days(pre_start_date, pre_end_date, post_start_date, post_end_date):
