@@ -1268,10 +1268,13 @@ if st.session_state.get('data_loaded', False):
                         help="介入前期間の開始日を選択してください"
                     )
                     # 個別バリデーション: 介入前期間開始日
-                    if pre_start_date < dataset['ymd'].min().date():
-                        st.error(f"⚠️ 開始日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
-                    elif pre_start_date > dataset['ymd'].max().date():
-                        st.error(f"⚠️ 開始日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                    if pre_start_date is not None:
+                        if pre_start_date < dataset['ymd'].min().date():
+                            st.error(f"⚠️ 開始日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                        elif pre_start_date > dataset['ymd'].max().date():
+                            st.error(f"⚠️ 開始日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                    else:
+                        st.info("📅 開始日を選択してください")
                 with col2:
                     pre_end_date = st.date_input(
                         "終了日",
@@ -1282,10 +1285,13 @@ if st.session_state.get('data_loaded', False):
                         help="介入前期間の終了日を選択してください"
                     )
                     # 個別バリデーション: 介入前期間終了日
-                    if pre_end_date < dataset['ymd'].min().date():
-                        st.error(f"⚠️ 終了日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
-                    elif pre_end_date > dataset['ymd'].max().date():
-                        st.error(f"⚠️ 終了日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                    if pre_end_date is not None:
+                        if pre_end_date < dataset['ymd'].min().date():
+                            st.error(f"⚠️ 終了日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                        elif pre_end_date > dataset['ymd'].max().date():
+                            st.error(f"⚠️ 終了日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                    else:
+                        st.info("📅 終了日を選択してください")
                 
                 # 介入期間の設定
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;margin-top:1.5em;">介入期間 (Post-Period)</div>', unsafe_allow_html=True)
@@ -1301,10 +1307,13 @@ if st.session_state.get('data_loaded', False):
                         help="介入期間の開始日を選択してください"
                     )
                     # 個別バリデーション: 介入期間開始日
-                    if post_start_date < dataset['ymd'].min().date():
-                        st.error(f"⚠️ 開始日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
-                    elif post_start_date > dataset['ymd'].max().date():
-                        st.error(f"⚠️ 開始日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                    if post_start_date is not None:
+                        if post_start_date < dataset['ymd'].min().date():
+                            st.error(f"⚠️ 開始日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                        elif post_start_date > dataset['ymd'].max().date():
+                            st.error(f"⚠️ 開始日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                    else:
+                        st.info("📅 開始日を選択してください")
                 with col2:
                     post_end_date = st.date_input(
                         "終了日",
@@ -1315,10 +1324,13 @@ if st.session_state.get('data_loaded', False):
                         help="介入期間の終了日を選択してください"
                     )
                     # 個別バリデーション: 介入期間終了日
-                    if post_end_date < dataset['ymd'].min().date():
-                        st.error(f"⚠️ 終了日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
-                    elif post_end_date > dataset['ymd'].max().date():
-                        st.error(f"⚠️ 終了日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                    if post_end_date is not None:
+                        if post_end_date < dataset['ymd'].min().date():
+                            st.error(f"⚠️ 終了日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                        elif post_end_date > dataset['ymd'].max().date():
+                            st.error(f"⚠️ 終了日がデータセット期間外です（{dataset['ymd'].min().date()} ～ {dataset['ymd'].max().date()}）")
+                    else:
+                        st.info("📅 終了日を選択してください")
                 
                 # 期間設定の妥当性チェック
                 is_valid, error_msg = validate_periods(pre_end_date, post_start_date, dataset, pre_start_date, post_end_date)
@@ -1327,45 +1339,49 @@ if st.session_state.get('data_loaded', False):
                 
                 # 実際のデータセット件数計算と表示
                 try:
-                    # データセットから該当期間の件数を計算
-                    dataset_dates = pd.to_datetime(dataset['ymd']).dt.date
-                    
-                    # 介入前期間の件数
-                    pre_mask = (dataset_dates >= pre_start_date) & (dataset_dates <= pre_end_date)
-                    pre_count = pre_mask.sum()
-                    
-                    # 介入期間の件数
-                    post_mask = (dataset_dates >= post_start_date) & (dataset_dates <= post_end_date)
-                    post_count = post_mask.sum()
-                    
-                    total_count = pre_count + post_count
-                    if total_count > 0:
-                        pre_ratio = pre_count / total_count * 100
-                    else:
-                        pre_ratio = 0
-                    
-                    # 単群推定の場合、介入前期間比率をチェック
-                    if current_analysis_type == "単群推定（処置群のみを使用）":
-                        if pre_ratio >= 60:
-                            st.success(f"✅ 介入前期間比率: {pre_ratio:.1f}% （推奨: 60%以上）")
+                    # すべての日付が設定されている場合のみ計算を実行
+                    if all(date is not None for date in [pre_start_date, pre_end_date, post_start_date, post_end_date]):
+                        # データセットから該当期間の件数を計算
+                        dataset_dates = pd.to_datetime(dataset['ymd']).dt.date
+                        
+                        # 介入前期間の件数
+                        pre_mask = (dataset_dates >= pre_start_date) & (dataset_dates <= pre_end_date)
+                        pre_count = pre_mask.sum()
+                        
+                        # 介入期間の件数
+                        post_mask = (dataset_dates >= post_start_date) & (dataset_dates <= post_end_date)
+                        post_count = post_mask.sum()
+                        
+                        total_count = pre_count + post_count
+                        if total_count > 0:
+                            pre_ratio = pre_count / total_count * 100
                         else:
-                            st.warning(f"⚠️ 介入前期間比率: {pre_ratio:.1f}% （推奨: 60%以上）")
+                            pre_ratio = 0
                         
-                        st.markdown(f"""
+                        # 単群推定の場合、介入前期間比率をチェック
+                        if current_analysis_type == "単群推定（処置群のみを使用）":
+                            if pre_ratio >= 60:
+                                st.success(f"✅ 介入前期間比率: {pre_ratio:.1f}% （推奨: 60%以上）")
+                            else:
+                                st.warning(f"⚠️ 介入前期間比率: {pre_ratio:.1f}% （推奨: 60%以上）")
+                            
+                            st.markdown(f"""
 <div style="margin-bottom:1em;">
 <p>介入前期間: {pre_start_date.strftime('%Y-%m-%d')} 〜 {pre_end_date.strftime('%Y-%m-%d')} （{pre_count}件）</p>
 <p>介入期間: {post_start_date.strftime('%Y-%m-%d')} 〜 {post_end_date.strftime('%Y-%m-%d')} （{post_count}件）</p>
 </div>
-                        """, unsafe_allow_html=True)
+                            """, unsafe_allow_html=True)
+                        else:
+                            st.success(f"期間設定が完了しました。介入前期間: {pre_count}件、介入期間: {post_count}件")
+                            
+                            st.markdown(f"""
+<div style="margin-bottom:1em;">
+<p>介入前期間: {pre_start_date.strftime('%Y-%m-%d')} 〜 {pre_end_date.strftime('%Y-%m-%d')} （{pre_count}件）</p>
+<p>介入期間: {post_start_date.strftime('%Y-%m-%d')} 〜 {post_end_date.strftime('%Y-%m-%d')} （{post_count}件）</p>
+</div>
+                            """, unsafe_allow_html=True)
                     else:
-                        st.success(f"期間設定が完了しました。介入前期間: {pre_count}件、介入期間: {post_count}件")
-                        
-                        st.markdown(f"""
-<div style="margin-bottom:1em;">
-<p>介入前期間: {pre_start_date.strftime('%Y-%m-%d')} 〜 {pre_end_date.strftime('%Y-%m-%d')} （{pre_count}件）</p>
-<p>介入期間: {post_start_date.strftime('%Y-%m-%d')} 〜 {post_end_date.strftime('%Y-%m-%d')} （{post_count}件）</p>
-</div>
-                        """, unsafe_allow_html=True)
+                        st.info("日付を正しく設定してください。全ての日付が設定されると、件数が計算されます。")
                         
                 except (TypeError, AttributeError, ValueError):
                     st.info("日付を正しく設定してください。全ての日付が設定されると、件数が計算されます。")
