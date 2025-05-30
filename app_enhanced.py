@@ -24,7 +24,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from causal_impact_translator import translate_causal_impact_report
 from utils_step1 import get_csv_files, load_and_clean_csv, make_period_key, aggregate_df, create_full_period_range, format_stats_with_japanese
 from utils_step2 import get_period_defaults, validate_periods, calc_period_days, build_analysis_params
-from utils_step3 import run_causal_impact_analysis, build_summary_dataframe, get_summary_csv_download_link, get_figure_pdf_download_link, get_detail_csv_download_link
+from utils_step3 import run_causal_impact_analysis, build_summary_dataframe, get_summary_csv_download_link, get_figure_pdf_download_link, get_detail_csv_download_link, build_enhanced_summary_table, get_metrics_explanation_table
 
 # 処置群のみ分析用モジュール
 from utils_step3_single_group import (
@@ -1547,7 +1547,7 @@ if st.session_state.get('data_loaded', False):
 <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
 <thead>
 <tr style="background-color:#f8f9fa;">
-<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:20%;">パラメータ名</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:20%;">高度なパラメータ名</th>
 <th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:65%;">意味</th>
 <th style="border:1px solid #dee2e6;padding:8px;text-align:center;font-weight:bold;width:15%;">デフォルト値</th>
 </tr>
@@ -1769,168 +1769,143 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
         # データ粒度の表示
         data_granularity = freq_option
         
-        # 分析条件をシンプルな形式で表示（中項目デザイン）
-        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">分析対象</div>', unsafe_allow_html=True)
-        st.markdown(f'<div style="margin-bottom:1em;color:#424242;">{analysis_target}</div>', unsafe_allow_html=True)
-        
-        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">分析期間</div>', unsafe_allow_html=True)
-        st.markdown(f'<div style="margin-bottom:1em;color:#424242;">{analysis_period_str}</div>', unsafe_allow_html=True)
-        
-        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">分析手法</div>', unsafe_allow_html=True)
-        st.markdown(f'<div style="margin-bottom:1em;color:#424242;">{analysis_method}</div>', unsafe_allow_html=True)
-        
-        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">データ粒度</div>', unsafe_allow_html=True)
-        st.markdown(f'<div style="margin-bottom:1em;color:#424242;">{data_granularity}</div>', unsafe_allow_html=True)
-        
-        st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">信頼水準</div>', unsafe_allow_html=True)
-        st.markdown(f'<div style="margin-bottom:1.5em;color:#424242;">{confidence_level}%</div>', unsafe_allow_html=True)
+        # 分析条件を横並び形式で表示（統一ガイドライン準拠）
+        st.markdown(f"""
+<div style="margin-bottom:0.8em;">
+<span style="font-weight:bold;font-size:1.05em;">分析対象：</span>
+<span style="color:#424242;">{analysis_target}</span>
+</div>
+
+<div style="margin-bottom:0.8em;">
+<span style="font-weight:bold;font-size:1.05em;">分析期間：</span>
+<span style="color:#424242;">{analysis_period_str}</span>
+</div>
+
+<div style="margin-bottom:0.8em;">
+<span style="font-weight:bold;font-size:1.05em;">分析手法：</span>
+<span style="color:#424242;">{analysis_method}</span>
+</div>
+
+<div style="margin-bottom:0.8em;">
+<span style="font-weight:bold;font-size:1.05em;">データ粒度：</span>
+<span style="color:#424242;">{data_granularity}</span>
+</div>
+
+<div style="margin-bottom:1.5em;">
+<span style="font-weight:bold;font-size:1.05em;">信頼水準：</span>
+<span style="color:#424242;">{confidence_level}%</span>
+</div>
+        """, unsafe_allow_html=True)
         
         # サマリー情報の詳細表示（表形式に改善）
         if summary is not None:
             try:
-                # CausalImpactの結果から主要指標を抽出して表形式で表示
-                if hasattr(ci, 'summary') and hasattr(ci.summary, 'iloc'):
-                    # pandas DataFrameとして処理
-                    summary_df = ci.summary.copy()
+                # 新しい表形式での分析結果表示
+                from utils_step3 import build_enhanced_summary_table, get_metrics_explanation_table
+                
+                results_df = build_enhanced_summary_table(ci)
+                
+                if not results_df.empty:
+                    st.dataframe(results_df, use_container_width=True, hide_index=True)
                     
-                    # 主要指標の抽出と表形式での表示
-                    if 'Average' in summary_df.columns and 'Cumulative' in summary_df.columns:
-                        # 分析結果テーブルの作成
-                        results_data = []
-                        
-                        # 各指標の行を作成
-                        if 'Actual' in summary_df.index:
-                            avg_actual = summary_df.loc['Actual', 'Average']
-                            cum_actual = summary_df.loc['Actual', 'Cumulative']
-                            results_data.append(['実測値', f"{avg_actual:.1f}", f"{cum_actual:,.0f}"])
-                        
-                        if 'Predicted' in summary_df.index:
-                            avg_pred = summary_df.loc['Predicted', 'Average']
-                            cum_pred = summary_df.loc['Predicted', 'Cumulative']
-                            # 標準偏差がある場合は括弧内に表示
-                            if hasattr(summary_df.loc['Predicted', 'Average'], '__iter__'):
-                                # 複数値の場合（標準偏差含む）
-                                pred_str = str(summary_df.loc['Predicted', 'Average'])
-                                cum_pred_str = str(summary_df.loc['Predicted', 'Cumulative'])
-                            else:
-                                pred_str = f"{avg_pred:.1f}"
-                                cum_pred_str = f"{cum_pred:,.0f}"
-                            results_data.append(['予測値（標準偏差）', pred_str, cum_pred_str])
-                        
-                        if '95% CI' in summary_df.index:
-                            avg_ci = str(summary_df.loc['95% CI', 'Average'])
-                            cum_ci = str(summary_df.loc['95% CI', 'Cumulative'])
-                            results_data.append(['予測値 95% 信頼区間', avg_ci, cum_ci])
-                        
-                        if 'AbsEffect' in summary_df.index:
-                            avg_abs = summary_df.loc['AbsEffect', 'Average']
-                            cum_abs = summary_df.loc['AbsEffect', 'Cumulative']
-                            # 標準偏差がある場合は括弧内に表示
-                            if hasattr(avg_abs, '__iter__'):
-                                abs_str = str(avg_abs)
-                                cum_abs_str = str(cum_abs)
-                            else:
-                                abs_str = f"{avg_abs:.1f}"
-                                cum_abs_str = f"{cum_abs:,.0f}"
-                            results_data.append(['絶対効果（標準偏差）', abs_str, cum_abs_str])
-                        
-                        if 'AbsEffect_lower' in summary_df.index and 'AbsEffect_upper' in summary_df.index:
-                            avg_abs_ci = f"[{summary_df.loc['AbsEffect_lower', 'Average']:.1f}, {summary_df.loc['AbsEffect_upper', 'Average']:.1f}]"
-                            cum_abs_ci = f"[{summary_df.loc['AbsEffect_lower', 'Cumulative']:,.0f}, {summary_df.loc['AbsEffect_upper', 'Cumulative']:,.0f}]"
-                            results_data.append(['絶対効果 95% 信頼区間', avg_abs_ci, cum_abs_ci])
-                        
-                        if 'RelEffect' in summary_df.index:
-                            avg_rel = summary_df.loc['RelEffect', 'Average']
-                            cum_rel = summary_df.loc['RelEffect', 'Cumulative']
-                            # パーセンテージ表示
-                            if hasattr(avg_rel, '__iter__'):
-                                rel_str = str(avg_rel)
-                                cum_rel_str = str(cum_rel)
-                            else:
-                                rel_str = f"{avg_rel*100:.1f}%"
-                                cum_rel_str = f"{cum_rel*100:.1f}%"
-                            results_data.append(['相対効果（標準偏差）', rel_str, cum_rel_str])
-                        
-                        if 'RelEffect_lower' in summary_df.index and 'RelEffect_upper' in summary_df.index:
-                            avg_rel_ci = f"[{summary_df.loc['RelEffect_lower', 'Average']*100:.1f}%, {summary_df.loc['RelEffect_upper', 'Average']*100:.1f}%]"
-                            cum_rel_ci = f"[{summary_df.loc['RelEffect_lower', 'Cumulative']*100:.1f}%, {summary_df.loc['RelEffect_upper', 'Cumulative']*100:.1f}%]"
-                            results_data.append(['相対効果 95% 信頼区間', avg_rel_ci, cum_rel_ci])
-                        
-                        # 事後確率の追加
-                        if hasattr(ci, 'p_value'):
-                            p_value = ci.p_value if ci.p_value is not None else "N/A"
-                            results_data.append(['p値（事後確率）', str(p_value), "同左"])
-                        
-                        # 結果テーブルの表示
-                        if results_data:
-                            results_df = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
-                            st.dataframe(results_df, use_container_width=True, hide_index=True)
-                            
-                            # 指標の説明（展開可能）
-                            with st.expander("指標の説明", expanded=False):
-                                st.markdown("""
-<div style="line-height:1.7;">
-<table style="width:100%;border-collapse:collapse;font-size:0.9em;">
-<thead>
-<tr style="background-color:#f8f9fa;">
-<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:25%;">指標名</th>
-<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:75%;">意味</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">実測値</td>
-<td style="border:1px solid #dee2e6;padding:8px;">介入期間中に実際に観測された応答変数の値です。対象となる処置群の実際の測定値を表します。</td>
-</tr>
-<tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">予測値（標準偏差）</td>
-<td style="border:1px solid #dee2e6;padding:8px;">介入が行われなかった場合に予測される応答値です。括弧内の数値は予測の不確実性を示す標準偏差です。</td>
-</tr>
-<tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">予測値 XX% 信頼区間</td>
-<td style="border:1px solid #dee2e6;padding:8px;">予測値の信頼区間を示します。実際の効果がこの範囲内に収まる確率がXX%であることを意味します。区間は[下限値, 上限値]として表示されます。</td>
-</tr>
-<tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">絶対効果（標準偏差）</td>
-<td style="border:1px solid #dee2e6;padding:8px;">実測値から予測値を引いた差分で、介入による効果の絶対値を示します。プラスの値は正の効果、マイナスの値は負の効果を意味します。括弧内の数値は標準偏差です。</td>
-</tr>
-<tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">絶対効果 XX% 信頼区間</td>
-<td style="border:1px solid #dee2e6;padding:8px;">絶対効果の信頼区間です。この範囲に0が含まれていない場合、効果は統計的に有意と判断できます。区間は[下限値, 上限値]として表示されます。</td>
-</tr>
-<tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">相対効果（標準偏差）</td>
-<td style="border:1px solid #dee2e6;padding:8px;">絶対効果を予測値で割った比率で、効果のパーセンテージを示します。予測値に対して何%の変化があったかを表します。相対効果については、分析期間の平均値の欄に表示しています。</td>
-</tr>
-<tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">相対効果 XX% 信頼区間</td>
-<td style="border:1px solid #dee2e6;padding:8px;">相対効果の信頼区間です。この範囲に0%が含まれていない場合、相対効果は統計的に有意と判断できます。相対効果の信頼区間についても、分析期間の平均値の欄に表示しています。</td>
-</tr>
-<tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">p値（事後確率）</td>
-<td style="border:1px solid #dee2e6;padding:8px;">観測された効果（または、より極端な効果）が単なる偶然で生じる確率です。一般的に0.05未満の場合、効果は統計的に有意と判断されます。数値が小さいほど、効果が偶然ではなく介入によるものである可能性が高いことを示します。p値については、分析期間の平均値の欄に表示しています。</td>
-</tr>
-</tbody>
-</table>
-</div>
-
-<div style="margin-top:1em;font-size:0.9em;color:#666;">
-<p><strong>分析期間の平均値：</strong> 介入期間中の1日あたりの平均値を示します。</p>
-<p><strong>分析期間の累積値：</strong> 介入期間全体での合計値を示します。</p>
-<p style="margin-top:1em;">※相対効果、相対効果の信頼区間、およびp値については、分析期間の平均値の欄に集約して表示しています。</p>
-</div>
-                                """, unsafe_allow_html=True)
-                    
-                    # 完全なサマリーテーブルをexpanderで表示
-                    with st.expander("完全なサマリーテーブル", expanded=False):
-                        st.dataframe(summary_df, use_container_width=True)
+                    # 指標の説明（展開可能）
+                    with st.expander("指標の説明", expanded=False):
+                        st.markdown(get_metrics_explanation_table(), unsafe_allow_html=True)
                 else:
-                    # フォールバック：テキスト形式で表示
-                    st.text(str(summary))
-                    
+                    # CausalImpactの結果から主要指標を抽出して表形式で表示（フォールバック）
+                    if hasattr(ci, 'summary') and hasattr(ci.summary, 'iloc'):
+                        # pandas DataFrameとして処理
+                        summary_df = ci.summary.copy()
+                        
+                        # 主要指標の抽出と表形式での表示
+                        if 'Average' in summary_df.columns and 'Cumulative' in summary_df.columns:
+                            # 分析結果テーブルの作成
+                            results_data = []
+                            
+                            # 各指標の行を作成
+                            if 'Actual' in summary_df.index:
+                                avg_actual = summary_df.loc['Actual', 'Average']
+                                cum_actual = summary_df.loc['Actual', 'Cumulative']
+                                results_data.append(['実測値', f"{avg_actual:.1f}", f"{cum_actual:,.0f}"])
+                            
+                            if 'Predicted' in summary_df.index:
+                                avg_pred = summary_df.loc['Predicted', 'Average']
+                                cum_pred = summary_df.loc['Predicted', 'Cumulative']
+                                # 標準偏差がある場合は括弧内に表示
+                                if hasattr(summary_df.loc['Predicted', 'Average'], '__iter__'):
+                                    # 複数値の場合（標準偏差含む）
+                                    pred_str = str(summary_df.loc['Predicted', 'Average'])
+                                    cum_pred_str = str(summary_df.loc['Predicted', 'Cumulative'])
+                                else:
+                                    pred_str = f"{avg_pred:.1f}"
+                                    cum_pred_str = f"{cum_pred:,.0f}"
+                                results_data.append(['予測値（標準偏差）', pred_str, cum_pred_str])
+                            
+                            if '95% CI' in summary_df.index:
+                                avg_ci = str(summary_df.loc['95% CI', 'Average'])
+                                cum_ci = str(summary_df.loc['95% CI', 'Cumulative'])
+                                results_data.append(['予測値 95% 信頼区間', avg_ci, cum_ci])
+                            
+                            if 'AbsEffect' in summary_df.index:
+                                avg_abs = summary_df.loc['AbsEffect', 'Average']
+                                cum_abs = summary_df.loc['AbsEffect', 'Cumulative']
+                                # 標準偏差がある場合は括弧内に表示
+                                if hasattr(avg_abs, '__iter__'):
+                                    abs_str = str(avg_abs)
+                                    cum_abs_str = str(cum_abs)
+                                else:
+                                    abs_str = f"{avg_abs:.1f}"
+                                    cum_abs_str = f"{cum_abs:,.0f}"
+                                results_data.append(['絶対効果（標準偏差）', abs_str, cum_abs_str])
+                            
+                            if 'AbsEffect_lower' in summary_df.index and 'AbsEffect_upper' in summary_df.index:
+                                avg_abs_ci = f"[{summary_df.loc['AbsEffect_lower', 'Average']:.1f}, {summary_df.loc['AbsEffect_upper', 'Average']:.1f}]"
+                                cum_abs_ci = f"[{summary_df.loc['AbsEffect_lower', 'Cumulative']:,.0f}, {summary_df.loc['AbsEffect_upper', 'Cumulative']:,.0f}]"
+                                results_data.append(['絶対効果 95% 信頼区間', avg_abs_ci, cum_abs_ci])
+                            
+                            if 'RelEffect' in summary_df.index:
+                                avg_rel = summary_df.loc['RelEffect', 'Average']
+                                cum_rel = summary_df.loc['RelEffect', 'Cumulative']
+                                # パーセンテージ表示
+                                if hasattr(avg_rel, '__iter__'):
+                                    rel_str = str(avg_rel)
+                                    cum_rel_str = str(cum_rel)
+                                else:
+                                    rel_str = f"{avg_rel*100:.1f}%"
+                                    cum_rel_str = f"{cum_rel*100:.1f}%"
+                                results_data.append(['相対効果（標準偏差）', rel_str, cum_rel_str])
+                            
+                            if 'RelEffect_lower' in summary_df.index and 'RelEffect_upper' in summary_df.index:
+                                avg_rel_ci = f"[{summary_df.loc['RelEffect_lower', 'Average']*100:.1f}%, {summary_df.loc['RelEffect_upper', 'Average']*100:.1f}%]"
+                                cum_rel_ci = f"[{summary_df.loc['RelEffect_lower', 'Cumulative']*100:.1f}%, {summary_df.loc['RelEffect_upper', 'Cumulative']*100:.1f}%]"
+                                results_data.append(['相対効果 95% 信頼区間', avg_rel_ci, cum_rel_ci])
+                            
+                            # 事後確率の追加
+                            if hasattr(ci, 'p_value'):
+                                p_value = ci.p_value if ci.p_value is not None else "N/A"
+                                results_data.append(['p値（事後確率）', str(p_value), "同左"])
+                            
+                            # 結果テーブルの表示
+                            if results_data:
+                                results_df = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+                                st.dataframe(results_df, use_container_width=True, hide_index=True)
+                                
+                                # 指標の説明（展開可能）
+                                with st.expander("指標の説明", expanded=False):
+                                    st.markdown(get_metrics_explanation_table(), unsafe_allow_html=True)
+                        
+                        # 完全なサマリーテーブルをexpanderで表示
+                        with st.expander("完全なサマリーテーブル", expanded=False):
+                            st.dataframe(summary_df, use_container_width=True)
+                    else:
+                        # フォールバック：テキスト形式で表示
+                        with st.expander("分析結果（テキスト形式）", expanded=False):
+                            st.text(str(summary))
+                            
             except Exception as e:
                 st.warning("サマリー情報の詳細表示でエラーが発生しました。基本情報を表示します。")
-                st.text(str(summary))
+                with st.expander("分析結果（テキスト形式）", expanded=False):
+                    st.text(str(summary))
         
         # --- 統計的有意性の判定 ---
         try:

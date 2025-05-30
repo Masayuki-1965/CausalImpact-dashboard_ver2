@@ -357,4 +357,288 @@ def get_detail_csv_download_link(ci, period, treatment_name):
     csv_base64 = base64.b64encode(csv_string.encode('utf-8-sig')).decode()
     filename = f"causal_impact_detail_{treatment_name}_{post_start.strftime('%Y%m%d')}_{post_end.strftime('%Y%m%d')}.csv"
     href = f'data:text/csv;charset=utf-8-sig;base64,{csv_base64}'
-    return href, filename 
+    return href, filename
+
+def build_enhanced_summary_table(ci):
+    """
+    CausalImpactの分析結果を見やすい表形式で整理する関数
+    
+    Parameters:
+    -----------
+    ci : CausalImpact
+        分析結果オブジェクト
+        
+    Returns:
+    --------
+    pandas.DataFrame
+        整形された分析結果テーブル
+    """
+    try:
+        import pandas as pd
+        
+        # CausalImpactの summary データを取得
+        # まず summary_data を試し、なければ summary を使用
+        if hasattr(ci, 'summary_data') and ci.summary_data is not None:
+            summary_data = ci.summary_data
+        elif hasattr(ci, 'summary') and callable(ci.summary):
+            # summary()メソッドの結果をDataFrameに変換
+            summary_text = str(ci.summary())
+            # テキストからデータを抽出（フォールバック）
+            return extract_summary_from_text(summary_text)
+        else:
+            # どちらも利用できない場合は空のDataFrameを返す
+            return pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+        
+        # デバッグ用：summary_dataの構造を確認
+        print("Summary data structure:")
+        print(f"Index: {summary_data.index.tolist()}")
+        print(f"Columns: {summary_data.columns.tolist()}")
+        print("Sample data:")
+        print(summary_data.head())
+        
+        # 表示用のデータを準備
+        results_data = []
+        
+        # 実測値
+        if 'Actual' in summary_data.index:
+            actual_avg = summary_data.loc['Actual', 'Average']
+            actual_cum = summary_data.loc['Actual', 'Cumulative']
+            results_data.append(['実測値', f"{actual_avg:.1f}", f"{actual_cum:,.0f}"])
+        
+        # 予測値（標準偏差）
+        if 'Predicted' in summary_data.index:
+            pred_avg = summary_data.loc['Predicted', 'Average']
+            pred_cum = summary_data.loc['Predicted', 'Cumulative']
+            
+            # 標準偏差の取得
+            pred_sd_avg = summary_data.loc['Predicted', 'Sd'] if 'Sd' in summary_data.columns else None
+            
+            if pred_sd_avg is not None:
+                avg_str = f"{pred_avg:.1f} ({pred_sd_avg:.1f})"
+                cum_str = f"{pred_cum:.0f} ({pred_sd_avg:.0f})"
+            else:
+                avg_str = f"{pred_avg:.1f}"
+                cum_str = f"{pred_cum:,.0f}"
+            
+            results_data.append(['予測値（標準偏差）', avg_str, cum_str])
+        
+        # 予測値95%信頼区間
+        if 'Predicted_lower' in summary_data.index and 'Predicted_upper' in summary_data.index:
+            pred_lower_avg = summary_data.loc['Predicted_lower', 'Average']
+            pred_upper_avg = summary_data.loc['Predicted_upper', 'Average']
+            pred_lower_cum = summary_data.loc['Predicted_lower', 'Cumulative']
+            pred_upper_cum = summary_data.loc['Predicted_upper', 'Cumulative']
+            
+            avg_ci_str = f"[{pred_lower_avg:.1f}, {pred_upper_avg:.1f}]"
+            cum_ci_str = f"[{pred_lower_cum:,.0f}, {pred_upper_cum:,.0f}]"
+            results_data.append(['予測値 95% 信頼区間', avg_ci_str, cum_ci_str])
+        elif '95% CI' in summary_data.index:
+            # 代替的な信頼区間取得方法
+            pred_ci_avg = str(summary_data.loc['95% CI', 'Average'])
+            pred_ci_cum = str(summary_data.loc['95% CI', 'Cumulative'])
+            results_data.append(['予測値 95% 信頼区間', pred_ci_avg, pred_ci_cum])
+        
+        # 絶対効果（標準偏差）
+        if 'AbsEffect' in summary_data.index:
+            abs_avg = summary_data.loc['AbsEffect', 'Average']
+            abs_cum = summary_data.loc['AbsEffect', 'Cumulative']
+            
+            # 標準偏差の取得
+            abs_sd_avg = summary_data.loc['AbsEffect', 'Sd'] if 'Sd' in summary_data.columns else None
+            
+            if abs_sd_avg is not None:
+                avg_str = f"{abs_avg:.1f} ({abs_sd_avg:.1f})"
+                cum_str = f"{abs_cum:.0f} ({abs_sd_avg:.0f})"
+            else:
+                avg_str = f"{abs_avg:.1f}"
+                cum_str = f"{abs_cum:,.0f}"
+            
+            results_data.append(['絶対効果（標準偏差）', avg_str, cum_str])
+        
+        # 絶対効果95%信頼区間
+        if 'AbsEffect_lower' in summary_data.index and 'AbsEffect_upper' in summary_data.index:
+            abs_lower_avg = summary_data.loc['AbsEffect_lower', 'Average']
+            abs_upper_avg = summary_data.loc['AbsEffect_upper', 'Average']
+            abs_lower_cum = summary_data.loc['AbsEffect_lower', 'Cumulative']
+            abs_upper_cum = summary_data.loc['AbsEffect_upper', 'Cumulative']
+            
+            avg_ci_str = f"[{abs_lower_avg:.1f}, {abs_upper_avg:.1f}]"
+            cum_ci_str = f"[{abs_lower_cum:,.0f}, {abs_upper_cum:,.0f}]"
+            results_data.append(['絶対効果 95% 信頼区間', avg_ci_str, cum_ci_str])
+        
+        # 相対効果（標準偏差）
+        if 'RelEffect' in summary_data.index:
+            rel_avg = summary_data.loc['RelEffect', 'Average']
+            
+            # 標準偏差の取得
+            rel_sd_avg = summary_data.loc['RelEffect', 'Sd'] if 'Sd' in summary_data.columns else None
+            
+            if rel_sd_avg is not None:
+                rel_str = f"{rel_avg*100:.1f}% ({rel_sd_avg*100:.1f}%)"
+            else:
+                rel_str = f"{rel_avg*100:.1f}%"
+            
+            results_data.append(['相対効果（標準偏差）', rel_str, '同左'])
+        
+        # 相対効果95%信頼区間
+        if 'RelEffect_lower' in summary_data.index and 'RelEffect_upper' in summary_data.index:
+            rel_lower_avg = summary_data.loc['RelEffect_lower', 'Average']
+            rel_upper_avg = summary_data.loc['RelEffect_upper', 'Average']
+            
+            rel_ci_str = f"[{rel_lower_avg*100:.1f}%, {rel_upper_avg*100:.1f}%]"
+            results_data.append(['相対効果 95% 信頼区間', rel_ci_str, '同左'])
+        
+        # p値（事後確率）
+        if hasattr(ci, 'p_value') and ci.p_value is not None:
+            p_value = ci.p_value
+            results_data.append(['p値（事後確率）', f"{p_value:.4f}", '同左'])
+        elif hasattr(ci, 'summary_data') and 'Posterior tail-area probability p:' in ci.summary_data.index:
+            # 代替的なp値取得方法
+            p_value = ci.summary_data.loc['Posterior tail-area probability p:', 'Posterior tail-area probability p:']
+            results_data.append(['p値（事後確率）', f"{p_value:.4f}", '同左'])
+        else:
+            # テキストサマリーからp値を抽出
+            try:
+                import re
+                summary_text = str(ci.summary())
+                p_match = re.search(r'Posterior tail-area probability p:\s+([0-9.]+)', summary_text)
+                if p_match:
+                    p_value = float(p_match.group(1))
+                    results_data.append(['p値（事後確率）', f"{p_value:.4f}", '同左'])
+            except:
+                pass  # p値が取得できない場合はスキップ
+        
+        # DataFrameを作成
+        df = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+        
+        print(f"Created DataFrame with {len(df)} rows")
+        print(df)
+        
+        return df
+        
+    except Exception as e:
+        print(f"Error in build_enhanced_summary_table: {e}")
+        # エラーの場合は空のDataFrameを返す
+        import pandas as pd
+        return pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+
+def extract_summary_from_text(summary_text):
+    """
+    CausalImpactのテキストサマリーからデータを抽出する関数
+    
+    Parameters:
+    -----------
+    summary_text : str
+        CausalImpactのsummary()メソッドの出力テキスト
+        
+    Returns:
+    --------
+    pandas.DataFrame
+        抽出されたサマリーデータ
+    """
+    import pandas as pd
+    import re
+    
+    results_data = []
+    lines = summary_text.split('\n')
+    
+    for line in lines:
+        if line.strip():
+            # 各行から指標とデータを抽出
+            parts = re.split(r'\s{2,}', line.strip())
+            if len(parts) >= 3:
+                indicator = parts[0]
+                avg_value = parts[1]
+                cum_value = parts[2]
+                
+                # 指標名の日本語化
+                if 'Actual' in indicator:
+                    indicator = '実測値'
+                elif 'Predicted' in indicator:
+                    indicator = '予測値（標準偏差）'
+                elif 'AbsEffect' in indicator:
+                    indicator = '絶対効果（標準偏差）'
+                elif 'RelEffect' in indicator:
+                    indicator = '相対効果（標準偏差）'
+                    cum_value = '同左'  # 相対効果は累積値を「同左」に
+                elif '95% CI' in indicator:
+                    if 'Predicted' in line:
+                        indicator = '予測値 95% 信頼区間'
+                    elif 'AbsEffect' in line:
+                        indicator = '絶対効果 95% 信頼区間'
+                    elif 'RelEffect' in line:
+                        indicator = '相対効果 95% 信頼区間'
+                        cum_value = '同左'
+                
+                results_data.append([indicator, avg_value, cum_value])
+    
+    # p値を抽出
+    p_match = re.search(r'Posterior tail-area probability p:\s+([0-9.]+)', summary_text)
+    if p_match:
+        p_value = float(p_match.group(1))
+        results_data.append(['p値（事後確率）', f"{p_value:.4f}", '同左'])
+    
+    df = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+    return df
+
+def get_metrics_explanation_table():
+    """
+    分析結果の各指標の説明をテーブル形式で返す関数
+    
+    Returns:
+    --------
+    str
+        HTML形式の説明テーブル
+    """
+    return """
+<div style="line-height:1.7;">
+<table style="width:100%;border-collapse:collapse;font-size:0.9em;">
+<thead>
+<tr style="background-color:#f8f9fa;">
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:25%;">指標名</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:75%;">意味</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">実測値</td>
+<td style="border:1px solid #dee2e6;padding:8px;">介入期間中に実際に観測された応答変数の値です。対象となる処置群の実際の測定値を表します。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">予測値（標準偏差）</td>
+<td style="border:1px solid #dee2e6;padding:8px;">介入が行われなかった場合に予測される応答値です。括弧内の数値は予測の不確実性を示す標準偏差です。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">予測値 XX% 信頼区間</td>
+<td style="border:1px solid #dee2e6;padding:8px;">予測値の信頼区間を示します。実際の効果がこの範囲内に収まる確率がXX%であることを意味します。区間は[下限値, 上限値]として表示されます。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">絶対効果（標準偏差）</td>
+<td style="border:1px solid #dee2e6;padding:8px;">実測値から予測値を引いた差分で、介入による効果の絶対値を示します。プラスの値は正の効果、マイナスの値は負の効果を意味します。括弧内の数値は標準偏差です。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">絶対効果 XX% 信頼区間</td>
+<td style="border:1px solid #dee2e6;padding:8px;">絶対効果の信頼区間です。この範囲に0が含まれていない場合、効果は統計的に有意と判断できます。区間は[下限値, 上限値]として表示されます。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">相対効果（標準偏差）</td>
+<td style="border:1px solid #dee2e6;padding:8px;">絶対効果を予測値で割った比率で、効果のパーセンテージを示します。予測値に対して何%の変化があったかを表します。相対効果については、分析期間の平均値の欄に表示しています。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">相対効果 XX% 信頼区間</td>
+<td style="border:1px solid #dee2e6;padding:8px;">相対効果の信頼区間です。この範囲に0%が含まれていない場合、相対効果は統計的に有意と判断できます。相対効果の信頼区間についても、分析期間の平均値の欄に表示しています。</td>
+</tr>
+<tr>
+<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">p値（事後確率）</td>
+<td style="border:1px solid #dee2e6;padding:8px;">観測された効果（または、より極端な効果）が単なる偶然で生じる確率です。一般的に0.05未満の場合、効果は統計的に有意と判断されます。数値が小さいほど、効果が偶然ではなく介入によるものである可能性が高いことを示します。p値については、分析期間の平均値の欄に表示しています。</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div style="margin-top:1em;font-size:0.9em;color:#666;">
+<p><strong>分析期間の平均値：</strong> 介入期間中の1件あたりの平均値を示します。</p>
+<p><strong>分析期間の累積値：</strong> 介入期間全体での合計値を示します。</p>
+<p style="margin-top:1em;">※相対効果、相対効果の信頼区間、およびp値については、分析期間の平均値の欄に集約して表示しています。</p>
+</div>
+""" 
