@@ -15,9 +15,9 @@ CSVファイルには、<b>ymd（日付）</b> と <b>qty（数量）</b> の2�
 <div style="background-color:#e3f2fd;border-radius:8px;padding:15px;margin-bottom:1.5em;border-left:4px solid #1976d2;">
 <div style="font-weight:bold;margin-bottom:8px;color:#1976d2;font-size:1.1em;">データ量の推奨値</div>
 <ul style="margin:0;padding-left:1.2em;line-height:1.6;">
-<li><b>二群比較（処置群＋対照群）：</b>介入前後を合わせて24ポイント以上のデータを推奨<br>
+<li><b>二群比較（処置群＋対照群）：</b>介入前後を合わせて24件以上のデータを推奨<br>
 <span style="color:#666;font-size:0.95em;">（月次データ：2年分、旬次データ：8ヶ月分程度）</span></li>
-<li><b>単群推定（処置群のみ）：</b>季節性学習のため、36ポイント以上のデータを強く推奨<br>
+<li><b>単群推定（処置群のみ）：</b>季節性学習のため、36件以上のデータを強く推奨<br>
 <span style="color:#666;font-size:0.95em;">（月次データ：3年分、旬次データ：1年分程度。介入前期間は全体の60%以上を推奨）</span></li>
 </ul>
 </div>

@@ -769,9 +769,9 @@ if st.session_state.get('data_loaded', False):
         # データ量の簡潔な表示（統計情報表の下に移動）
         total_days = len(df_treat)
         if total_days >= 36:
-            st.success(f"✅ データ量：{total_days}ポイント（分析に十分なデータ量が確保されています）")
+            st.success(f"✅ データ量：{total_days}件（分析に十分なデータ量が確保されています）")
         else:
-            st.warning(f"⚠️ データ量：{total_days}ポイント（より信頼性の高い分析のため、36ポイント以上のデータを推奨します）")
+            st.warning(f"⚠️ データ量：{total_days}件（より信頼性の高い分析のため、36件以上のデータを推奨します）")
 
     # --- 統計情報（二群比較のみ） ---
     if current_analysis_type == "二群比較（処置群＋対照群を使用）" and df_ctrl is not None:
@@ -799,9 +799,9 @@ if st.session_state.get('data_loaded', False):
         ctrl_days = len(df_ctrl)
         min_days = min(treat_days, ctrl_days)
         if min_days >= 24:
-            st.success(f"✅ データ量：処置群{treat_days}ポイント、対照群{ctrl_days}ポイント（分析に十分なデータ量が確保されています）")
+            st.success(f"✅ データ量：処置群{treat_days}件、対照群{ctrl_days}件（分析に十分なデータ量が確保されています）")
         else:
-            st.warning(f"⚠️ データ量：処置群{treat_days}ポイント、対照群{ctrl_days}ポイント（より信頼性の高い分析のため、24ポイント以上のデータを推奨します）")
+            st.warning(f"⚠️ データ量：処置群{treat_days}件、対照群{ctrl_days}件（より信頼性の高い分析のため、24件以上のデータを推奨します）")
 
     # --- 分析用データセット作成セクション ---
     st.markdown('<div class="section-title">分析用データセットの作成</div>', unsafe_allow_html=True)
@@ -1201,7 +1201,7 @@ if st.session_state.get('data_loaded', False):
       <li><b>イレギュラー要因</b>：外部要因による大きな影響がある期間は、介入前期間に含めないことをおすすめします</li>
     </ul>
   </li>
-  <li><b>データ量の推奨</b>：分析の信頼性向上のため、介入前後を合わせて24ポイント以上のデータを推奨します</li>
+  <li><b>データ量の推奨</b>：分析の信頼性向上のため、介入前後を合わせて24件以上のデータを推奨します</li>
 </ul>
 </div>
                     """, unsafe_allow_html=True)
@@ -1218,7 +1218,7 @@ if st.session_state.get('data_loaded', False):
       <li><b>介入前期間の重要性</b>：単群推定では介入前期間のデータ品質が分析結果に大きく影響するため、全体の60%以上を介入前期間に設定することを推奨します</li>
     </ul>
   </li>
-  <li><b>データ量の推奨</b>：単群推定では季節性学習のため、36ポイント以上のデータを強く推奨します（月次データ：3年分、旬次データ：1年分程度）</li>
+  <li><b>データ量の推奨</b>：単群推定では季節性学習のため、36件以上のデータを強く推奨します（月次データ：3年分、旬次データ：1年分程度）</li>
   <li><b>介入日の設定</b>：実際の施策実施日を正確に設定してください。不正確な介入日設定は分析結果の信頼性を大きく損ないます</li>
 </ul>
 </div>
@@ -1305,12 +1305,24 @@ if st.session_state.get('data_loaded', False):
                 if not is_valid:
                     st.error(error_msg)
                 
-                # 日数計算と表示
+                # 実際のデータセット件数計算と表示
                 try:
-                    pre_days = (pre_end_date - pre_start_date).days + 1
-                    post_days = (post_end_date - post_start_date).days + 1
-                    total_days = pre_days + post_days
-                    pre_ratio = pre_days / total_days * 100
+                    # データセットから該当期間の件数を計算
+                    dataset_dates = pd.to_datetime(dataset['ymd']).dt.date
+                    
+                    # 介入前期間の件数
+                    pre_mask = (dataset_dates >= pre_start_date) & (dataset_dates <= pre_end_date)
+                    pre_count = pre_mask.sum()
+                    
+                    # 介入期間の件数
+                    post_mask = (dataset_dates >= post_start_date) & (dataset_dates <= post_end_date)
+                    post_count = post_mask.sum()
+                    
+                    total_count = pre_count + post_count
+                    if total_count > 0:
+                        pre_ratio = pre_count / total_count * 100
+                    else:
+                        pre_ratio = 0
                     
                     # 単群推定の場合、介入前期間比率をチェック
                     if current_analysis_type == "単群推定（処置群のみを使用）":
@@ -1321,22 +1333,22 @@ if st.session_state.get('data_loaded', False):
                         
                         st.markdown(f"""
 <div style="margin-bottom:1em;">
-<p>介入前期間: {pre_start_date.strftime('%Y-%m-%d')} 〜 {pre_end_date.strftime('%Y-%m-%d')} （{pre_days}ポイント）</p>
-<p>介入期間: {post_start_date.strftime('%Y-%m-%d')} 〜 {post_end_date.strftime('%Y-%m-%d')} （{post_days}ポイント）</p>
+<p>介入前期間: {pre_start_date.strftime('%Y-%m-%d')} 〜 {pre_end_date.strftime('%Y-%m-%d')} （{pre_count}件）</p>
+<p>介入期間: {post_start_date.strftime('%Y-%m-%d')} 〜 {post_end_date.strftime('%Y-%m-%d')} （{post_count}件）</p>
 </div>
                         """, unsafe_allow_html=True)
                     else:
-                        st.success(f"期間設定が完了しました。介入前期間: {pre_days}ポイント、介入期間: {post_days}ポイント")
+                        st.success(f"期間設定が完了しました。介入前期間: {pre_count}件、介入期間: {post_count}件")
                         
                         st.markdown(f"""
 <div style="margin-bottom:1em;">
-<p>介入前期間: {pre_start_date.strftime('%Y-%m-%d')} 〜 {pre_end_date.strftime('%Y-%m-%d')} （{pre_days}ポイント）</p>
-<p>介入期間: {post_start_date.strftime('%Y-%m-%d')} 〜 {post_end_date.strftime('%Y-%m-%d')} （{post_days}ポイント）</p>
+<p>介入前期間: {pre_start_date.strftime('%Y-%m-%d')} 〜 {pre_end_date.strftime('%Y-%m-%d')} （{pre_count}件）</p>
+<p>介入期間: {post_start_date.strftime('%Y-%m-%d')} 〜 {post_end_date.strftime('%Y-%m-%d')} （{post_count}件）</p>
 </div>
                         """, unsafe_allow_html=True)
                         
-                except (TypeError, AttributeError):
-                    st.info("日付を正しく設定してください。全ての日付が設定されると、日数が計算されます。")
+                except (TypeError, AttributeError, ValueError):
+                    st.info("日付を正しく設定してください。全ての日付が設定されると、件数が計算されます。")
                 
                 # 分析期間をセッションに保存
                 st.session_state['analysis_period'] = {
