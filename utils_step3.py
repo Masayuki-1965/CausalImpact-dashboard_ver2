@@ -22,10 +22,23 @@ def run_causal_impact_analysis(data, pre_period, post_period):
     axes = plt.gcf().get_axes()
     for ax in axes:
         # 下部の注釈テキストを探して削除
-        texts = ax.texts
+        texts = ax.texts[:]  # テキストリストのコピーを作成
         for text in texts:
-            if "Note:" in text.get_text() or "observations were removed" in text.get_text():
-                text.set_visible(False)  # テキストを非表示に
+            text_content = text.get_text()
+            if ("Note:" in text_content or 
+                "observations were removed" in text_content or
+                "diffuse initialization" in text_content or
+                "approximate" in text_content):
+                text.remove()  # テキストを完全に削除
+    
+    # グラフタイトルを日本語に設定
+    if len(axes) >= 3:
+        axes[0].set_title('実測値 vs 予測値', fontsize=12, weight='normal')
+        axes[1].set_title('時点効果', fontsize=12, weight='normal')
+        axes[2].set_title('累積効果', fontsize=12, weight='normal')
+    
+    # 図全体のタイトルを削除
+    plt.gcf().suptitle('')
     
     return ci, summary, report, fig
 
@@ -359,7 +372,7 @@ def get_detail_csv_download_link(ci, period, treatment_name):
     href = f'data:text/csv;charset=utf-8-sig;base64,{csv_base64}'
     return href, filename
 
-def build_enhanced_summary_table(ci):
+def build_enhanced_summary_table(ci, confidence_level=95):
     """
     CausalImpactの分析結果を見やすい表形式で整理する関数
     
@@ -367,6 +380,8 @@ def build_enhanced_summary_table(ci):
     -----------
     ci : CausalImpact
         分析結果オブジェクト
+    confidence_level : int
+        信頼水準（%）、デフォルト95%
         
     Returns:
     --------
@@ -384,7 +399,7 @@ def build_enhanced_summary_table(ci):
             # summary()メソッドの結果をDataFrameに変換
             summary_text = str(ci.summary())
             # テキストからデータを抽出（フォールバック）
-            return extract_summary_from_text(summary_text)
+            return extract_summary_from_text(summary_text, confidence_level)
         else:
             # どちらも利用できない場合は空のDataFrameを返す
             return pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
@@ -414,7 +429,7 @@ def build_enhanced_summary_table(ci):
             
             results_data.append(['予測値（標準偏差）', avg_str, cum_str])
         
-        # 予測値95%信頼区間
+        # 予測値信頼区間（動的に信頼水準を反映）
         if 'predicted_lower' in summary_data.index and 'predicted_upper' in summary_data.index:
             pred_lower_avg = summary_data.loc['predicted_lower', 'average']
             pred_upper_avg = summary_data.loc['predicted_upper', 'average']
@@ -423,7 +438,7 @@ def build_enhanced_summary_table(ci):
             
             avg_ci_str = f"[{pred_lower_avg:.1f}, {pred_upper_avg:.1f}]"
             cum_ci_str = f"[{pred_lower_cum:,.0f}, {pred_upper_cum:,.0f}]"
-            results_data.append(['予測値 95% 信頼区間', avg_ci_str, cum_ci_str])
+            results_data.append([f'予測値 {confidence_level}% 信頼区間', avg_ci_str, cum_ci_str])
         
         # 絶対効果（標準偏差）
         if 'abs_effect' in summary_data.index:
@@ -441,7 +456,7 @@ def build_enhanced_summary_table(ci):
             
             results_data.append(['絶対効果（標準偏差）', avg_str, cum_str])
         
-        # 絶対効果95%信頼区間
+        # 絶対効果信頼区間（動的に信頼水準を反映）
         if 'abs_effect_lower' in summary_data.index and 'abs_effect_upper' in summary_data.index:
             abs_lower_avg = summary_data.loc['abs_effect_lower', 'average']
             abs_upper_avg = summary_data.loc['abs_effect_upper', 'average']
@@ -450,7 +465,7 @@ def build_enhanced_summary_table(ci):
             
             avg_ci_str = f"[{abs_lower_avg:.1f}, {abs_upper_avg:.1f}]"
             cum_ci_str = f"[{abs_lower_cum:,.0f}, {abs_upper_cum:,.0f}]"
-            results_data.append(['絶対効果 95% 信頼区間', avg_ci_str, cum_ci_str])
+            results_data.append([f'絶対効果 {confidence_level}% 信頼区間', avg_ci_str, cum_ci_str])
         
         # 相対効果（標準偏差）
         if 'rel_effect' in summary_data.index:
@@ -465,13 +480,13 @@ def build_enhanced_summary_table(ci):
             
             results_data.append(['相対効果（標準偏差）', rel_str, '同左'])
         
-        # 相対効果95%信頼区間（データが利用可能な場合のみ）
+        # 相対効果信頼区間（動的に信頼水準を反映）
         if 'rel_effect_lower' in summary_data.index and 'rel_effect_upper' in summary_data.index:
             rel_lower_avg = summary_data.loc['rel_effect_lower', 'average']
             rel_upper_avg = summary_data.loc['rel_effect_upper', 'average']
             
             rel_ci_str = f"[{rel_lower_avg*100:.1f}%, {rel_upper_avg*100:.1f}%]"
-            results_data.append(['相対効果 95% 信頼区間', rel_ci_str, '同左'])
+            results_data.append([f'相対効果 {confidence_level}% 信頼区間', rel_ci_str, '同左'])
         
         # p値（事後確率）
         if hasattr(ci, 'p_value') and ci.p_value is not None:
@@ -504,7 +519,7 @@ def build_enhanced_summary_table(ci):
         import pandas as pd
         return pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
 
-def extract_summary_from_text(summary_text):
+def extract_summary_from_text(summary_text, confidence_level=95):
     """
     CausalImpactのテキストサマリーからデータを抽出する関数
     
@@ -512,6 +527,8 @@ def extract_summary_from_text(summary_text):
     -----------
     summary_text : str
         CausalImpactのsummary()メソッドの出力テキスト
+    confidence_level : int
+        信頼水準（%）、デフォルト95%
         
     Returns:
     --------
@@ -533,7 +550,7 @@ def extract_summary_from_text(summary_text):
                 avg_value = parts[1]
                 cum_value = parts[2]
                 
-                # 指標名の日本語化
+                # 指標名の日本語化（信頼水準を動的に反映）
                 if 'Actual' in indicator:
                     indicator = '実測値'
                 elif 'Predicted' in indicator:
@@ -543,13 +560,13 @@ def extract_summary_from_text(summary_text):
                 elif 'RelEffect' in indicator:
                     indicator = '相対効果（標準偏差）'
                     cum_value = '同左'  # 相対効果は累積値を「同左」に
-                elif '95% CI' in indicator:
+                elif '95% CI' in indicator or 'CI' in indicator:
                     if 'Predicted' in line:
-                        indicator = '予測値 95% 信頼区間'
+                        indicator = f'予測値 {confidence_level}% 信頼区間'
                     elif 'AbsEffect' in line:
-                        indicator = '絶対効果 95% 信頼区間'
+                        indicator = f'絶対効果 {confidence_level}% 信頼区間'
                     elif 'RelEffect' in line:
-                        indicator = '相対効果 95% 信頼区間'
+                        indicator = f'相対効果 {confidence_level}% 信頼区間'
                         cum_value = '同左'
                 
                 results_data.append([indicator, avg_value, cum_value])

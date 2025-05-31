@@ -69,16 +69,23 @@ def run_single_group_causal_impact_analysis(data, pre_period, post_period, nseas
         # グラフのタイトルを日本語に変更
         axes = fig.get_axes()
         if len(axes) >= 3:
-            axes[0].set_title('実測値 vs 予測値（反事実シナリオ）', fontsize=14, pad=15)
-            axes[1].set_title('点推定による効果', fontsize=14, pad=15)
-            axes[2].set_title('累積効果', fontsize=14, pad=15)
+            axes[0].set_title('実測値 vs 予測値', fontsize=12, weight='normal')
+            axes[1].set_title('時点効果', fontsize=12, weight='normal')
+            axes[2].set_title('累積効果', fontsize=12, weight='normal')
         
         # 下部の注釈メッセージを非表示にする
         for ax in axes:
-            texts = ax.texts
+            texts = ax.texts[:]  # テキストリストのコピーを作成
             for text in texts:
-                if "Note:" in text.get_text() or "observations were removed" in text.get_text():
-                    text.set_visible(False)
+                text_content = text.get_text()
+                if ("Note:" in text_content or 
+                    "observations were removed" in text_content or
+                    "diffuse initialization" in text_content or
+                    "approximate" in text_content):
+                    text.remove()  # テキストを完全に削除
+        
+        # 図全体のタイトルを削除
+        fig.suptitle('')
         
         plt.tight_layout()
         

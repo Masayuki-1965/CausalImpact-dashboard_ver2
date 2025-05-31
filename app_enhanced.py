@@ -1547,7 +1547,7 @@ if st.session_state.get('data_loaded', False):
 <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
 <thead>
 <tr style="background-color:#f8f9fa;">
-<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:20%;">高度なパラメータ名</th>
+<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:20%;">パラメータ名（オプション）</th>
 <th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:65%;">意味</th>
 <th style="border:1px solid #dee2e6;padding:8px;text-align:center;font-weight:bold;width:15%;">デフォルト値</th>
 </tr>
@@ -1724,7 +1724,7 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
     st.markdown("""
 <div class="step-card">
     <h2 style="font-size:1.8em;font-weight:bold;color:#1565c0;margin-bottom:0.5em;">STEP 3：分析結果の確認</h2>
-    <div style="color:#1976d2;font-size:1.1em;line-height:1.5;">Causal Impact分析の結果をグラフと数値で確認できます。</div>
+    <div style="color:#1976d2;font-size:1.1em;line-height:1.5;">Causal Impact 分析の結果を、グラフおよび数値サマリーで視覚的に確認できます。分析条件や効果測定結果に基づいて傾向を把握し、必要に応じてグラフや表をダウンロードして活用してください。</div>
 </div>
     """, unsafe_allow_html=True)
     
@@ -1739,14 +1739,13 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
         # --- 分析結果サマリー（改善版） ---
         st.markdown('<div class="section-title">分析結果サマリー</div>', unsafe_allow_html=True)
         
-        # 分析条件の表示（シンプルな中項目デザイン）
+        # 分析条件の構築
         analysis_period = st.session_state.get('analysis_period', {})
         analysis_params = st.session_state.get('analysis_params', {})
         treatment_name = st.session_state.get('treatment_name', '処置群')
         control_name = st.session_state.get('control_name', '対照群')
         freq_option = st.session_state.get('freq_option', '月次')
         
-        # 分析条件の構築
         if current_analysis_type == "単群推定（処置群のみを使用）":
             analysis_target = treatment_name
             analysis_method = "単群推定（Single Group Causal Impact）"
@@ -1754,48 +1753,51 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
             analysis_target = f"{treatment_name}（vs {control_name}）"
             analysis_method = "二群比較（Two-Group Causal Impact）"
         
-        # 分析期間の表示用文字列
+        # 介入期間と全体期間の表示用文字列とデータポイント数の計算
+        intervention_period_str = "期間情報なし"
+        data_point_count = 0
+        
         if analysis_period:
             try:
-                analysis_period_str = f"{analysis_period['pre_start'].strftime('%Y-%m-%d')} ～ {analysis_period['post_end'].strftime('%Y-%m-%d')}"
+                # 介入期間の表示
+                intervention_period_str = f"{analysis_period['post_start'].strftime('%Y-%m-%d')} ～ {analysis_period['post_end'].strftime('%Y-%m-%d')}"
+                
+                # データポイント数の計算
+                dataset = st.session_state.get('dataset')
+                if dataset is not None:
+                    dataset_dates = pd.to_datetime(dataset['ymd']).dt.date
+                    post_mask = (dataset_dates >= analysis_period['post_start']) & (dataset_dates <= analysis_period['post_end'])
+                    data_point_count = post_mask.sum()
+                    intervention_period_str += f"（{data_point_count}件）"
             except:
-                analysis_period_str = "期間情報取得エラー"
-        else:
-            analysis_period_str = "期間情報なし"
+                intervention_period_str = "期間情報取得エラー"
         
         # 信頼水準の取得
         confidence_level = int((1 - analysis_params.get('alpha', 0.05)) * 100) if analysis_params else 95
         
-        # データ粒度の表示
-        data_granularity = freq_option
+        # データ粒度の表示（「集計」を追加）
+        data_granularity = f"{freq_option}集計"
         
-        # 分析条件を横並び形式で表示（統一ガイドライン準拠）
-        st.markdown(f"""
-<div style="margin-bottom:0.8em;">
-<span style="font-weight:bold;font-size:1.05em;">分析対象：</span>
-<span style="color:#424242;">{analysis_target}</span>
-</div>
-
-<div style="margin-bottom:0.8em;">
-<span style="font-weight:bold;font-size:1.05em;">分析期間：</span>
-<span style="color:#424242;">{analysis_period_str}</span>
-</div>
-
-<div style="margin-bottom:0.8em;">
-<span style="font-weight:bold;font-size:1.05em;">分析手法：</span>
-<span style="color:#424242;">{analysis_method}</span>
-</div>
-
-<div style="margin-bottom:0.8em;">
-<span style="font-weight:bold;font-size:1.05em;">データ粒度：</span>
-<span style="color:#424242;">{data_granularity}</span>
-</div>
-
-<div style="margin-bottom:1.5em;">
-<span style="font-weight:bold;font-size:1.05em;">信頼水準：</span>
-<span style="color:#424242;">{confidence_level}%</span>
-</div>
-        """, unsafe_allow_html=True)
+        # 分析条件を中項目として表示（一部を横並びに）
+        # 分析対象（中項目）
+        st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">分析対象：{analysis_target}</div>', unsafe_allow_html=True)
+        
+        # 分析期間とデータ粒度（横並び）
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">分析期間：{intervention_period_str}</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">データ粒度：{data_granularity}</div>', unsafe_allow_html=True)
+        
+        # 分析手法と信頼水準（横並び）
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown(f'<div style="font-weight:bold;margin-bottom:1.5em;font-size:1.05em;">分析手法：{analysis_method}</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown(f'<div style="font-weight:bold;margin-bottom:1.5em;font-size:1.05em;">信頼水準：{confidence_level}%</div>', unsafe_allow_html=True)
+        
+        # 中項目「分析結果概要」を追加
+        st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.05em;">分析結果概要</div>', unsafe_allow_html=True)
         
         # サマリー情報の詳細表示（表形式に改善）
         if summary is not None:
@@ -1803,7 +1805,7 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
                 # 新しい表形式での分析結果表示
                 from utils_step3 import build_enhanced_summary_table, get_metrics_explanation_table
                 
-                results_df = build_enhanced_summary_table(ci)
+                results_df = build_enhanced_summary_table(ci, confidence_level)
                 
                 if not results_df.empty:
                     st.dataframe(results_df, use_container_width=True, hide_index=True)
@@ -1949,11 +1951,17 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
         
         if fig is not None:
             try:
-                # グラフのタイトルを分析タイプに応じて追加（日本語対応）
+                # 総タイトルと説明文を分析タイプに応じて表示
                 if current_analysis_type == "単群推定（処置群のみを使用）":
-                    st.markdown('<div style="font-weight:bold;margin-bottom:1em;color:#1976d2;">処置群のみ分析：介入前トレンドからの予測との比較</div>', unsafe_allow_html=True)
+                    # 総タイトル（中項目スタイル）
+                    st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">{treatment_name}</div>', unsafe_allow_html=True)
+                    # 説明文（中項目スタイル）
+                    st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.05em;">処置群のみ分析：介入前トレンドからの予測との比較</div>', unsafe_allow_html=True)
                 else:
-                    st.markdown('<div style="font-weight:bold;margin-bottom:1em;color:#1976d2;">二群比較分析：対照群との関係性による予測との比較</div>', unsafe_allow_html=True)
+                    # 総タイトル（中項目スタイル）
+                    st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">{treatment_name}（vs {control_name}）</div>', unsafe_allow_html=True)
+                    # 説明文（中項目スタイル）
+                    st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.05em;">二群比較分析：対照群との関係性による予測との比較</div>', unsafe_allow_html=True)
                 
                 # matplotlibのフォント設定を確認・修正してからグラフ表示
                 import matplotlib
@@ -1969,13 +1977,27 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
                 except Exception as e:
                     pass  # フォント設定に失敗してもエラーで止まらないように
                 
-                # 図のタイトルを日本語で設定（図のタイトル自体を修正）
+                # グラフのタイトルを日本語で設定
                 try:
-                    if hasattr(fig, 'suptitle'):
-                        if current_analysis_type == "単群推定（処置群のみを使用）":
-                            fig.suptitle(f"{treatment_name}", fontsize=14, weight='bold')
-                        else:
-                            fig.suptitle(f"{treatment_name} vs {control_name}", fontsize=14, weight='bold')
+                    axes = fig.get_axes()
+                    if len(axes) >= 3:
+                        # 各グラフのタイトルを通常文字に設定
+                        axes[0].set_title('実測値 vs 予測値', fontsize=12, weight='normal')
+                        axes[1].set_title('時点効果', fontsize=12, weight='normal')
+                        axes[2].set_title('累積効果', fontsize=12, weight='normal')
+                    
+                    # 下部の注釈メッセージを削除
+                    for ax in axes:
+                        texts = ax.texts[:]  # リストのコピーを作成
+                        for text in texts:
+                            text_content = text.get_text()
+                            if ("Note:" in text_content or 
+                                "observations were removed" in text_content or
+                                "diffuse initialization" in text_content):
+                                text.remove()  # テキストを完全に削除
+                    
+                    # 図全体のタイトルを削除
+                    fig.suptitle('')
                 except Exception as e:
                     pass  # タイトル設定に失敗してもエラーで止まらないように
                 
