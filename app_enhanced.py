@@ -2047,29 +2047,35 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
         with st.expander("詳細レポート", expanded=False):
             if report is not None:
                 try:
-                    # レポートをより読みやすく表示
+                    # レポートを日本語に翻訳
                     st.markdown("**📋 Causal Impact分析の詳細レポート**")
                     
-                    # レポートを行ごとに分割して表示
-                    report_lines = str(report).split('\n')
-                    formatted_report = []
+                    # 信頼水準を取得（デフォルト95%）
+                    confidence_level = confidence_level / 100 if confidence_level else 0.95
                     
-                    for line in report_lines:
-                        if line.strip():
-                            # 重要な統計値を強調表示
-                            if 'Posterior tail-area probability' in line:
-                                formatted_report.append(f"**{line.strip()}**")
-                            elif 'Posterior prob. of a causal effect' in line:
-                                formatted_report.append(f"**{line.strip()}**")
+                    # 翻訳処理を実行
+                    report_jp = translate_causal_impact_report(str(report), alpha=confidence_level)
+                    
+                    # 翻訳されたレポートを段落ごとに分割して表示
+                    report_paragraphs = report_jp.split('\n\n')
+                    
+                    for paragraph in report_paragraphs:
+                        if paragraph.strip():
+                            # 段落内の文章を適切に表示
+                            paragraph = paragraph.strip()
+                            
+                            # タイトル行の処理
+                            if '分析レポート {CausalImpact}' in paragraph:
+                                st.markdown(f"**{paragraph}**")
+                            # 事後確率などの重要な統計値を強調表示
+                            elif '事後確率' in paragraph or 'p値' in paragraph:
+                                st.markdown(f"**{paragraph}**")
                             else:
-                                formatted_report.append(line.strip())
-                    
-                    for line in formatted_report:
-                        if line:
-                            st.markdown(line)
+                                st.markdown(paragraph)
                     
                 except Exception as e:
-                    st.error(f"レポート表示でエラーが発生しました: {str(e)}")
+                    st.error(f"レポート翻訳でエラーが発生しました: {str(e)}")
+                    # フォールバック：元の英語レポートを表示
                     st.text(str(report))
         
         # --- 結果の解釈ガイド（拡張版） ---

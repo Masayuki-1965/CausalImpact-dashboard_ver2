@@ -1456,8 +1456,31 @@ if st.session_state.get('data_loaded', False):
                                 
                                 # 詳細レポート
                                 with st.expander("詳細レポート"):
-                                    report_jp = translate_causal_impact_report(report, alpha)
-                                    st.text(report_jp)
+                                    # レポートを日本語に翻訳
+                                    st.markdown("**📋 Causal Impact分析の詳細レポート**")
+                                    
+                                    # 信頼水準をalphaから計算（alphaは0-1の範囲）
+                                    confidence_level = 1.0 - alpha
+                                    
+                                    # 翻訳処理を実行
+                                    report_jp = translate_causal_impact_report(str(report), alpha=confidence_level)
+                                    
+                                    # 翻訳されたレポートを段落ごとに分割して表示
+                                    report_paragraphs = report_jp.split('\n\n')
+                                    
+                                    for paragraph in report_paragraphs:
+                                        if paragraph.strip():
+                                            # 段落内の文章を適切に表示
+                                            paragraph = paragraph.strip()
+                                            
+                                            # タイトル行の処理
+                                            if '分析レポート {CausalImpact}' in paragraph:
+                                                st.markdown(f"**{paragraph}**")
+                                            # 事後確率などの重要な統計値を強調表示
+                                            elif '事後確率' in paragraph or 'p値' in paragraph:
+                                                st.markdown(f"**{paragraph}**")
+                                            else:
+                                                st.markdown(paragraph)
                                 
                                 st.success("Causal Impact分析が完了しました。分析結果のグラフおよびサマリーをご確認のうえ、必要な情報を以下よりダウンロードしてください。")
                                 
