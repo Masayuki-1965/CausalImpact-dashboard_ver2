@@ -1783,19 +1783,11 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
         analysis_target_display = analysis_target if len(analysis_target) <= 50 else analysis_target[:47] + "..."
         st.markdown(f'<div style="margin-bottom:0.8em;"><span style="font-weight:bold;font-size:1.05em;">分析対象：</span><span style="color:#424242;">{analysis_target_display}</span></div>', unsafe_allow_html=True)
         
-        # 分析期間とデータ粒度（横並び）
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            st.markdown(f'<div style="margin-bottom:0.8em;"><span style="font-weight:bold;font-size:1.05em;">分析期間：</span><span style="color:#424242;">{intervention_period_str}</span></div>', unsafe_allow_html=True)
-        with col2:
-            st.markdown(f'<div style="margin-bottom:0.8em; text-align:center;"><span style="font-weight:bold;font-size:1.05em;">データ粒度：</span><span style="color:#424242;">{data_granularity}</span></div>', unsafe_allow_html=True)
+        # 分析期間（データ粒度を統合）
+        st.markdown(f'<div style="margin-bottom:0.8em;"><span style="font-weight:bold;font-size:1.05em;">分析期間：</span><span style="color:#424242;">{intervention_period_str}（{data_granularity}）</span></div>', unsafe_allow_html=True)
         
-        # 分析手法と信頼水準（横並び）
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            st.markdown(f'<div style="margin-bottom:1.5em;"><span style="font-weight:bold;font-size:1.05em;">分析手法：</span><span style="color:#424242;">{analysis_method}</span></div>', unsafe_allow_html=True)
-        with col2:
-            st.markdown(f'<div style="margin-bottom:1.5em; text-align:center;"><span style="font-weight:bold;font-size:1.05em;">信頼水準：</span><span style="color:#424242;">{confidence_level}%</span></div>', unsafe_allow_html=True)
+        # 分析手法（信頼水準を統合）
+        st.markdown(f'<div style="margin-bottom:1.5em;"><span style="font-weight:bold;font-size:1.05em;">分析手法：</span><span style="color:#424242;">{analysis_method}（信頼水準：{confidence_level}%）</span></div>', unsafe_allow_html=True)
         
         # 中項目「分析結果概要」を追加
         st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.05em;">分析結果概要</div>', unsafe_allow_html=True)
@@ -1813,6 +1805,47 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
                 
                 if not results_df.empty:
                     st.dataframe(results_df, use_container_width=True, hide_index=True)
+                    
+                    # --- 分析レポートのまとめ（テーブル直下に配置） ---
+                    try:
+                        # 統計的有意性と相対効果の判定（enhanced版からの値取得）
+                        if hasattr(ci, 'summary') and hasattr(ci.summary, 'iloc'):
+                            summary_df_temp = ci.summary
+                            
+                            # 相対効果と有意性の判定
+                            relative_effect_temp = None
+                            p_value_temp = None
+                            is_significant_temp = False
+                            
+                            # 相対効果の取得
+                            if 'RelEffect' in summary_df_temp.index:
+                                rel_effect_avg = summary_df_temp.loc['RelEffect', 'Average']
+                                if not hasattr(rel_effect_avg, '__iter__'):
+                                    relative_effect_temp = rel_effect_avg * 100
+                            
+                            # p値の取得
+                            if hasattr(ci, 'p_value'):
+                                p_value_temp = ci.p_value
+                            
+                            # 統計的有意性の判定（信頼区間による）
+                            if 'Cumulative' in summary_df_temp.columns:
+                                cumulative_data = summary_df_temp['Cumulative']
+                                if 'AbsEffect_lower' in cumulative_data.index and 'AbsEffect_upper' in cumulative_data.index:
+                                    lower_bound = cumulative_data['AbsEffect_lower']
+                                    upper_bound = cumulative_data['AbsEffect_upper']
+                                    if (lower_bound > 0 and upper_bound > 0) or (lower_bound < 0 and upper_bound < 0):
+                                        is_significant_temp = True
+                            
+                            # メッセージの作成と表示
+                            if relative_effect_temp is not None and p_value_temp is not None:
+                                if is_significant_temp:
+                                    summary_message = f"相対効果は {relative_effect_temp:+.1f}% で、統計的に有意です（p = {p_value_temp:.3f}）。詳細はレポートを参照ください。"
+                                else:
+                                    summary_message = f"相対効果は {relative_effect_temp:+.1f}% ですが、統計的には有意ではありません（p = {p_value_temp:.3f}）。詳細はレポートを参照ください。"
+                                
+                                st.success(summary_message)
+                    except Exception as e:
+                        pass  # エラーが発生した場合はメッセージ表示をスキップ
                     
                     # 指標の説明（展開可能）
                     with st.expander("指標の説明", expanded=False):
@@ -1962,12 +1995,12 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
                     # 総タイトル（中項目スタイル）
                     st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">{treatment_name}</div>', unsafe_allow_html=True)
                     # 説明文（中項目スタイル）
-                    st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.05em;">処置群のみ分析：介入前トレンドからの予測との比較</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="margin-bottom:1em;font-size:1.05em;"><span style="font-weight:bold;">処置群のみ分析：</span><span style="font-weight:normal;">介入前トレンドからの予測との比較</span></div>', unsafe_allow_html=True)
                 else:
                     # 総タイトル（中項目スタイル）
                     st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">{treatment_name}（vs {control_name}）</div>', unsafe_allow_html=True)
                     # 説明文（中項目スタイル）
-                    st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.05em;">二群比較分析：対照群との関係性による予測との比較</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="margin-bottom:1em;font-size:1.05em;"><span style="font-weight:bold;">二群比較分析：</span><span style="font-weight:normal;">対照群との関係性による予測との比較</span></div>', unsafe_allow_html=True)
                 
                 # matplotlibのフォント設定を確認・修正してからグラフ表示
                 import matplotlib

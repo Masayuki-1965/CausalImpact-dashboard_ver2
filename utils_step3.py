@@ -583,6 +583,7 @@ def extract_summary_from_text(summary_text, confidence_level=95):
 def get_metrics_explanation_table():
     """
     分析結果の各指標の説明をテーブル形式で返す関数
+    結果の解釈ガイドの内容も統合して表示
     
     Returns:
     --------
@@ -633,6 +634,13 @@ def get_metrics_explanation_table():
 </tr>
 </tbody>
 </table>
+</div>
+
+<div style="margin-top:1.5em;padding:12px;background-color:#f8f9fa;border-radius:4px;font-size:0.9em;">
+<h4 style="margin:0 0 8px 0;color:#333;">結果の解釈ガイド</h4>
+<p style="margin-bottom:8px;"><strong>分析手法の特徴：</strong>介入前のトレンドと季節性から「介入がなかった場合」の予測値を推定し、実測値と比較。対照群がある場合は外部要因の影響を適切に除去し、より信頼性の高い因果効果を推定します。</p>
+<p style="margin-bottom:8px;"><strong>有意性の判断：</strong>信頼区間が0を含まない場合に統計的に有意。p値が0.05未満（一般的基準）の場合も有意と判断されます。実用的な効果サイズと統計的有意性の両方を併せて判断することが重要です。</p>
+<p style="margin:0;"><strong>注意事項：</strong>単群推定（対照群なし）の場合、外部要因の影響も効果として計測される可能性があるため、結果の解釈には注意が必要です。二群比較の場合は、対照群により外部要因の影響を除去できるため、より信頼性が高くなります。</p>
 </div>
 
 <div style="margin-top:1em;font-size:0.9em;color:#666;">

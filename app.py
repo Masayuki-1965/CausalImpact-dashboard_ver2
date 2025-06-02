@@ -1378,13 +1378,29 @@ if st.session_state.get('data_loaded', False):
                                 
                                 st.markdown('<div class="section-title">分析結果サマリー</div>', unsafe_allow_html=True)
                                 
-                                col1, col2, col3 = st.columns([2,3,2])
-                                with col1:
-                                    st.markdown(f'**分析対象**：{treatment_name}')
-                                with col2:
-                                    st.markdown(f'**分析期間**：{period["post_start"].strftime("%Y-%m-%d")} 〜 {period["post_end"].strftime("%Y-%m-%d")}')
-                                with col3:
-                                    st.markdown(f'**信頼水準**：{alpha_percent}%')
+                                # 分析条件の構築（app_enhanced.pyと同じスタイルに統一）
+                                # データ粒度の取得
+                                freq_option = st.session_state.get('freq_option', '月次')
+                                data_granularity = f"{freq_option}集計"
+                                
+                                # 信頼水準の計算
+                                confidence_level = int((1 - alpha) * 100)
+                                
+                                # 分析期間の表示文字列作成
+                                intervention_period_str = f"{period['post_start'].strftime('%Y-%m-%d')} ～ {period['post_end'].strftime('%Y-%m-%d')}"
+                                
+                                # 分析対象（ファイル名が長い場合は省略）
+                                analysis_target_display = treatment_name if len(treatment_name) <= 50 else treatment_name[:47] + "..."
+                                st.markdown(f'<div style="margin-bottom:0.8em;"><span style="font-weight:bold;font-size:1.05em;">分析対象：</span><span style="color:#424242;">{analysis_target_display}</span></div>', unsafe_allow_html=True)
+                                
+                                # 分析期間（データ粒度を統合）
+                                st.markdown(f'<div style="margin-bottom:0.8em;"><span style="font-weight:bold;font-size:1.05em;">分析期間：</span><span style="color:#424242;">{intervention_period_str}（{data_granularity}）</span></div>', unsafe_allow_html=True)
+                                
+                                # 分析手法（信頼水準を統合）
+                                st.markdown(f'<div style="margin-bottom:1.5em;"><span style="font-weight:bold;font-size:1.05em;">分析手法：</span><span style="color:#424242;">二群比較（Two-Group Causal Impact）（信頼水準：{confidence_level}%）</span></div>', unsafe_allow_html=True)
+                                
+                                # 中項目「分析結果概要」を追加
+                                st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.05em;">分析結果概要</div>', unsafe_allow_html=True)
                                 
                                 # サマリーの表示
                                 df_summary = build_summary_dataframe(summary, alpha_percent)
