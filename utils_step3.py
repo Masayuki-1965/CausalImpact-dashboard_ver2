@@ -12,16 +12,20 @@ def run_causal_impact_analysis(data, pre_period, post_period):
     summary = ci.summary()
     report = ci.summary(output='report')
     
-    # グラフを作成
-    fig = ci.plot(figsize=(10, 6))
+    # グラフを作成（単群推定と同じサイズに統一）
+    fig = ci.plot(figsize=(11, 7))
     if fig is None:
         fig = plt.gcf()
     
+    # グラフタイトルを日本語に設定
+    axes = fig.get_axes()
+    if len(axes) >= 3:
+        axes[0].set_title('実測値 vs 予測値', fontsize=12, weight='normal')
+        axes[1].set_title('時点効果', fontsize=12, weight='normal')
+        axes[2].set_title('累積効果', fontsize=12, weight='normal')
+    
     # 下部の注釈メッセージを非表示にする
-    # 現在のaxesを取得
-    axes = plt.gcf().get_axes()
     for ax in axes:
-        # 下部の注釈テキストを探して削除
         texts = ax.texts[:]  # テキストリストのコピーを作成
         for text in texts:
             text_content = text.get_text()
@@ -31,14 +35,11 @@ def run_causal_impact_analysis(data, pre_period, post_period):
                 "approximate" in text_content):
                 text.remove()  # テキストを完全に削除
     
-    # グラフタイトルを日本語に設定
-    if len(axes) >= 3:
-        axes[0].set_title('実測値 vs 予測値', fontsize=12, weight='normal')
-        axes[1].set_title('時点効果', fontsize=12, weight='normal')
-        axes[2].set_title('累積効果', fontsize=12, weight='normal')
-    
     # 図全体のタイトルを削除
-    plt.gcf().suptitle('')
+    fig.suptitle('')
+    
+    # レイアウトを調整（単群推定と同様）
+    plt.tight_layout()
     
     return ci, summary, report, fig
 

@@ -62,7 +62,7 @@ def run_single_group_causal_impact_analysis(data, pre_period, post_period, nseas
         report = ci.summary(output='report')
         
         # グラフを作成
-        fig = ci.plot(figsize=(12, 8))
+        fig = ci.plot(figsize=(11, 7))
         if fig is None:
             fig = plt.gcf()
         
