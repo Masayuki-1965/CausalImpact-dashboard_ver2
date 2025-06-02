@@ -668,9 +668,9 @@ def get_analysis_summary_message(ci, confidence_level=95):
             final_significance = is_significant or is_significant_by_p
             
             if final_significance:
-                return f"相対効果は {relative_effect:+.1f}% で、統計的に有意です（p = {p_value:.3f}）。詳細はレポートを参照ください。"
+                return f"相対効果は {relative_effect:+.1f}% で、統計的に有意です（p = {p_value:.3f}）。詳しくは、この下の「詳細レポート」を参照ください。"
             else:
-                return f"相対効果は {relative_effect:+.1f}% ですが、統計的には有意ではありません（p = {p_value:.3f}）。詳細はレポートを参照ください。"
+                return f"相対効果は {relative_effect:+.1f}% ですが、統計的には有意ではありません（p = {p_value:.3f}）。詳しくは、この下の「詳細レポート」を参照ください。"
         
         return None
         

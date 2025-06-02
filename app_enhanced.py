@@ -1812,6 +1812,41 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
                         
                         if summary_message:
                             st.success(summary_message)
+                            
+                            # --- 詳細レポート（実行結果メッセージの直下に配置） ---
+                            with st.expander("詳細レポート", expanded=False):
+                                if report is not None:
+                                    try:
+                                        # レポートを日本語に翻訳
+                                        st.markdown("**📋 Causal Impact分析の詳細レポート**")
+                                        
+                                        # 信頼水準を取得（デフォルト95%）
+                                        confidence_level_alpha = confidence_level / 100 if confidence_level else 0.95
+                                        
+                                        # 翻訳処理を実行
+                                        report_jp = translate_causal_impact_report(str(report), alpha=confidence_level_alpha)
+                                        
+                                        # 翻訳されたレポートを段落ごとに分割して表示
+                                        report_paragraphs = report_jp.split('\n\n')
+                                        
+                                        for paragraph in report_paragraphs:
+                                            if paragraph.strip():
+                                                # 段落内の文章を適切に表示
+                                                paragraph = paragraph.strip()
+                                                
+                                                # タイトル行の処理
+                                                if '分析レポート {CausalImpact}' in paragraph:
+                                                    st.markdown(f"**{paragraph}**")
+                                                # 事後確率などの重要な統計値を強調表示
+                                                elif '事後確率' in paragraph or 'p値' in paragraph:
+                                                    st.markdown(f"**{paragraph}**")
+                                                else:
+                                                    st.markdown(paragraph)
+                                        
+                                    except Exception as e:
+                                        st.error(f"レポート翻訳でエラーが発生しました: {str(e)}")
+                                        # フォールバック：元の英語レポートを表示
+                                        st.text(str(report))
                         else:
                             # フォールバック：従来の方法でメッセージ生成を試行
                             if hasattr(ci, 'summary') and hasattr(ci.summary, 'iloc'):
@@ -1844,11 +1879,46 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
                                 # メッセージの作成と表示
                                 if relative_effect_temp is not None and p_value_temp is not None:
                                     if is_significant_temp:
-                                        fallback_message = f"相対効果は {relative_effect_temp:+.1f}% で、統計的に有意です（p = {p_value_temp:.3f}）。詳細はレポートを参照ください。"
+                                        fallback_message = f"相対効果は {relative_effect_temp:+.1f}% で、統計的に有意です（p = {p_value_temp:.3f}）。詳しくは、この下の「詳細レポート」を参照ください。"
                                     else:
-                                        fallback_message = f"相対効果は {relative_effect_temp:+.1f}% ですが、統計的には有意ではありません（p = {p_value_temp:.3f}）。詳細はレポートを参照ください。"
+                                        fallback_message = f"相対効果は {relative_effect_temp:+.1f}% ですが、統計的には有意ではありません（p = {p_value_temp:.3f}）。詳しくは、この下の「詳細レポート」を参照ください。"
                                     
                                     st.success(fallback_message)
+                                    
+                                    # --- 詳細レポート（フォールバック時の直下配置） ---
+                                    with st.expander("詳細レポート", expanded=False):
+                                        if report is not None:
+                                            try:
+                                                # レポートを日本語に翻訳
+                                                st.markdown("**📋 Causal Impact分析の詳細レポート**")
+                                                
+                                                # 信頼水準を取得（デフォルト95%）
+                                                confidence_level_alpha = confidence_level / 100 if confidence_level else 0.95
+                                                
+                                                # 翻訳処理を実行
+                                                report_jp = translate_causal_impact_report(str(report), alpha=confidence_level_alpha)
+                                                
+                                                # 翻訳されたレポートを段落ごとに分割して表示
+                                                report_paragraphs = report_jp.split('\n\n')
+                                                
+                                                for paragraph in report_paragraphs:
+                                                    if paragraph.strip():
+                                                        # 段落内の文章を適切に表示
+                                                        paragraph = paragraph.strip()
+                                                        
+                                                        # タイトル行の処理
+                                                        if '分析レポート {CausalImpact}' in paragraph:
+                                                            st.markdown(f"**{paragraph}**")
+                                                        # 事後確率などの重要な統計値を強調表示
+                                                        elif '事後確率' in paragraph or 'p値' in paragraph:
+                                                            st.markdown(f"**{paragraph}**")
+                                                        else:
+                                                            st.markdown(paragraph)
+                                                
+                                            except Exception as e:
+                                                st.error(f"レポート翻訳でエラーが発生しました: {str(e)}")
+                                                # フォールバック：元の英語レポートを表示
+                                                st.text(str(report))
                     except Exception as e:
                         pass  # エラーが発生した場合はメッセージ表示をスキップ
                     
