@@ -2148,62 +2148,24 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
                 except:
                     st.error("グラフの表示に失敗しました。")
         
-        # --- 詳細レポート（改善版） ---
-        with st.expander("詳細レポート", expanded=False):
-            if report is not None:
-                try:
-                    # レポートを日本語に翻訳
-                    st.markdown("**📋 Causal Impact分析の詳細レポート**")
-                    
-                    # 信頼水準を取得（デフォルト95%）
-                    confidence_level = confidence_level / 100 if confidence_level else 0.95
-                    
-                    # 翻訳処理を実行
-                    report_jp = translate_causal_impact_report(str(report), alpha=confidence_level)
-                    
-                    # 翻訳されたレポートを段落ごとに分割して表示
-                    report_paragraphs = report_jp.split('\n\n')
-                    
-                    for paragraph in report_paragraphs:
-                        if paragraph.strip():
-                            # 段落内の文章を適切に表示
-                            paragraph = paragraph.strip()
-                            
-                            # タイトル行の処理
-                            if '分析レポート {CausalImpact}' in paragraph:
-                                st.markdown(f"**{paragraph}**")
-                            # 事後確率などの重要な統計値を強調表示
-                            elif '事後確率' in paragraph or 'p値' in paragraph:
-                                st.markdown(f"**{paragraph}**")
-                            else:
-                                st.markdown(paragraph)
-                    
-                except Exception as e:
-                    st.error(f"レポート翻訳でエラーが発生しました: {str(e)}")
-                    # フォールバック：元の英語レポートを表示
-                    st.text(str(report))
-        
-        # --- 結果の解釈ガイド（簡潔版） ---
-        with st.expander("結果の解釈ガイド", expanded=False):
+        # --- 分析結果の解釈と品質評価（統合版） ---
+        with st.expander("分析結果の解釈と品質評価", expanded=False):
+            # 分析手法の説明（簡潔版）
+            st.markdown("**📊 分析手法と解釈のポイント**")
             if current_analysis_type == "単群推定（処置群のみを使用）":
                 st.markdown("""
-<div style="line-height:1.6;">
-<p><strong>分析手法の特徴：</strong>介入前のトレンドと季節性から「介入がなかった場合」の予測値を推定し、実測値と比較。</p>
-<p><strong>信頼性と制約：</strong>対照群がないため、外部要因の影響も効果として計測される可能性があります。結果の解釈には注意が必要。</p>
-<p><strong>有意性の判断：</strong>信頼区間が0を含まない場合に統計的に有意。実用的な効果サイズも併せて判断。</p>
-</div>
-                """, unsafe_allow_html=True)
+- **手法**：介入前のトレンドから「介入がなかった場合」の予測値を推定し実測値と比較
+- **制約**：対照群がないため外部要因の影響も効果として計測される可能性があり、結果の解釈には注意が必要
+- **判断**：信頼区間が0を含まない場合に統計的に有意、実用的な効果サイズも併せて判断
+                """)
             else:
                 st.markdown("""
-<div style="line-height:1.6;">
-<p><strong>分析手法の特徴：</strong>対照群との関係から「介入がなかった場合」の処置群予測値を算出し、実測値と比較。</p>
-<p><strong>信頼性の利点：</strong>対照群により外部要因の影響を適切に除去し、より信頼性の高い因果効果を推定。</p>
-<p><strong>有意性の判断：</strong>信頼区間が0を含まない場合に統計的に有意。効果の持続性・安定性も確認。</p>
-</div>
-                """, unsafe_allow_html=True)
-
-        # --- 分析品質の評価（簡潔版） ---
-        with st.expander("分析品質の評価", expanded=False):
+- **手法**：対照群との関係から「介入がなかった場合」の処置群予測値を算出し実測値と比較
+- **利点**：対照群により外部要因の影響を適切に除去し、より信頼性の高い因果効果を推定
+- **判断**：信頼区間が0を含まない場合に統計的に有意、効果の持続性・安定性も確認
+                """)
+            
+            st.markdown("**🔍 分析品質の評価**")
             # 分析品質のチェック項目
             quality_items = []
             

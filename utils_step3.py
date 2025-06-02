@@ -680,8 +680,7 @@ def get_analysis_summary_message(ci, confidence_level=95):
 
 def get_metrics_explanation_table():
     """
-    分析結果の各指標の説明をテーブル形式で返す関数
-    結果の解釈ガイドの内容も統合して表示
+    分析結果の各指標の説明をテーブル形式で返す関数（簡潔版）
     
     Returns:
     --------
@@ -689,61 +688,44 @@ def get_metrics_explanation_table():
         HTML形式の説明テーブル
     """
     return """
-<div style="line-height:1.7;">
+<div style="line-height:1.6;">
 <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
 <thead>
 <tr style="background-color:#f8f9fa;">
-<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:25%;">指標名</th>
-<th style="border:1px solid #dee2e6;padding:8px;text-align:left;font-weight:bold;width:75%;">意味</th>
+<th style="border:1px solid #dee2e6;padding:6px;text-align:left;font-weight:bold;width:30%;">指標名</th>
+<th style="border:1px solid #dee2e6;padding:6px;text-align:left;font-weight:bold;width:70%;">意味</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">実測値</td>
-<td style="border:1px solid #dee2e6;padding:8px;">介入期間中に実際に観測された応答変数の値です。対象となる処置群の実際の測定値を表します。</td>
+<td style="border:1px solid #dee2e6;padding:6px;">実測値</td>
+<td style="border:1px solid #dee2e6;padding:6px;">介入期間中に実際に観測された値です。</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">予測値（標準偏差）</td>
-<td style="border:1px solid #dee2e6;padding:8px;">介入が行われなかった場合に予測される応答値です。括弧内の数値は予測の不確実性を示す標準偏差です。</td>
+<td style="border:1px solid #dee2e6;padding:6px;">予測値</td>
+<td style="border:1px solid #dee2e6;padding:6px;">介入がなかった場合の予測値を表しています。カッコ内の値は標準偏差です。</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">予測値 XX% 信頼区間</td>
-<td style="border:1px solid #dee2e6;padding:8px;">予測値の信頼区間を示します。実際の効果がこの範囲内に収まる確率がXX%であることを意味します。区間は[下限値, 上限値]として表示されます。</td>
+<td style="border:1px solid #dee2e6;padding:6px;">絶対効果</td>
+<td style="border:1px solid #dee2e6;padding:6px;">実測値から予測値を差し引いた値で、介入による変化量を表しています。カッコ内の値は標準偏差です。</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">絶対効果（標準偏差）</td>
-<td style="border:1px solid #dee2e6;padding:8px;">実測値から予測値を引いた差分で、介入による効果の絶対値を示します。プラスの値は正の効果、マイナスの値は負の効果を意味します。括弧内の数値は標準偏差です。</td>
+<td style="border:1px solid #dee2e6;padding:6px;">相対効果</td>
+<td style="border:1px solid #dee2e6;padding:6px;">絶対効果を予測値で割った値で、変化率をパーセンテージで表しています。カッコ内の値は標準偏差です。</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">絶対効果 XX% 信頼区間</td>
-<td style="border:1px solid #dee2e6;padding:8px;">絶対効果の信頼区間です。この範囲に0が含まれていない場合、効果は統計的に有意と判断できます。区間は[下限値, 上限値]として表示されます。</td>
+<td style="border:1px solid #dee2e6;padding:6px;">信頼区間</td>
+<td style="border:1px solid #dee2e6;padding:6px;">効果の推定範囲を示しています。0を含まない場合は統計的に有意な効果があると判断されます。</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">相対効果（標準偏差）</td>
-<td style="border:1px solid #dee2e6;padding:8px;">絶対効果を予測値で割った比率で、効果のパーセンテージを示します。予測値に対して何%の変化があったかを表します。相対効果については、分析期間の平均値の欄に表示しています。</td>
-</tr>
-<tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">相対効果 XX% 信頼区間</td>
-<td style="border:1px solid #dee2e6;padding:8px;">相対効果の信頼区間です。この範囲に0%が含まれていない場合、相対効果は統計的に有意と判断できます。相対効果の信頼区間についても、分析期間の平均値の欄に表示しています。</td>
-</tr>
-<tr>
-<td style="border:1px solid #dee2e6;padding:8px;white-space:nowrap;">p値（事後確率）</td>
-<td style="border:1px solid #dee2e6;padding:8px;">観測された効果（または、より極端な効果）が単なる偶然で生じる確率です。一般的に0.05未満の場合、効果は統計的に有意と判断されます。数値が小さいほど、効果が偶然ではなく介入によるものである可能性が高いことを示します。p値については、分析期間の平均値の欄に表示しています。</td>
+<td style="border:1px solid #dee2e6;padding:6px;">p値</td>
+<td style="border:1px solid #dee2e6;padding:6px;">効果が偶然による確率を表しています。0.05未満の場合は統計的に有意な効果があると判断されます。</td>
 </tr>
 </tbody>
 </table>
 </div>
 
-<div style="margin-top:1.5em;padding:12px;background-color:#f8f9fa;border-radius:4px;font-size:0.9em;">
-<h4 style="margin:0 0 8px 0;color:#333;">結果の解釈ガイド</h4>
-<p style="margin-bottom:8px;"><strong>分析手法の特徴：</strong>介入前のトレンドと季節性から「介入がなかった場合」の予測値を推定し、実測値と比較。対照群がある場合は外部要因の影響を適切に除去し、より信頼性の高い因果効果を推定します。</p>
-<p style="margin-bottom:8px;"><strong>有意性の判断：</strong>信頼区間が0を含まない場合に統計的に有意。p値が0.05未満（一般的基準）の場合も有意と判断されます。実用的な効果サイズと統計的有意性の両方を併せて判断することが重要です。</p>
-<p style="margin:0;"><strong>注意事項：</strong>単群推定（対照群なし）の場合、外部要因の影響も効果として計測される可能性があるため、結果の解釈には注意が必要です。二群比較の場合は、対照群により外部要因の影響を除去できるため、より信頼性が高くなります。</p>
-</div>
-
-<div style="margin-top:1em;font-size:0.9em;color:#666;">
-<p><strong>分析期間の平均値：</strong> 介入期間中の1件あたりの平均値を示します。</p>
-<p><strong>分析期間の累積値：</strong> 介入期間全体での合計値を示します。</p>
-<p style="margin-top:1em;">※相対効果、相対効果の信頼区間、およびp値については、分析期間の平均値の欄に集約して表示しています。</p>
+<div style="margin-top:1em;font-size:0.85em;color:#666;">
+<p><strong>平均値：</strong>介入期間中の1件あたりの平均値を表しています　<strong>累積値：</strong>介入期間全体での合計値を表しています</p>
 </div>
 """ 
