@@ -1418,6 +1418,16 @@ if st.session_state.get('data_loaded', False):
                                 # サマリー表示
                                 st.dataframe(df_summary, use_container_width=True)
                                 
+                                # --- 分析レポートのまとめ（テーブル直下に配置） ---
+                                try:
+                                    from utils_step3 import get_analysis_summary_message
+                                    summary_message = get_analysis_summary_message(ci, confidence_level)
+                                    
+                                    if summary_message:
+                                        st.success(summary_message)
+                                except Exception as e:
+                                    pass  # エラーが発生した場合はメッセージ表示をスキップ
+                                
                                 # 指標の説明
                                 with st.expander("指標の説明", expanded=False):
                                     st.markdown("""

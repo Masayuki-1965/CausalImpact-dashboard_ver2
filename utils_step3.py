@@ -109,19 +109,21 @@ def build_summary_dataframe(summary, alpha_percent):
     for idx, row in df_summary.iterrows():
         print(f"行: {idx}, 平均値: {row['分析期間の平均値']}, 累積値: {row['分析期間の累積値']}")
     
-    # 相対効果と相対効果の信頼区間行を確実に「同左」に設定
+    # 相対効果と相対効果の信頼区間行を確実に適切な値に設定
     for idx in df_summary.index:
         if '相対効果' in idx:
-            df_summary.at[idx, '分析期間の累積値'] = '同左'
-            print(f"相対効果関連の行を修正: {idx} → 累積値: 同左")
+            # 視認性向上のため、平均値欄の内容を累積値欄にもコピー
+            avg_value = df_summary.at[idx, '分析期間の平均値']
+            df_summary.at[idx, '分析期間の累積値'] = avg_value
+            print(f"相対効果関連の行を修正: {idx} → 累積値: {avg_value}")
     
     # p値がある場合は新しい行として追加
     if p_value is not None:
         # 小数点以下4桁までの文字列にフォーマット
         p_value_str = f"{p_value:.4f}"
-        # 最終行の後に新しい行を追加し、平均値の列に値を表示し、累積値の列は「同左」と表示
-        df_summary.loc['p値 (事後確率)'] = [p_value_str, '同左']
-        print(f"p値を追加: 平均値: {p_value_str}, 累積値: 同左")
+        # 視認性向上のため、両欄に同じ値を表示
+        df_summary.loc['p値 (事後確率)'] = [p_value_str, p_value_str]
+        print(f"p値を追加: 平均値: {p_value_str}, 累積値: {p_value_str}")
     
     # データフレームを戻す前に最終的な形を確認
     print("最終的なデータフレーム:")
@@ -411,7 +413,7 @@ def build_enhanced_summary_table(ci, confidence_level=95):
         if 'actual' in summary_data.index:
             actual_avg = summary_data.loc['actual', 'average']
             actual_cum = summary_data.loc['actual', 'cumulative']
-            results_data.append(['実測値', f"{actual_avg:.1f}", f"{actual_cum:,.0f}"])
+            results_data.append(['実測値', f"{actual_avg:.1f}", f"{actual_cum:,.1f}"])
         
         # 予測値（標準偏差）
         if 'predicted' in summary_data.index:
@@ -422,10 +424,10 @@ def build_enhanced_summary_table(ci, confidence_level=95):
             if 'std' in summary_data.columns:
                 pred_sd = summary_data.loc['predicted', 'std']
                 avg_str = f"{pred_avg:.1f} ({pred_sd:.1f})"
-                cum_str = f"{pred_cum:,.0f} ({pred_sd:.1f})"
+                cum_str = f"{pred_cum:,.1f} ({pred_sd:.1f})"
             else:
                 avg_str = f"{pred_avg:.1f}"
-                cum_str = f"{pred_cum:,.0f}"
+                cum_str = f"{pred_cum:,.1f}"
             
             results_data.append(['予測値（標準偏差）', avg_str, cum_str])
         
@@ -437,7 +439,7 @@ def build_enhanced_summary_table(ci, confidence_level=95):
             pred_upper_cum = summary_data.loc['predicted_upper', 'cumulative']
             
             avg_ci_str = f"[{pred_lower_avg:.1f}, {pred_upper_avg:.1f}]"
-            cum_ci_str = f"[{pred_lower_cum:,.0f}, {pred_upper_cum:,.0f}]"
+            cum_ci_str = f"[{pred_lower_cum:,.1f}, {pred_upper_cum:,.1f}]"
             results_data.append([f'予測値 {confidence_level}% 信頼区間', avg_ci_str, cum_ci_str])
         
         # 絶対効果（標準偏差）
@@ -449,10 +451,10 @@ def build_enhanced_summary_table(ci, confidence_level=95):
             if 'std' in summary_data.columns:
                 abs_sd = summary_data.loc['abs_effect', 'std']
                 avg_str = f"{abs_avg:.1f} ({abs_sd:.1f})"
-                cum_str = f"{abs_cum:,.0f} ({abs_sd:.1f})"
+                cum_str = f"{abs_cum:,.1f} ({abs_sd:.1f})"
             else:
                 avg_str = f"{abs_avg:.1f}"
-                cum_str = f"{abs_cum:,.0f}"
+                cum_str = f"{abs_cum:,.1f}"
             
             results_data.append(['絶対効果（標準偏差）', avg_str, cum_str])
         
@@ -464,7 +466,7 @@ def build_enhanced_summary_table(ci, confidence_level=95):
             abs_upper_cum = summary_data.loc['abs_effect_upper', 'cumulative']
             
             avg_ci_str = f"[{abs_lower_avg:.1f}, {abs_upper_avg:.1f}]"
-            cum_ci_str = f"[{abs_lower_cum:,.0f}, {abs_upper_cum:,.0f}]"
+            cum_ci_str = f"[{abs_lower_cum:,.1f}, {abs_upper_cum:,.1f}]"
             results_data.append([f'絶対効果 {confidence_level}% 信頼区間', avg_ci_str, cum_ci_str])
         
         # 相対効果（標準偏差）
@@ -478,7 +480,8 @@ def build_enhanced_summary_table(ci, confidence_level=95):
             else:
                 rel_str = f"{rel_avg*100:.1f}%"
             
-            results_data.append(['相対効果（標準偏差）', rel_str, '同左'])
+            # 視認性向上のため、両欄に同じ値を表示
+            results_data.append(['相対効果（標準偏差）', rel_str, rel_str])
         
         # 相対効果信頼区間（動的に信頼水準を反映）
         if 'rel_effect_lower' in summary_data.index and 'rel_effect_upper' in summary_data.index:
@@ -486,16 +489,18 @@ def build_enhanced_summary_table(ci, confidence_level=95):
             rel_upper_avg = summary_data.loc['rel_effect_upper', 'average']
             
             rel_ci_str = f"[{rel_lower_avg*100:.1f}%, {rel_upper_avg*100:.1f}%]"
-            results_data.append([f'相対効果 {confidence_level}% 信頼区間', rel_ci_str, '同左'])
+            # 視認性向上のため、両欄に同じ値を表示
+            results_data.append([f'相対効果 {confidence_level}% 信頼区間', rel_ci_str, rel_ci_str])
         
         # p値（事後確率）
         if hasattr(ci, 'p_value') and ci.p_value is not None:
             p_value = ci.p_value
-            results_data.append(['p値（事後確率）', f"{p_value:.4f}", '同左'])
+            # 視認性向上のため、両欄に同じ値を表示
+            results_data.append(['p値（事後確率）', f"{p_value:.4f}", f"{p_value:.4f}"])
         elif hasattr(ci, 'summary_data') and 'Posterior tail-area probability p:' in ci.summary_data.index:
             # 代替的なp値取得方法
             p_value = ci.summary_data.loc['Posterior tail-area probability p:', 'Posterior tail-area probability p:']
-            results_data.append(['p値（事後確率）', f"{p_value:.4f}", '同左'])
+            results_data.append(['p値（事後確率）', f"{p_value:.4f}", f"{p_value:.4f}"])
         else:
             # テキストサマリーからp値を抽出
             try:
@@ -504,7 +509,7 @@ def build_enhanced_summary_table(ci, confidence_level=95):
                 p_match = re.search(r'Posterior tail-area probability p:\s+([0-9.]+)', summary_text)
                 if p_match:
                     p_value = float(p_match.group(1))
-                    results_data.append(['p値（事後確率）', f"{p_value:.4f}", '同左'])
+                    results_data.append(['p値（事後確率）', f"{p_value:.4f}", f"{p_value:.4f}"])
             except:
                 pass  # p値が取得できない場合はスキップ
         
@@ -559,7 +564,8 @@ def extract_summary_from_text(summary_text, confidence_level=95):
                     indicator = '絶対効果（標準偏差）'
                 elif 'RelEffect' in indicator:
                     indicator = '相対効果（標準偏差）'
-                    cum_value = '同左'  # 相対効果は累積値を「同左」に
+                    # 視認性向上のため、両欄に同じ値を表示
+                    cum_value = avg_value
                 elif '95% CI' in indicator or 'CI' in indicator:
                     if 'Predicted' in line:
                         indicator = f'予測値 {confidence_level}% 信頼区間'
@@ -567,7 +573,8 @@ def extract_summary_from_text(summary_text, confidence_level=95):
                         indicator = f'絶対効果 {confidence_level}% 信頼区間'
                     elif 'RelEffect' in line:
                         indicator = f'相対効果 {confidence_level}% 信頼区間'
-                        cum_value = '同左'
+                        # 視認性向上のため、両欄に同じ値を表示
+                        cum_value = avg_value
                 
                 results_data.append([indicator, avg_value, cum_value])
     
@@ -575,10 +582,100 @@ def extract_summary_from_text(summary_text, confidence_level=95):
     p_match = re.search(r'Posterior tail-area probability p:\s+([0-9.]+)', summary_text)
     if p_match:
         p_value = float(p_match.group(1))
-        results_data.append(['p値（事後確率）', f"{p_value:.4f}", '同左'])
+        # 視認性向上のため、両欄に同じ値を表示
+        results_data.append(['p値（事後確率）', f"{p_value:.4f}", f"{p_value:.4f}"])
     
     df = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
     return df
+
+def get_analysis_summary_message(ci, confidence_level=95):
+    """
+    分析結果から相対効果と統計的有意性を判定してサマリーメッセージを生成する関数
+    
+    Parameters:
+    -----------
+    ci : CausalImpact
+        分析結果オブジェクト
+    confidence_level : int
+        信頼水準（%）、デフォルト95%
+        
+    Returns:
+    --------
+    str or None
+        分析結果のサマリーメッセージ（生成できない場合はNone）
+    """
+    try:
+        import re
+        
+        # 相対効果と有意性の取得
+        relative_effect = None
+        p_value = None
+        is_significant = False
+        
+        # 1. CausalImpactのsummary_dataから取得を試行
+        if hasattr(ci, 'summary_data') and ci.summary_data is not None:
+            if 'rel_effect' in ci.summary_data.index:
+                relative_effect = ci.summary_data.loc['rel_effect', 'average'] * 100
+            
+            # 統計的有意性の判定（信頼区間による）
+            if ('abs_effect_lower' in ci.summary_data.index and 
+                'abs_effect_upper' in ci.summary_data.index):
+                lower_bound = ci.summary_data.loc['abs_effect_lower', 'cumulative']
+                upper_bound = ci.summary_data.loc['abs_effect_upper', 'cumulative']
+                if (lower_bound > 0 and upper_bound > 0) or (lower_bound < 0 and upper_bound < 0):
+                    is_significant = True
+        
+        # 2. p値の取得
+        if hasattr(ci, 'p_value') and ci.p_value is not None:
+            p_value = ci.p_value
+        else:
+            # テキストサマリーからp値を抽出
+            summary_text = str(ci.summary())
+            p_match = re.search(r'Posterior tail-area probability p:\s+([0-9.]+)', summary_text)
+            if p_match:
+                p_value = float(p_match.group(1))
+        
+        # 3. フォールバック：テキストから相対効果も抽出
+        if relative_effect is None:
+            summary_text = str(ci.summary())
+            # 相対効果の行を探す（パーセンテージ形式）
+            for line in summary_text.split('\n'):
+                if 'RelEffect' in line or '相対効果' in line:
+                    # パーセンテージ値を抽出
+                    percent_match = re.search(r'([-+]?\d+\.?\d*)%', line)
+                    if percent_match:
+                        relative_effect = float(percent_match.group(1))
+                        break
+        
+        # さらなるフォールバック：DataFrame型のsummaryからの抽出
+        if relative_effect is None and hasattr(ci, 'summary'):
+            try:
+                summary_df = ci.summary
+                if hasattr(summary_df, 'loc') and 'RelEffect' in summary_df.index:
+                    rel_effect_val = summary_df.loc['RelEffect', 'Average']
+                    if not hasattr(rel_effect_val, '__iter__'):
+                        relative_effect = rel_effect_val * 100
+            except:
+                pass
+        
+        # 4. メッセージの生成
+        if relative_effect is not None and p_value is not None:
+            # 統計的有意性の判定（p値による）
+            is_significant_by_p = p_value < 0.05
+            
+            # より確実な有意性判定（信頼区間とp値の両方を考慮）
+            final_significance = is_significant or is_significant_by_p
+            
+            if final_significance:
+                return f"相対効果は {relative_effect:+.1f}% で、統計的に有意です（p = {p_value:.3f}）。詳細はレポートを参照ください。"
+            else:
+                return f"相対効果は {relative_effect:+.1f}% ですが、統計的には有意ではありません（p = {p_value:.3f}）。詳細はレポートを参照ください。"
+        
+        return None
+        
+    except Exception as e:
+        print(f"Error in get_analysis_summary_message: {e}")
+        return None
 
 def get_metrics_explanation_table():
     """

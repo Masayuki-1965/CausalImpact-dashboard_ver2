@@ -24,9 +24,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from causal_impact_translator import translate_causal_impact_report
 from utils_step1 import get_csv_files, load_and_clean_csv, make_period_key, aggregate_df, create_full_period_range, format_stats_with_japanese
 from utils_step2 import get_period_defaults, validate_periods, calc_period_days, build_analysis_params
-from utils_step3 import run_causal_impact_analysis, build_summary_dataframe, get_summary_csv_download_link, get_figure_pdf_download_link, get_detail_csv_download_link, build_enhanced_summary_table, get_metrics_explanation_table
-
-# 処置群のみ分析用モジュール
+from utils_step3 import run_causal_impact_analysis, build_summary_dataframe, get_summary_csv_download_link, get_figure_pdf_download_link, get_detail_csv_download_link, build_enhanced_summary_table, get_metrics_explanation_table, get_analysis_summary_message
 from utils_step3_single_group import (
     run_single_group_causal_impact_analysis, 
     validate_single_group_data, 
@@ -1723,7 +1721,7 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
     
     st.markdown("""
 <div class="step-card">
-    <h2 style="font-size:1.8em;font-weight:bold;color:#1565c0;margin-bottom:0.5em;">STEP 3：分析結果の確認</h2>
+    <h2 style="font-size:1.8em;font-weight:bold;color:#1565c0;margin-bottom:0.5em;">STEP 3：分析実行／結果確認</h2>
     <div style="color:#1976d2;font-size:1.1em;line-height:1.5;">Causal Impact 分析の結果を、グラフおよび数値サマリーで視覚的に確認できます。分析条件や効果測定結果に基づいて傾向を把握し、必要に応じてグラフや表をダウンロードして活用してください。</div>
 </div>
     """, unsafe_allow_html=True)
@@ -1808,42 +1806,49 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
                     
                     # --- 分析レポートのまとめ（テーブル直下に配置） ---
                     try:
-                        # 統計的有意性と相対効果の判定（enhanced版からの値取得）
-                        if hasattr(ci, 'summary') and hasattr(ci.summary, 'iloc'):
-                            summary_df_temp = ci.summary
-                            
-                            # 相対効果と有意性の判定
-                            relative_effect_temp = None
-                            p_value_temp = None
-                            is_significant_temp = False
-                            
-                            # 相対効果の取得
-                            if 'RelEffect' in summary_df_temp.index:
-                                rel_effect_avg = summary_df_temp.loc['RelEffect', 'Average']
-                                if not hasattr(rel_effect_avg, '__iter__'):
-                                    relative_effect_temp = rel_effect_avg * 100
-                            
-                            # p値の取得
-                            if hasattr(ci, 'p_value'):
-                                p_value_temp = ci.p_value
-                            
-                            # 統計的有意性の判定（信頼区間による）
-                            if 'Cumulative' in summary_df_temp.columns:
-                                cumulative_data = summary_df_temp['Cumulative']
-                                if 'AbsEffect_lower' in cumulative_data.index and 'AbsEffect_upper' in cumulative_data.index:
-                                    lower_bound = cumulative_data['AbsEffect_lower']
-                                    upper_bound = cumulative_data['AbsEffect_upper']
-                                    if (lower_bound > 0 and upper_bound > 0) or (lower_bound < 0 and upper_bound < 0):
-                                        is_significant_temp = True
-                            
-                            # メッセージの作成と表示
-                            if relative_effect_temp is not None and p_value_temp is not None:
-                                if is_significant_temp:
-                                    summary_message = f"相対効果は {relative_effect_temp:+.1f}% で、統計的に有意です（p = {p_value_temp:.3f}）。詳細はレポートを参照ください。"
-                                else:
-                                    summary_message = f"相対効果は {relative_effect_temp:+.1f}% ですが、統計的には有意ではありません（p = {p_value_temp:.3f}）。詳細はレポートを参照ください。"
+                        # 新しい関数を使用してサマリーメッセージを生成
+                        from utils_step3 import get_analysis_summary_message
+                        summary_message = get_analysis_summary_message(ci, confidence_level)
+                        
+                        if summary_message:
+                            st.success(summary_message)
+                        else:
+                            # フォールバック：従来の方法でメッセージ生成を試行
+                            if hasattr(ci, 'summary') and hasattr(ci.summary, 'iloc'):
+                                summary_df_temp = ci.summary
                                 
-                                st.success(summary_message)
+                                # 相対効果と有意性の判定
+                                relative_effect_temp = None
+                                p_value_temp = None
+                                is_significant_temp = False
+                                
+                                # 相対効果の取得
+                                if 'RelEffect' in summary_df_temp.index:
+                                    rel_effect_avg = summary_df_temp.loc['RelEffect', 'Average']
+                                    if not hasattr(rel_effect_avg, '__iter__'):
+                                        relative_effect_temp = rel_effect_avg * 100
+                                
+                                # p値の取得
+                                if hasattr(ci, 'p_value'):
+                                    p_value_temp = ci.p_value
+                                
+                                # 統計的有意性の判定（信頼区間による）
+                                if 'Cumulative' in summary_df_temp.columns:
+                                    cumulative_data = summary_df_temp['Cumulative']
+                                    if 'AbsEffect_lower' in cumulative_data.index and 'AbsEffect_upper' in cumulative_data.index:
+                                        lower_bound = cumulative_data['AbsEffect_lower']
+                                        upper_bound = cumulative_data['AbsEffect_upper']
+                                        if (lower_bound > 0 and upper_bound > 0) or (lower_bound < 0 and upper_bound < 0):
+                                            is_significant_temp = True
+                                
+                                # メッセージの作成と表示
+                                if relative_effect_temp is not None and p_value_temp is not None:
+                                    if is_significant_temp:
+                                        fallback_message = f"相対効果は {relative_effect_temp:+.1f}% で、統計的に有意です（p = {p_value_temp:.3f}）。詳細はレポートを参照ください。"
+                                    else:
+                                        fallback_message = f"相対効果は {relative_effect_temp:+.1f}% ですが、統計的には有意ではありません（p = {p_value_temp:.3f}）。詳細はレポートを参照ください。"
+                                    
+                                    st.success(fallback_message)
                     except Exception as e:
                         pass  # エラーが発生した場合はメッセージ表示をスキップ
                     
@@ -1929,6 +1934,14 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
                             if results_data:
                                 results_df = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
                                 st.dataframe(results_df, use_container_width=True, hide_index=True)
+                                
+                                # --- 分析レポートのまとめ（フォールバック版） ---
+                                try:
+                                    summary_message = get_analysis_summary_message(ci, confidence_level)
+                                    if summary_message:
+                                        st.success(summary_message)
+                                except Exception as e:
+                                    pass  # エラーが発生した場合はメッセージ表示をスキップ
                                 
                                 # 指標の説明（展開可能）
                                 with st.expander("指標の説明", expanded=False):
