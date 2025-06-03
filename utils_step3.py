@@ -32,7 +32,22 @@ def run_causal_impact_analysis(data, pre_period, post_period):
             if ("Note:" in text_content or 
                 "observations were removed" in text_content or
                 "diffuse initialization" in text_content or
-                "approximate" in text_content):
+                "approximate" in text_content or
+                "first" in text_content.lower() or
+                "removed due to" in text_content.lower()):
+                text.remove()  # テキストを完全に削除
+    
+    # フィギュアレベルでのテキスト削除も試行
+    if hasattr(fig, 'texts'):
+        fig_texts = fig.texts[:]  # フィギュアのテキストリストのコピーを作成
+        for text in fig_texts:
+            text_content = text.get_text()
+            if ("Note:" in text_content or
+                "observations were removed" in text_content or
+                "diffuse initialization" in text_content or
+                "approximate" in text_content or
+                "first" in text_content.lower() or
+                "removed due to" in text_content.lower()):
                 text.remove()  # テキストを完全に削除
     
     # 図全体のタイトルを削除
