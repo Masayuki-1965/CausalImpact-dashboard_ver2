@@ -24,13 +24,15 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from causal_impact_translator import translate_causal_impact_report
 from utils_step1 import get_csv_files, load_and_clean_csv, make_period_key, aggregate_df, create_full_period_range, format_stats_with_japanese
 from utils_step2 import get_period_defaults, validate_periods, calc_period_days, build_analysis_params
-from utils_step3 import run_causal_impact_analysis, build_summary_dataframe, get_summary_csv_download_link, get_figure_pdf_download_link, get_detail_csv_download_link, build_enhanced_summary_table, get_metrics_explanation_table, get_analysis_summary_message
+from utils_step3 import run_causal_impact_analysis, build_summary_dataframe, build_enhanced_summary_table, get_analysis_summary_message, get_comprehensive_pdf_download_link, get_comprehensive_csv_download_link
 from utils_step3_single_group import (
     run_single_group_causal_impact_analysis, 
     validate_single_group_data, 
     suggest_intervention_point,
     build_single_group_summary_dataframe,
-    get_single_group_interpretation
+    get_single_group_interpretation,
+    get_single_group_comprehensive_pdf_download_link,
+    get_single_group_comprehensive_csv_download_link
 )
 
 # リファクタリング後の外部モジュール
@@ -1849,19 +1851,30 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
         
         if summary is not None:
             try:
-                # 新しい表形式での分析結果表示
-                from utils_step3 import build_enhanced_summary_table, get_metrics_explanation_table
+                # 分析タイプに応じて適切なサマリー生成関数を使用
+                if current_analysis_type == "単群推定（処置群のみを使用）":
+                    from utils_step3_single_group import build_single_group_summary_dataframe
+                    summary_df = build_single_group_summary_dataframe(summary, confidence_level)
+                else:
+                    from utils_step3 import build_enhanced_summary_table
+                    summary_df = build_enhanced_summary_table(ci, confidence_level)
                 
-                results_df = build_enhanced_summary_table(ci, confidence_level)
+                # 共通の説明関数をインポート
+                from utils_step3 import get_metrics_explanation_table
                 
-                if not results_df.empty:
-                    st.dataframe(results_df, use_container_width=True, hide_index=True)
+                if not summary_df.empty:
+                    st.dataframe(summary_df, use_container_width=True, hide_index=True)
                     
                     # --- 分析レポートのまとめ（テーブル直下に配置） ---
                     try:
-                        # 新しい関数を使用してサマリーメッセージを生成
-                        from utils_step3 import get_analysis_summary_message
-                        summary_message = get_analysis_summary_message(ci, confidence_level)
+                        # 分析タイプに応じて適切なサマリーメッセージ生成関数を使用
+                        if current_analysis_type == "単群推定（処置群のみを使用）":
+                            # 単群推定用のサマリーメッセージ生成関数を使用
+                            from utils_step3_single_group import get_single_group_analysis_summary_message
+                            summary_message = get_single_group_analysis_summary_message(ci, confidence_level)
+                        else:
+                            from utils_step3 import get_analysis_summary_message
+                            summary_message = get_analysis_summary_message(ci, confidence_level)
                         
                         if summary_message:
                             st.success(summary_message)
@@ -1979,43 +1992,43 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                     with st.expander("指標の説明", expanded=False):
                         st.markdown(get_metrics_explanation_table(), unsafe_allow_html=True)
                 else:
-                    # CausalImpactの結果から主要指標を抽出して表形式で表示（フォールバック）
+                    # フォールバック：CausalImpactの結果から主要指標を抽出して表形式で表示
                     if hasattr(ci, 'summary') and hasattr(ci.summary, 'iloc'):
                         # pandas DataFrameとして処理
-                        summary_df = ci.summary.copy()
+                        summary_df_fallback = ci.summary.copy()
                         
                         # 主要指標の抽出と表形式での表示
-                        if 'Average' in summary_df.columns and 'Cumulative' in summary_df.columns:
+                        if 'Average' in summary_df_fallback.columns and 'Cumulative' in summary_df_fallback.columns:
                             # 分析結果テーブルの作成
                             results_data = []
                             
                             # 各指標の行を作成
-                            if 'Actual' in summary_df.index:
-                                avg_actual = summary_df.loc['Actual', 'Average']
-                                cum_actual = summary_df.loc['Actual', 'Cumulative']
+                            if 'Actual' in summary_df_fallback.index:
+                                avg_actual = summary_df_fallback.loc['Actual', 'Average']
+                                cum_actual = summary_df_fallback.loc['Actual', 'Cumulative']
                                 results_data.append(['実測値', f"{avg_actual:.1f}", f"{cum_actual:,.0f}"])
                             
-                            if 'Predicted' in summary_df.index:
-                                avg_pred = summary_df.loc['Predicted', 'Average']
-                                cum_pred = summary_df.loc['Predicted', 'Cumulative']
+                            if 'Predicted' in summary_df_fallback.index:
+                                avg_pred = summary_df_fallback.loc['Predicted', 'Average']
+                                cum_pred = summary_df_fallback.loc['Predicted', 'Cumulative']
                                 # 標準偏差がある場合は括弧内に表示
-                                if hasattr(summary_df.loc['Predicted', 'Average'], '__iter__'):
+                                if hasattr(summary_df_fallback.loc['Predicted', 'Average'], '__iter__'):
                                     # 複数値の場合（標準偏差含む）
-                                    pred_str = str(summary_df.loc['Predicted', 'Average'])
-                                    cum_pred_str = str(summary_df.loc['Predicted', 'Cumulative'])
+                                    pred_str = str(summary_df_fallback.loc['Predicted', 'Average'])
+                                    cum_pred_str = str(summary_df_fallback.loc['Predicted', 'Cumulative'])
                                 else:
                                     pred_str = f"{avg_pred:.1f}"
                                     cum_pred_str = f"{cum_pred:,.0f}"
                                 results_data.append(['予測値（標準偏差）', pred_str, cum_pred_str])
                             
-                            if '95% CI' in summary_df.index:
-                                avg_ci = str(summary_df.loc['95% CI', 'Average'])
-                                cum_ci = str(summary_df.loc['95% CI', 'Cumulative'])
+                            if '95% CI' in summary_df_fallback.index:
+                                avg_ci = str(summary_df_fallback.loc['95% CI', 'Average'])
+                                cum_ci = str(summary_df_fallback.loc['95% CI', 'Cumulative'])
                                 results_data.append(['予測値 95% 信頼区間', avg_ci, cum_ci])
                             
-                            if 'AbsEffect' in summary_df.index:
-                                avg_abs = summary_df.loc['AbsEffect', 'Average']
-                                cum_abs = summary_df.loc['AbsEffect', 'Cumulative']
+                            if 'AbsEffect' in summary_df_fallback.index:
+                                avg_abs = summary_df_fallback.loc['AbsEffect', 'Average']
+                                cum_abs = summary_df_fallback.loc['AbsEffect', 'Cumulative']
                                 # 標準偏差がある場合は括弧内に表示
                                 if hasattr(avg_abs, '__iter__'):
                                     abs_str = str(avg_abs)
@@ -2025,14 +2038,14 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                                     cum_abs_str = f"{cum_abs:,.0f}"
                                 results_data.append(['絶対効果（標準偏差）', abs_str, cum_abs_str])
                             
-                            if 'AbsEffect_lower' in summary_df.index and 'AbsEffect_upper' in summary_df.index:
-                                avg_abs_ci = f"[{summary_df.loc['AbsEffect_lower', 'Average']:.1f}, {summary_df.loc['AbsEffect_upper', 'Average']:.1f}]"
-                                cum_abs_ci = f"[{summary_df.loc['AbsEffect_lower', 'Cumulative']:,.0f}, {summary_df.loc['AbsEffect_upper', 'Cumulative']:,.0f}]"
+                            if 'AbsEffect_lower' in summary_df_fallback.index and 'AbsEffect_upper' in summary_df_fallback.index:
+                                avg_abs_ci = f"[{summary_df_fallback.loc['AbsEffect_lower', 'Average']:.1f}, {summary_df_fallback.loc['AbsEffect_upper', 'Average']:.1f}]"
+                                cum_abs_ci = f"[{summary_df_fallback.loc['AbsEffect_lower', 'Cumulative']:,.0f}, {summary_df_fallback.loc['AbsEffect_upper', 'Cumulative']:,.0f}]"
                                 results_data.append(['絶対効果 95% 信頼区間', avg_abs_ci, cum_abs_ci])
                             
-                            if 'RelEffect' in summary_df.index:
-                                avg_rel = summary_df.loc['RelEffect', 'Average']
-                                cum_rel = summary_df.loc['RelEffect', 'Cumulative']
+                            if 'RelEffect' in summary_df_fallback.index:
+                                avg_rel = summary_df_fallback.loc['RelEffect', 'Average']
+                                cum_rel = summary_df_fallback.loc['RelEffect', 'Cumulative']
                                 # パーセンテージ表示
                                 if hasattr(avg_rel, '__iter__'):
                                     rel_str = str(avg_rel)
@@ -2043,9 +2056,9 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                                     relative_effect_value = avg_rel*100  # 後で使用するため保存
                                 results_data.append(['相対効果（標準偏差）', rel_str, cum_rel_str])
                             
-                            if 'RelEffect_lower' in summary_df.index and 'RelEffect_upper' in summary_df.index:
-                                avg_rel_ci = f"[{summary_df.loc['RelEffect_lower', 'Average']*100:.1f}%, {summary_df.loc['RelEffect_upper', 'Average']*100:.1f}%]"
-                                cum_rel_ci = f"[{summary_df.loc['RelEffect_lower', 'Cumulative']*100:.1f}%, {summary_df.loc['RelEffect_upper', 'Cumulative']*100:.1f}%]"
+                            if 'RelEffect_lower' in summary_df_fallback.index and 'RelEffect_upper' in summary_df_fallback.index:
+                                avg_rel_ci = f"[{summary_df_fallback.loc['RelEffect_lower', 'Average']*100:.1f}%, {summary_df_fallback.loc['RelEffect_upper', 'Average']*100:.1f}%]"
+                                cum_rel_ci = f"[{summary_df_fallback.loc['RelEffect_lower', 'Cumulative']*100:.1f}%, {summary_df_fallback.loc['RelEffect_upper', 'Cumulative']*100:.1f}%]"
                                 results_data.append(['相対効果 95% 信頼区間', avg_rel_ci, cum_rel_ci])
                             
                             # 事後確率の追加
@@ -2055,8 +2068,8 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                             
                             # 結果テーブルの表示
                             if results_data:
-                                results_df = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
-                                st.dataframe(results_df, use_container_width=True, hide_index=True)
+                                summary_df = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+                                st.dataframe(summary_df, use_container_width=True, hide_index=True)
                                 
                                 # --- 分析レポートのまとめ（フォールバック版） ---
                                 try:
@@ -2072,54 +2085,29 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                         
                         # 完全なサマリーテーブルをexpanderで表示
                         with st.expander("完全なサマリーテーブル", expanded=False):
-                            st.dataframe(summary_df, use_container_width=True)
+                            st.dataframe(summary_df_fallback, use_container_width=True)
                     else:
-                        # フォールバック：テキスト形式で表示
+                        # フォールバック2：テキスト形式で表示し、空のDataFrameをsummary_dfに設定
                         with st.expander("分析結果（テキスト形式）", expanded=False):
                             st.text(str(summary))
+                        
+                        # ダウンロード機能で使用するため空のDataFrameを設定
+                        summary_df = pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
                             
             except Exception as e:
                 st.warning("サマリー情報の詳細表示でエラーが発生しました。基本情報を表示します。")
                 with st.expander("分析結果（テキスト形式）", expanded=False):
                     st.text(str(summary))
+                
+                # ダウンロード機能で使用するため空のDataFrameを設定
+                summary_df = pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+        else:
+            # summaryがNoneの場合も空のDataFrameを設定
+            summary_df = pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
         
-        # --- 分析レポートのまとめ ---
-        try:
-            # 統計的有意性と相対効果の判定
-            if hasattr(ci, 'summary') and hasattr(ci.summary, 'iloc'):
-                summary_df = ci.summary
-                
-                # 相対効果の取得
-                if relative_effect_value is None and 'RelEffect' in summary_df.index:
-                    rel_effect_avg = summary_df.loc['RelEffect', 'Average']
-                    if not hasattr(rel_effect_avg, '__iter__'):
-                        relative_effect_value = rel_effect_avg * 100
-                
-                # p値の取得
-                if p_value is None and hasattr(ci, 'p_value'):
-                    p_value = ci.p_value
-                
-                # 統計的有意性の判定（信頼区間による）
-                is_significant = False
-                if 'Cumulative' in summary_df.columns:
-                    cumulative_data = summary_df['Cumulative']
-                    if 'AbsEffect_lower' in cumulative_data.index and 'AbsEffect_upper' in cumulative_data.index:
-                        lower_bound = cumulative_data['AbsEffect_lower']
-                        upper_bound = cumulative_data['AbsEffect_upper']
-                        if (lower_bound > 0 and upper_bound > 0) or (lower_bound < 0 and upper_bound < 0):
-                            is_significant = True
-                
-                # メッセージの作成
-                if relative_effect_value is not None and p_value is not None:
-                    if is_significant:
-                        summary_message = f"相対効果は {relative_effect_value:+.1f}% で、統計的に有意です（p = {p_value:.3f}）。詳細はレポートを参照ください。"
-                    else:
-                        summary_message = f"相対効果は {relative_effect_value:+.1f}% ですが、統計的には有意ではありません（p = {p_value:.3f}）。詳細はレポートを参照ください。"
-                    
-                    st.success(summary_message)
-                
-        except Exception as e:
-            pass  # エラーが発生した場合はメッセージ表示をスキップ
+        # summary_dfが確実に定義されていることを確認
+        if summary_df is None:
+            summary_df = pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
 
         # --- 分析結果グラフ（改善版） ---
         st.markdown('<div class="section-title">分析結果グラフ</div>', unsafe_allow_html=True)
@@ -2271,12 +2259,107 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                 quality_df = pd.DataFrame(quality_items, columns=['評価', '項目', '詳細'])
                 st.dataframe(quality_df, use_container_width=True, hide_index=True)
         
-        # --- ダウンロード機能（Phase 3.3で実装予定） ---
+        # --- ダウンロード機能（Phase 3.3実装） ---
         st.markdown('<div class="section-title">結果のダウンロード</div>', unsafe_allow_html=True)
-        st.info("📥 **ダウンロード機能**：CSV・PDFダウンロード機能は次回実装予定です。")
-    
-    else:
-        st.error("分析結果が見つかりません。再度分析を実行してください。")
+        
+        # 分析完了メッセージ（要求仕様：メッセージ①）
+        st.success("✅ Causal Impact分析が完了しました。分析結果のグラフおよびサマリーをご確認のうえ、必要な情報を以下よりダウンロードしてください。")
+        
+        try:
+            # 分析情報の準備
+            analysis_period = st.session_state.get('analysis_period', {})
+            period_start = analysis_period.get('post_start')
+            period_end = analysis_period.get('post_end')
+            freq_option = st.session_state.get('freq_option', '月次')
+            
+            analysis_info = {
+                'treatment_name': treatment_name,
+                'control_name': control_name if current_analysis_type != "単群推定（処置群のみを使用）" else None,
+                'analysis_type': current_analysis_type,
+                'period_start': period_start,
+                'period_end': period_end,
+                'freq_option': freq_option
+            }
+            
+            # ボタンを横並びで配置
+            col1, col2 = st.columns(2)
+            
+            # PDF形式でのダウンロード
+            with col1:
+                try:
+                    if current_analysis_type == "単群推定（処置群のみを使用）":
+                        pdf_href, pdf_filename = get_single_group_comprehensive_pdf_download_link(
+                            ci, analysis_info, summary_df, fig, confidence_level=95
+                        )
+                    else:
+                        pdf_href, pdf_filename = get_comprehensive_pdf_download_link(
+                            ci, analysis_info, summary_df, fig, confidence_level=95
+                        )
+                    
+                    st.markdown(
+                        f"""
+                        <a href="{pdf_href}" download="{pdf_filename}">
+                            <button style="width:100%;background-color:#ff4b4b;color:white;padding:0.5rem 1rem;border:none;border-radius:0.25rem;cursor:pointer;font-size:16px;font-weight:bold;">
+                                分析結果サマリーとグラフ（PDF）
+                            </button>
+                        </a>
+                        """, 
+                        unsafe_allow_html=True
+                    )
+                except Exception as e:
+                    # PDF生成エラーの詳細情報を表示
+                    error_details = str(e)
+                    if "summary_df" in error_details:
+                        st.error("📄 PDF生成エラー：分析結果データの準備中にエラーが発生しました。分析を再実行してください。")
+                    elif "font" in error_details.lower() or "reportlab" in error_details.lower():
+                        st.error("📄 PDF生成エラー：フォント設定でエラーが発生しました。文字化けの可能性がありますが、CSV形式はご利用可能です。")
+                    else:
+                        st.error(f"📄 PDF生成エラー：{error_details}")
+                    
+                    # 代替手段を案内
+                    st.info("💡 PDFダウンロードでエラーが発生しました。CSV形式のダウンロード、またはブラウザの印刷機能（Ctrl+P）をご利用ください。")
+            
+            # CSV形式でのダウンロード
+            with col2:
+                try:
+                    if current_analysis_type == "単群推定（処置群のみを使用）":
+                        csv_href, csv_filename = get_single_group_comprehensive_csv_download_link(
+                            ci, analysis_info, confidence_level=95
+                        )
+                    else:
+                        csv_href, csv_filename = get_comprehensive_csv_download_link(
+                            ci, analysis_info, confidence_level=95
+                        )
+                    
+                    st.markdown(
+                        f"""
+                        <a href="{csv_href}" download="{csv_filename}">
+                            <button style="width:100%;background-color:#ff4b4b;color:white;padding:0.5rem 1rem;border:none;border-radius:0.25rem;cursor:pointer;font-size:16px;font-weight:bold;">
+                                予測値・実測値の詳細データ（CSV）
+                            </button>
+                        </a>
+                        """, 
+                        unsafe_allow_html=True
+                    )
+                except Exception as e:
+                    # CSV生成エラーの詳細情報を表示
+                    error_details = str(e)
+                    if "'date'" in error_details:
+                        st.error("📊 CSV生成エラー：データの日付列処理でエラーが発生しました。データ形式を確認してください。")
+                    elif "inferences" in error_details:
+                        st.error("📊 CSV生成エラー：分析結果データが見つかりません。分析を再実行してください。")
+                    else:
+                        st.error(f"📊 CSV生成エラー：{error_details}")
+                    
+                    # 代替手段を案内
+                    st.info("💡 CSVダウンロードでエラーが発生しました。画面に表示されている結果表を手動でコピーするか、分析を再実行してください。")
+                    
+        except Exception as e:
+            st.error(f"ダウンロード機能でエラーが発生しました: {str(e)}")
+            st.info("📥 **ダウンロード機能**：一時的にダウンロード機能が利用できません。")
+        
+        # アプリ終了メッセージ（要求仕様：メッセージ②）
+        st.info("これでCausal Impactの分析は終了です。新たなデータで再度分析を行う場合は、画面左上の更新ボタン（⟳）をクリックするか、Ctrl＋Rを押して、STEP 1 のデータの取り込みから再実行してください。")
 
 st.markdown("---")
 st.markdown("### 🚧 開発進捗")
