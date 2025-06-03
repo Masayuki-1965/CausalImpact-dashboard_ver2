@@ -14,6 +14,7 @@ def validate_periods(pre_end_date, post_start_date, dataset=None, pre_start_date
     分析期間の妥当性をチェック
     - 介入前期間の終了日と介入期間の開始日の整合性をチェック
     - データセット期間内に収まっているかをチェック
+    - 指定した日付がデータセットに実際に存在するかをチェック
     """
     # 1. 介入前期間と介入期間の順序チェック
     if pre_end_date is not None and post_start_date is not None and post_start_date <= pre_end_date:
@@ -24,21 +25,36 @@ def validate_periods(pre_end_date, post_start_date, dataset=None, pre_start_date
         dataset_min_date = dataset['ymd'].min().date()
         dataset_max_date = dataset['ymd'].max().date()
         
+        # データセット内の実際の日付一覧を取得
+        available_dates = set(dataset['ymd'].dt.date)
+        
         # 介入前期間開始日のチェック
-        if pre_start_date is not None and pre_start_date < dataset_min_date:
-            return False, f"⚠ 分析期間の設定エラー：介入前期間の開始日（{pre_start_date}）がデータセット期間（{dataset_min_date} ～ {dataset_max_date}）より前に設定されています。"
+        if pre_start_date is not None:
+            if pre_start_date < dataset_min_date:
+                return False, f"⚠ 分析期間の設定エラー：介入前期間の開始日（{pre_start_date}）がデータセット期間（{dataset_min_date} ～ {dataset_max_date}）より前に設定されています。"
+            elif pre_start_date not in available_dates:
+                return False, f"⚠ 分析期間の設定エラー：介入前期間の開始日（{pre_start_date}）はデータセットに存在しません。データセット期間：{dataset_min_date} ～ {dataset_max_date}"
         
         # 介入前期間終了日のチェック
-        if pre_end_date is not None and pre_end_date > dataset_max_date:
-            return False, f"⚠ 分析期間の設定エラー：介入前期間の終了日（{pre_end_date}）がデータセット期間（{dataset_min_date} ～ {dataset_max_date}）より後に設定されています。"
+        if pre_end_date is not None:
+            if pre_end_date > dataset_max_date:
+                return False, f"⚠ 分析期間の設定エラー：介入前期間の終了日（{pre_end_date}）がデータセット期間（{dataset_min_date} ～ {dataset_max_date}）より後に設定されています。"
+            elif pre_end_date not in available_dates:
+                return False, f"⚠ 分析期間の設定エラー：介入前期間の終了日（{pre_end_date}）はデータセットに存在しません。データセット期間：{dataset_min_date} ～ {dataset_max_date}"
         
         # 介入期間開始日のチェック
-        if post_start_date is not None and post_start_date < dataset_min_date:
-            return False, f"⚠ 分析期間の設定エラー：介入期間の開始日（{post_start_date}）がデータセット期間（{dataset_min_date} ～ {dataset_max_date}）より前に設定されています。"
+        if post_start_date is not None:
+            if post_start_date < dataset_min_date:
+                return False, f"⚠ 分析期間の設定エラー：介入期間の開始日（{post_start_date}）がデータセット期間（{dataset_min_date} ～ {dataset_max_date}）より前に設定されています。"
+            elif post_start_date not in available_dates:
+                return False, f"⚠ 分析期間の設定エラー：介入期間の開始日（{post_start_date}）はデータセットに存在しません。データセット期間：{dataset_min_date} ～ {dataset_max_date}"
         
         # 介入期間終了日のチェック
-        if post_end_date is not None and post_end_date > dataset_max_date:
-            return False, f"⚠ 分析期間の設定エラー：介入期間の終了日（{post_end_date}）がデータセット期間（{dataset_min_date} ～ {dataset_max_date}）より後に設定されています。"
+        if post_end_date is not None:
+            if post_end_date > dataset_max_date:
+                return False, f"⚠ 分析期間の設定エラー：介入期間の終了日（{post_end_date}）がデータセット期間（{dataset_min_date} ～ {dataset_max_date}）より後に設定されています。"
+            elif post_end_date not in available_dates:
+                return False, f"⚠ 分析期間の設定エラー：介入期間の終了日（{post_end_date}）はデータセットに存在しません。データセット期間：{dataset_min_date} ～ {dataset_max_date}"
     
     return True, ""
 
