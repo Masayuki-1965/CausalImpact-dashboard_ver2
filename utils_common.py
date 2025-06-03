@@ -74,9 +74,17 @@ def get_step_status():
         if st.session_state.get(SESSION_KEYS['DATASET_CREATED'], False):
             step2_active = True
     
-    # 分析設定済みまたは分析実行済みならSTEP 3をアクティブに
-    if (st.session_state.get(SESSION_KEYS['PARAMS_SAVED'], False) or 
-        st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False)):
+    # STEP 3のアクティブ状態を複数の条件で判定（確実性向上）
+    # 1. 分析設定が完了している場合
+    if st.session_state.get(SESSION_KEYS['PARAMS_SAVED'], False):
+        step3_active = True
+    
+    # 2. 分析実行が完了している場合
+    if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False):
+        step3_active = True
+    
+    # 3. STEP3表示フラグが設定されている場合（分析実行ボタン押下時）
+    if st.session_state.get('show_step3', False):
         step3_active = True
         
     return {

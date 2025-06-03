@@ -1034,20 +1034,20 @@ if st.session_state.get('data_loaded', False):
             col1, col2 = st.columns(2)
             with col1:
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">データプレビュー（上位10件表示）</div>', unsafe_allow_html=True)
-                preview_df = dataset.head(10).copy()
-                preview_df['ymd'] = preview_df['ymd'].dt.strftime('%Y-%m-%d')
+                preview_df_treat = df_treat[['ymd', 'qty']].head(10).copy()
+                preview_df_treat['ymd'] = preview_df_treat['ymd'].dt.strftime('%Y-%m-%d')
                 
                 # カラム名を省略
-                original_columns = preview_df.columns.tolist()
+                original_columns = preview_df_treat.columns.tolist()
                 truncated_columns = {}
                 for col in original_columns:
                     if col != 'ymd':
-                        truncated_col = truncate_text_for_display(col, max_length=15)
+                        truncated_col = truncate_text_for_display(col, max_length=10)
                         truncated_columns[col] = truncated_col
-                        preview_df = preview_df.rename(columns={col: truncated_col})
+                        preview_df_treat = preview_df_treat.rename(columns={col: truncated_col})
                 
-                preview_df.index = range(1, len(preview_df) + 1)
-                st.dataframe(preview_df, use_container_width=True)
+                preview_df_treat.index = range(1, len(preview_df_treat) + 1)
+                st.dataframe(preview_df_treat, use_container_width=True)
                             
             with col2:
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">統計情報</div>', unsafe_allow_html=True)
@@ -1071,7 +1071,7 @@ if st.session_state.get('data_loaded', False):
                 stats_df = pd.DataFrame(stats_data).T
                 
                 # カラム名を省略
-                truncated_stats_columns = [truncate_text_for_display(col, max_length=15) for col in numeric_columns]
+                truncated_stats_columns = [truncate_text_for_display(col, max_length=10) for col in numeric_columns]
                 stats_df.columns = truncated_stats_columns
                 stats_df.index = ['count（個数）', 'mean（平均）', 'std（標準偏差）', 'min（最小値）', '25%（第1四分位数）', '50%（中央値）', '75%（第3四分位数）', 'max（最大値）']
                 stats_df.insert(0, '統計項目', stats_df.index)
@@ -1664,6 +1664,7 @@ if st.session_state.get('data_loaded', False):
                     
                     if analyze_btn:
                         st.session_state['params_saved'] = True
+                        st.session_state[SESSION_KEYS['PARAMS_SAVED']] = True
                         st.session_state['show_step3'] = True
                         
                         # 分析実行処理を開始
@@ -1756,6 +1757,9 @@ if st.session_state.get('data_loaded', False):
                                 
                                 # 分析完了メッセージ
                                 st.success("✅ Causal Impact分析が完了しました！下記の結果をご確認ください。")
+                                
+                                # サイドバーの状態を即座に更新するためにページを再描画
+                                st.rerun()
                                 
                             except Exception as e:
                                 st.error(f"❌ 分析実行中にエラーが発生しました: {str(e)}")
