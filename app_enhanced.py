@@ -34,13 +34,35 @@ from utils_step3_single_group import (
 )
 
 # リファクタリング後の外部モジュール
-from config.constants import PAGE_CONFIG, CUSTOM_CSS_PATH
+from config.constants import PAGE_CONFIG, CUSTOM_CSS_PATH, SESSION_KEYS
 from config.help_texts import (
     DATA_FORMAT_GUIDE_HTML, FAQ_CAUSAL_IMPACT, FAQ_STATE_SPACE_MODEL,
     HEADER_CARD_HTML, STEP1_CARD_HTML, STEP2_CARD_HTML, STEP3_CARD_HTML,
     RESET_GUIDE_HTML, SIDEBAR_FLOW_DESCRIPTION
 )
 from utils_common import load_css, initialize_session_state, reset_session_state, get_step_status
+
+# --- ユーティリティ関数の定義 ---
+def truncate_text_for_display(text, max_length=20):
+    """
+    表示用に長いテキストを省略する関数
+    
+    Parameters:
+    -----------
+    text : str
+        元のテキスト
+    max_length : int
+        最大表示文字数（デフォルト20文字）
+        
+    Returns:
+    --------
+    str
+        省略されたテキスト（必要に応じて「...」を付加）
+    """
+    if len(text) <= max_length:
+        return text
+    else:
+        return text[:max_length-3] + "..."
 
 # --- 初期化 ---
 initialize_session_state()
@@ -733,13 +755,17 @@ if st.session_state.get('data_loaded', False):
         # 二群比較の場合（処置群 + 対照群）
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_name}）</div>', unsafe_allow_html=True)
+            # 処置群名を省略
+            treatment_display_name = truncate_text_for_display(treatment_name, max_length=20)
+            st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_display_name}）</div>', unsafe_allow_html=True)
             preview_df_treat = df_treat[['ymd', 'qty']].head(10).copy()
             preview_df_treat['ymd'] = preview_df_treat['ymd'].dt.strftime('%Y-%m-%d')
             preview_df_treat.index = range(1, len(preview_df_treat) + 1)
             st.dataframe(preview_df_treat, use_container_width=True)
         with col2:
-            st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群（{control_name}）</div>', unsafe_allow_html=True)
+            # 対照群名を省略
+            control_display_name = truncate_text_for_display(control_name, max_length=20)
+            st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群（{control_display_name}）</div>', unsafe_allow_html=True)
             preview_df_ctrl = df_ctrl[['ymd', 'qty']].head(10).copy()
             preview_df_ctrl['ymd'] = preview_df_ctrl['ymd'].dt.strftime('%Y-%m-%d')
             preview_df_ctrl.index = range(1, len(preview_df_ctrl) + 1)
@@ -778,19 +804,28 @@ if st.session_state.get('data_loaded', False):
         # 二群比較の統計情報表示
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_name}）</div>', unsafe_allow_html=True)
+            # 処置群名を省略
+            treatment_display_name = truncate_text_for_display(treatment_name, max_length=20)
+            st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_display_name}）</div>', unsafe_allow_html=True)
             if 'qty' in df_treat.columns:
                 stats_treat = format_stats_with_japanese(df_treat[['qty']])
                 st.dataframe(stats_treat, use_container_width=True, hide_index=True)
             else:
                 st.error("データに 'qty' カラムが見つかりません")
+                
         with col2:
-            st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群（{control_name}）</div>', unsafe_allow_html=True)
+            # 対照群名を省略
+            control_display_name = truncate_text_for_display(control_name, max_length=20)
+            st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群（{control_display_name}）</div>', unsafe_allow_html=True)
             if 'qty' in df_ctrl.columns:
                 stats_ctrl = format_stats_with_japanese(df_ctrl[['qty']])
                 st.dataframe(stats_ctrl, use_container_width=True, hide_index=True)
             else:
                 st.error("データに 'qty' カラムが見つかりません")
+            
+            # 削除対象：省略された場合は元の名前を表示
+            # if control_display_name != control_name:
+            #     st.markdown(f'<div style="font-size:0.75em;color:#666;margin-top:0.5em;">完全名：{control_name}</div>', unsafe_allow_html=True)
         
         # データ量の簡潔な表示（統計情報表の下に移動）
         treat_days = len(df_treat)
@@ -1001,8 +1036,19 @@ if st.session_state.get('data_loaded', False):
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">データプレビュー（上位10件表示）</div>', unsafe_allow_html=True)
                 preview_df = dataset.head(10).copy()
                 preview_df['ymd'] = preview_df['ymd'].dt.strftime('%Y-%m-%d')
+                
+                # カラム名を省略
+                original_columns = preview_df.columns.tolist()
+                truncated_columns = {}
+                for col in original_columns:
+                    if col != 'ymd':
+                        truncated_col = truncate_text_for_display(col, max_length=15)
+                        truncated_columns[col] = truncated_col
+                        preview_df = preview_df.rename(columns={col: truncated_col})
+                
                 preview_df.index = range(1, len(preview_df) + 1)
                 st.dataframe(preview_df, use_container_width=True)
+                            
             with col2:
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">統計情報</div>', unsafe_allow_html=True)
                 
@@ -1023,7 +1069,10 @@ if st.session_state.get('data_loaded', False):
                     ])
                 
                 stats_df = pd.DataFrame(stats_data).T
-                stats_df.columns = numeric_columns
+                
+                # カラム名を省略
+                truncated_stats_columns = [truncate_text_for_display(col, max_length=15) for col in numeric_columns]
+                stats_df.columns = truncated_stats_columns
                 stats_df.index = ['count（個数）', 'mean（平均）', 'std（標準偏差）', 'min（最小値）', '25%（第1四分位数）', '50%（中央値）', '75%（第3四分位数）', 'max（最大値）']
                 stats_df.insert(0, '統計項目', stats_df.index)
                 st.dataframe(stats_df, use_container_width=True, hide_index=True)
@@ -1046,7 +1095,7 @@ if st.session_state.get('data_loaded', False):
                     go.Scatter(
                         x=dataset['ymd'], 
                         y=dataset[treatment_col], 
-                        name=treatment_col, 
+                        name=truncate_text_for_display(treatment_col, max_length=25), 
                         line=dict(color="#1976d2", width=2), 
                         mode='lines+markers', 
                         marker=dict(size=4),
@@ -1060,7 +1109,7 @@ if st.session_state.get('data_loaded', False):
                     go.Scatter(
                         x=dataset['ymd'], 
                         y=dataset[control_col], 
-                        name=control_col, 
+                        name=truncate_text_for_display(control_col, max_length=25), 
                         line=dict(color="#ef5350", width=2), 
                         mode='lines+markers', 
                         marker=dict(size=4),
@@ -1126,7 +1175,7 @@ if st.session_state.get('data_loaded', False):
                     go.Scatter(
                         x=dataset['ymd'], 
                         y=dataset[treatment_col], 
-                        name=f"処置群（{treatment_name}）", 
+                        name=f"処置群（{truncate_text_for_display(treatment_name, max_length=20)}）", 
                         line=dict(color="#1976d2", width=2), 
                         mode='lines', 
                         hovertemplate='日付: %{x|%Y-%m-%d}<br>数量: %{y}<extra></extra>'
@@ -1675,7 +1724,7 @@ if st.session_state.get('data_loaded', False):
                                     st.session_state['analysis_summary'] = summary
                                     st.session_state['analysis_report'] = report
                                     st.session_state['analysis_figure'] = fig
-                                    st.session_state['analysis_completed'] = True
+                                    st.session_state[SESSION_KEYS['ANALYSIS_COMPLETED']] = True
                                     
                                 else:
                                     # 二群比較分析実行（既存機能）
@@ -1703,7 +1752,7 @@ if st.session_state.get('data_loaded', False):
                                     st.session_state['analysis_summary'] = summary
                                     st.session_state['analysis_report'] = report
                                     st.session_state['analysis_figure'] = fig
-                                    st.session_state['analysis_completed'] = True
+                                    st.session_state[SESSION_KEYS['ANALYSIS_COMPLETED']] = True
                                 
                                 # 分析完了メッセージ
                                 st.success("✅ Causal Impact分析が完了しました！下記の結果をご確認ください。")
@@ -1711,13 +1760,13 @@ if st.session_state.get('data_loaded', False):
                             except Exception as e:
                                 st.error(f"❌ 分析実行中にエラーが発生しました: {str(e)}")
                                 st.error("パラメータ設定を確認して再度実行してください。")
-                                st.session_state['analysis_completed'] = False
+                                st.session_state[SESSION_KEYS['ANALYSIS_COMPLETED']] = False
                 else:
                     st.error("❌ 期間設定に問題があります。上記のエラーを修正してから分析を実行してください。")
 
 # --- STEP 3: 分析結果表示 ---
 # 分析が完了している場合、結果を表示
-if st.session_state.get('analysis_completed', False) and st.session_state.get('show_step3', False):
+if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.session_state.get('show_step3', False):
     
     st.markdown("""
 <div class="step-card">
@@ -2076,12 +2125,15 @@ if st.session_state.get('analysis_completed', False) and st.session_state.get('s
                 # 総タイトルと説明文を分析タイプに応じて表示
                 if current_analysis_type == "単群推定（処置群のみを使用）":
                     # 総タイトル（中項目スタイル）
-                    st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">{treatment_name}</div>', unsafe_allow_html=True)
+                    treatment_display_name = truncate_text_for_display(treatment_name, max_length=30)
+                    st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">{treatment_display_name}</div>', unsafe_allow_html=True)
                     # 説明文（中項目スタイル）
                     st.markdown('<div style="margin-bottom:1em;font-size:1.05em;"><span style="font-weight:bold;">処置群のみ分析：</span><span style="font-weight:normal;">介入前トレンドからの予測との比較</span></div>', unsafe_allow_html=True)
                 else:
                     # 総タイトル（中項目スタイル）
-                    st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">{treatment_name}（vs {control_name}）</div>', unsafe_allow_html=True)
+                    treatment_display_name = truncate_text_for_display(treatment_name, max_length=20)
+                    control_display_name = truncate_text_for_display(control_name, max_length=20)
+                    st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">{treatment_display_name}（vs {control_display_name}）</div>', unsafe_allow_html=True)
                     # 説明文（中項目スタイル）
                     st.markdown('<div style="margin-bottom:1em;font-size:1.05em;"><span style="font-weight:bold;">二群比較分析：</span><span style="font-weight:normal;">対照群との関係性による予測との比較</span></div>', unsafe_allow_html=True)
                 
