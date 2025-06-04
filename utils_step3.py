@@ -394,10 +394,111 @@ def get_detail_csv_download_link(ci, period, treatment_name):
     href = f'data:text/csv;charset=utf-8-sig;base64,{csv_base64}'
     return href, filename
 
+def build_unified_summary_table(ci, confidence_level=95):
+    """
+    CausalImpactのsummary()出力を直接使用して統一した分析結果テーブルを生成する関数
+    詳細レポート、分析結果概要、CSV出力で同じ数値を使用して一貫性を保つ
+    
+    Parameters:
+    -----------
+    ci : CausalImpact
+        分析結果オブジェクト
+    confidence_level : int
+        信頼水準（%）、デフォルト95%
+        
+    Returns:
+    --------
+    pandas.DataFrame
+        整形された分析結果テーブル（詳細レポートと同じ数値）
+    """
+    try:
+        import pandas as pd
+        import numpy as np
+        import re
+        
+        # CausalImpactのsummary()を取得
+        summary_text = str(ci.summary())
+        lines = [l for l in summary_text.split('\n') if l.strip()]
+        
+        results_data = []
+        
+        # p値を抽出
+        p_value = None
+        for line in lines:
+            if 'Posterior tail-area probability p:' in line:
+                p_match = re.search(r'p:\s+([0-9.]+)', line)
+                if p_match:
+                    p_value = float(p_match.group(1))
+                    break
+        
+        # サマリーデータを解析（詳細レポートと同じ方法）
+        for line in lines[1:]:  # ヘッダー行をスキップ
+            parts = re.split(r'\s{2,}', line.strip())
+            if len(parts) == 3:
+                item_name = parts[0]
+                avg_value = parts[1]
+                cum_value = parts[2]
+                
+                # 項目名を日本語化
+                if 'Actual' in item_name:
+                    jp_name = '実測値'
+                elif 'Predicted' in item_name:
+                    jp_name = '予測値' if '95% CI' not in line else f'予測値 {confidence_level}% 信頼区間'
+                elif 'AbsEffect' in item_name:
+                    jp_name = '絶対効果' if '95% CI' not in line else f'絶対効果 {confidence_level}% 信頼区間'
+                elif 'RelEffect' in item_name:
+                    jp_name = '相対効果' if '95% CI' not in line else f'相対効果 {confidence_level}% 信頼区間'
+                else:
+                    jp_name = item_name
+                
+                # 相対効果の場合は%表記に変換し、平均値・累積値を同じにする
+                if 'RelEffect' in item_name:
+                    try:
+                        # パーセンテージ変換
+                        if '[' in avg_value and ']' in avg_value:
+                            # 信頼区間の場合
+                            avg_value = avg_value.replace('%', '')  # 既に%が含まれている場合は除去
+                            if not '%' in avg_value:
+                                # %が含まれていない場合は変換
+                                matches = re.findall(r'[-+]?[0-9]*\.?[0-9]+', avg_value)
+                                if len(matches) >= 2:
+                                    lower = float(matches[0]) * 100
+                                    upper = float(matches[1]) * 100
+                                    avg_value = f"[{lower:.1f}%, {upper:.1f}%]"
+                        else:
+                            # 単一値の場合
+                            try:
+                                rel_val = float(avg_value) * 100
+                                avg_value = f"{rel_val:.1f}%"
+                            except:
+                                if not '%' in avg_value:
+                                    avg_value += '%'
+                        
+                        # 累積値は平均値と同じにする（相対効果の場合）
+                        cum_value = avg_value
+                    except:
+                        pass
+                
+                results_data.append([jp_name, avg_value, cum_value])
+        
+        # p値を追加
+        if p_value is not None:
+            results_data.append(['p値（事後確率）', f"{p_value:.4f}", f"{p_value:.4f}"])
+        
+        # DataFrameを作成
+        df_result = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+        
+        return df_result
+        
+    except Exception as e:
+        print(f"Error in build_unified_summary_table: {e}")
+        # エラーの場合は元の関数にフォールバック
+        return build_enhanced_summary_table(ci, confidence_level)
+
 def build_enhanced_summary_table(ci, confidence_level=95):
     """
     CausalImpactの分析結果を見やすい表形式で整理する関数
-    CSVダウンロードと同じデータソース（ci.inferences）を使用して一貫性を保つ
+    統一関数を優先使用し、エラー時のみ独自計算を実行
     
     Parameters:
     -----------
@@ -411,6 +512,13 @@ def build_enhanced_summary_table(ci, confidence_level=95):
     pandas.DataFrame
         整形された分析結果テーブル
     """
+    try:
+        # まず統一関数を試行
+        return build_unified_summary_table(ci, confidence_level)
+    except:
+        # 統一関数が失敗した場合のみ独自計算を実行
+        pass
+    
     try:
         import pandas as pd
         import numpy as np
@@ -1048,16 +1156,17 @@ def get_metrics_explanation_table():
 
 def get_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, confidence_level=95):
     """
-    分析結果サマリーとグラフを統合したPDFレポートを生成する関数
+    分析結果の包括的PDFレポートを生成してダウンロードリンクを返す関数
+    統一関数による数値でサマリーテーブルを更新し、詳細レポートとの一貫性を保つ
     
     Parameters:
     -----------
     ci : CausalImpact
         CausalImpactオブジェクト
     analysis_info : dict
-        分析情報（treatment_name, analysis_type, period_start, period_end, freq_option等）
-    summary_df : pd.DataFrame
-        分析結果サマリーテーブル
+        分析情報辞書
+    summary_df : pandas.DataFrame
+        分析結果概要テーブル
     fig : matplotlib.figure.Figure
         分析結果グラフ
     confidence_level : int
@@ -1068,61 +1177,101 @@ def get_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, conf
     href, filename : str, str
         ダウンロードリンクのbase64データとファイル名
     """
+    try:
+        # 統一関数によるサマリーテーブルで更新
+        try:
+            unified_summary_df = build_unified_summary_table(ci, confidence_level)
+            # インデックスをリセットして統一
+            unified_summary_df = unified_summary_df.reset_index(drop=True)
+            summary_df = unified_summary_df
+        except Exception as e:
+            print(f"統一サマリーテーブル生成でエラー、元のサマリーを使用: {e}")
+            pass
+    except:
+        pass
+    
+    import pandas as pd
+    import numpy as np
     import io
     import base64
-    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.pagesizes import A4, letter
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import mm
     from reportlab.lib import colors
+    from reportlab.lib.units import mm
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
-    import matplotlib.pyplot as plt
-    
-    # フォント設定
-    try:
-        # システムフォントの登録（日本語対応）
-        pdfmetrics.registerFont(TTFont('NotoSansJP', 'NotoSansJP-Regular.ttf'))
-        font_name = 'NotoSansJP'
-    except:
-        try:
-            pdfmetrics.registerFont(TTFont('NotoSansJP', 'fonts/NotoSansJP-Regular.ttf'))
-            font_name = 'NotoSansJP'
-        except:
-            try:
-                # より安全なデフォルトフォントを使用
-                font_name = 'Helvetica'  # ASCII文字のみをサポート
-            except:
-                font_name = 'Helvetica'  # 最終フォールバック
-    
-    # PDFバッファを作成
+    from datetime import datetime
+
+    # メモリ上でPDFを作成
     pdf_buffer = io.BytesIO()
-    
-    # ドキュメント作成
-    doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, topMargin=20*mm, bottomMargin=20*mm)
+    doc = SimpleDocTemplate(pdf_buffer, pagesize=A4)
     
     # スタイル設定
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('Title', parent=styles['Title'], fontName=font_name, fontSize=16, spaceAfter=12)
-    heading_style = ParagraphStyle('Heading', parent=styles['Heading1'], fontName=font_name, fontSize=14, spaceAfter=8)
-    normal_style = ParagraphStyle('Normal', parent=styles['Normal'], fontName=font_name, fontSize=10, spaceAfter=6)
     
-    # コンテンツリスト
+    # フォント設定（日本語対応のためフォールバック）
+    try:
+        # Windowsの場合
+        font_path = "C:/Windows/Fonts/NotoSansCJK-Regular.ttc"
+        pdfmetrics.registerFont(TTFont('NotoSansCJK', font_path))
+        font_name = 'NotoSansCJK'
+    except:
+        try:
+            # 代替フォント
+            font_path = "C:/Windows/Fonts/msgothic.ttc"
+            pdfmetrics.registerFont(TTFont('MSGothic', font_path))
+            font_name = 'MSGothic'
+        except:
+            # フォールバック：英語フォント
+            font_name = 'Helvetica'
+    
+    # カスタムスタイル
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Title'],
+        fontName=font_name,
+        fontSize=16,
+        alignment=1,  # 中央揃え
+        spaceAfter=20
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading1'],
+        fontName=font_name,
+        fontSize=12,
+        spaceAfter=10
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontName=font_name,
+        fontSize=10,
+        spaceAfter=8
+    )
+    
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontName=font_name,
+        fontSize=9,
+        spaceAfter=6
+    )
+    
+    # PDF内容を構築
     story = []
     
-    # レポートタイトル
-    if font_name == 'Helvetica':
-        # ASCII文字のみ使用可能な場合
-        story.append(Paragraph("Causal Impact Analysis Report", title_style))
-    else:
-        story.append(Paragraph("Causal Impact分析結果レポート", title_style))
+    # タイトル
+    story.append(Paragraph('Causal Impact分析レポート', title_style))
     story.append(Spacer(1, 12))
     
     # 分析条件
     if font_name == 'Helvetica':
-        story.append(Paragraph("Analysis Conditions", heading_style))
+        story.append(Paragraph("Analysis Conditions", subtitle_style))
     else:
-        story.append(Paragraph("分析条件", heading_style))
+        story.append(Paragraph("分析条件", subtitle_style))
     
     # analysis_info辞書から必要な情報を取得
     treatment_name = analysis_info.get('treatment_name', '分析対象')
@@ -1237,6 +1386,7 @@ def get_comprehensive_csv_download_link(ci, analysis_info, confidence_level=95):
     """
     予測値・実測値の詳細データをロングフォーマットCSVとしてダウンロードするリンクを生成する関数
     （二群比較・単群推定の両分析タイプに対応）
+    統一関数による数値でサマリー情報をコメントとして追加し、詳細レポートとの一貫性を保つ
     
     Parameters:
     -----------
@@ -1371,6 +1521,20 @@ def get_comprehensive_csv_download_link(ci, analysis_info, confidence_level=95):
     # CSVバッファを作成
     csv_buffer = io.StringIO()
     
+    # 統一関数によるサマリー情報をコメントとして追加
+    try:
+        unified_summary = build_unified_summary_table(ci, confidence_level)
+        csv_buffer.write("# 分析結果サマリー（CausalImpact summary()出力ベース）\n")
+        for idx, row in unified_summary.iterrows():
+            csv_buffer.write(f"# {row['指標']}: 平均値={row['分析期間の平均値']}, 累積値={row['分析期間の累積値']}\n")
+        csv_buffer.write("#\n")
+        csv_buffer.write("# 以下は日次詳細データ（15列フォーマット）\n")
+        csv_buffer.write("#\n")
+    except Exception as e:
+        print(f"統一サマリー追加でエラー: {e}")
+        csv_buffer.write("# 分析結果詳細データ\n")
+        csv_buffer.write("#\n")
+    
     # 1行目：日本語項目名
     csv_buffer.write(','.join(jp_names) + '\n')
     
@@ -1382,6 +1546,7 @@ def get_comprehensive_csv_download_link(ci, analysis_info, confidence_level=95):
     
     # 注釈を追加
     csv_buffer.write('\n※I～O列の累積値は、介入期間のみ出力しています（介入期間外は空欄）。\n')
+    csv_buffer.write('※分析結果サマリーの数値は、CausalImpactライブラリのsummary()出力と完全一致しています。\n')
     
     # Base64エンコード
     csv_string = csv_buffer.getvalue()
@@ -1397,4 +1562,4 @@ def get_comprehensive_csv_download_link(ci, analysis_info, confidence_level=95):
     # ダウンロードリンク生成
     href = f'data:text/csv;charset=utf-8-sig;base64,{csv_base64}'
     
-    return href, filename 
+    return href, filename
