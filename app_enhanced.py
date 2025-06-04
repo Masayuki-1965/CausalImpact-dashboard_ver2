@@ -1044,7 +1044,7 @@ if st.session_state.get('data_loaded', False):
                 truncated_columns = {}
                 for col in original_columns:
                     if col != 'ymd':
-                        truncated_col = truncate_text_for_display(col, max_length=10)
+                        truncated_col = truncate_text_for_display(col, max_length=14)
                         truncated_columns[col] = truncated_col
                         preview_df_treat = preview_df_treat.rename(columns={col: truncated_col})
                 
@@ -1073,7 +1073,7 @@ if st.session_state.get('data_loaded', False):
                 stats_df = pd.DataFrame(stats_data).T
                 
                 # カラム名を省略
-                truncated_stats_columns = [truncate_text_for_display(col, max_length=10) for col in numeric_columns]
+                truncated_stats_columns = [truncate_text_for_display(col, max_length=14) for col in numeric_columns]
                 stats_df.columns = truncated_stats_columns
                 stats_df.index = ['count（個数）', 'mean（平均）', 'std（標準偏差）', 'min（最小値）', '25%（第1四分位数）', '50%（中央値）', '75%（第3四分位数）', 'max（最大値）']
                 stats_df.insert(0, '統計項目', stats_df.index)
