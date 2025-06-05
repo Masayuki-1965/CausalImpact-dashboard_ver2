@@ -271,11 +271,11 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
                 if 'Actual' in item_name:
                     jp_name = '実測値'
                 elif 'Predicted' in item_name:
-                    jp_name = '予測値' if '95% CI' not in line else f'予測値 {confidence_level}% 信頼区間'
+                    jp_name = '予測値 (標準偏差)' if '95% CI' not in line else f'予測値 {confidence_level}% 信頼区間'
                 elif 'AbsEffect' in item_name:
-                    jp_name = '絶対効果' if '95% CI' not in line else f'絶対効果 {confidence_level}% 信頼区間'
+                    jp_name = '絶対効果 (標準偏差)' if '95% CI' not in line else f'絶対効果 {confidence_level}% 信頼区間'
                 elif 'RelEffect' in item_name:
-                    jp_name = '相対効果' if '95% CI' not in line else f'相対効果 {confidence_level}% 信頼区間'
+                    jp_name = '相対効果 (標準偏差)' if '95% CI' not in line else f'相対効果 {confidence_level}% 信頼区間'
                 else:
                     jp_name = item_name
                 
@@ -895,7 +895,6 @@ def get_single_group_comprehensive_csv_download_link(ci, analysis_info, confiden
     if hasattr(ci, 'inferences') and ci.inferences is not None:
         df = ci.inferences.copy().reset_index()
     elif hasattr(ci, 'data'):
-        # データがあるがinferencesがない場合の処理
         df = ci.data.copy().reset_index()
     else:
         raise ValueError("CausalImpactオブジェクトから分析結果を取得できません")
@@ -1005,20 +1004,6 @@ def get_single_group_comprehensive_csv_download_link(ci, analysis_info, confiden
     # CSVバッファを作成
     csv_buffer = io.StringIO()
     
-    # 統一関数によるサマリー情報をコメントとして追加
-    try:
-        unified_summary = build_single_group_unified_summary_table(ci, confidence_level)
-        csv_buffer.write("# 分析結果サマリー（CausalImpact summary()出力ベース）\n")
-        for idx, row in unified_summary.iterrows():
-            csv_buffer.write(f"# {row['指標']}: 平均値={row['分析期間の平均値']}, 累積値={row['分析期間の累積値']}\n")
-        csv_buffer.write("#\n")
-        csv_buffer.write("# 以下は日次詳細データ（15列フォーマット）\n")
-        csv_buffer.write("#\n")
-    except Exception as e:
-        print(f"統一サマリー追加でエラー: {e}")
-        csv_buffer.write("# 分析結果詳細データ（単群推定）\n")
-        csv_buffer.write("#\n")
-    
     # 1行目：日本語項目名
     csv_buffer.write(','.join(jp_names) + '\n')
     
@@ -1029,8 +1014,7 @@ def get_single_group_comprehensive_csv_download_link(ci, analysis_info, confiden
     output_df.to_csv(csv_buffer, index=False, header=False)
     
     # 注釈を追加
-    csv_buffer.write('\n※I～O列の累積値は、介入期間のみ出力しています（介入期間外は空欄）。\n')
-    csv_buffer.write('※分析結果サマリーの数値は、CausalImpactライブラリのsummary()出力と完全一致しています。\n')
+    csv_buffer.write('\n※I～O列の累積値は、介入期間のみ出力しています（介入期間外はゼロまたは空欄）。\n')
     
     # Base64エンコード
     csv_string = csv_buffer.getvalue()

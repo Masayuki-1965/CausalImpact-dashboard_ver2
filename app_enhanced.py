@@ -1854,7 +1854,7 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                 # 分析タイプに応じて適切なサマリー生成関数を使用
                 if current_analysis_type == "単群推定（処置群のみを使用）":
                     from utils_step3_single_group import build_single_group_summary_dataframe
-                    summary_df = build_single_group_summary_dataframe(summary, confidence_level)
+                    summary_df = build_single_group_summary_dataframe(ci, confidence_level)  # summaryではなくciを渡す
                 else:
                     from utils_step3 import build_enhanced_summary_table
                     summary_df = build_enhanced_summary_table(ci, confidence_level)
@@ -1878,237 +1878,141 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                         
                         if summary_message:
                             st.success(summary_message)
-                            
-                            # --- 詳細レポート（実行結果メッセージの直下に配置） ---
-                            with st.expander("詳細レポート", expanded=False):
-                                if report is not None:
-                                    try:
-                                        # レポートを日本語に翻訳
-                                        st.markdown("**📋 Causal Impact分析の詳細レポート**")
-                                        
-                                        # 信頼水準を取得（デフォルト95%）
-                                        confidence_level_alpha = confidence_level / 100 if confidence_level else 0.95
-                                        
-                                        # 翻訳処理を実行
-                                        report_jp = translate_causal_impact_report(str(report), alpha=confidence_level_alpha)
-                                        
-                                        # 翻訳されたレポートを段落ごとに分割して表示
-                                        report_paragraphs = report_jp.split('\n\n')
-                                        
-                                        for paragraph in report_paragraphs:
-                                            if paragraph.strip():
-                                                # 段落内の文章を適切に表示
-                                                paragraph = paragraph.strip()
-                                                
-                                                # タイトル行の処理
-                                                if '分析レポート {CausalImpact}' in paragraph:
-                                                    st.markdown(f"**{paragraph}**")
-                                                # 事後確率などの重要な統計値を強調表示
-                                                elif '事後確率' in paragraph or 'p値' in paragraph:
-                                                    st.markdown(f"**{paragraph}**")
-                                                else:
-                                                    st.markdown(paragraph)
-                                        
-                                    except Exception as e:
-                                        st.error(f"レポート翻訳でエラーが発生しました: {str(e)}")
-                                        # フォールバック：元の英語レポートを表示
-                                        st.text(str(report))
                         else:
-                            # フォールバック：従来の方法でメッセージ生成を試行
-                            if hasattr(ci, 'summary') and hasattr(ci.summary, 'iloc'):
-                                summary_df_temp = ci.summary
-                                
-                                # 相対効果と有意性の判定
-                                relative_effect_temp = None
-                                p_value_temp = None
-                                is_significant_temp = False
-                                
-                                # 相対効果の取得
-                                if 'RelEffect' in summary_df_temp.index:
-                                    rel_effect_avg = summary_df_temp.loc['RelEffect', 'Average']
-                                    if not hasattr(rel_effect_avg, '__iter__'):
-                                        relative_effect_temp = rel_effect_avg * 100
-                                
-                                # p値の取得
-                                if hasattr(ci, 'p_value'):
-                                    p_value_temp = ci.p_value
-                                
-                                # 統計的有意性の判定（信頼区間による）
-                                if 'Cumulative' in summary_df_temp.columns:
-                                    cumulative_data = summary_df_temp['Cumulative']
-                                    if 'AbsEffect_lower' in cumulative_data.index and 'AbsEffect_upper' in cumulative_data.index:
-                                        lower_bound = cumulative_data['AbsEffect_lower']
-                                        upper_bound = cumulative_data['AbsEffect_upper']
-                                        if (lower_bound > 0 and upper_bound > 0) or (lower_bound < 0 and upper_bound < 0):
-                                            is_significant_temp = True
-                                
-                                # メッセージの作成と表示
-                                if relative_effect_temp is not None and p_value_temp is not None:
-                                    if is_significant_temp:
-                                        fallback_message = f"相対効果は {relative_effect_temp:+.1f}% で、統計的に有意です（p = {p_value_temp:.3f}）。詳しくは、この下の「詳細レポート」を参照ください。"
-                                    else:
-                                        fallback_message = f"相対効果は {relative_effect_temp:+.1f}% ですが、統計的には有意ではありません（p = {p_value_temp:.3f}）。詳しくは、この下の「詳細レポート」を参照ください。"
-                                    
-                                    st.success(fallback_message)
-                                    
-                                    # --- 詳細レポート（フォールバック時の直下配置） ---
-                                    with st.expander("詳細レポート", expanded=False):
-                                        if report is not None:
-                                            try:
-                                                # レポートを日本語に翻訳
-                                                st.markdown("**📋 Causal Impact分析の詳細レポート**")
-                                                
-                                                # 信頼水準を取得（デフォルト95%）
-                                                confidence_level_alpha = confidence_level / 100 if confidence_level else 0.95
-                                                
-                                                # 翻訳処理を実行
-                                                report_jp = translate_causal_impact_report(str(report), alpha=confidence_level_alpha)
-                                                
-                                                # 翻訳されたレポートを段落ごとに分割して表示
-                                                report_paragraphs = report_jp.split('\n\n')
-                                                
-                                                for paragraph in report_paragraphs:
-                                                    if paragraph.strip():
-                                                        # 段落内の文章を適切に表示
-                                                        paragraph = paragraph.strip()
-                                                        
-                                                        # タイトル行の処理
-                                                        if '分析レポート {CausalImpact}' in paragraph:
-                                                            st.markdown(f"**{paragraph}**")
-                                                        # 事後確率などの重要な統計値を強調表示
-                                                        elif '事後確率' in paragraph or 'p値' in paragraph:
-                                                            st.markdown(f"**{paragraph}**")
-                                                        else:
-                                                            st.markdown(paragraph)
-                                                
-                                            except Exception as e:
-                                                st.error(f"レポート翻訳でエラーが発生しました: {str(e)}")
-                                                # フォールバック：元の英語レポートを表示
-                                                st.text(str(report))
+                            # フォールバックメッセージ
+                            st.info("分析が完了しました。詳細は下記の詳細レポートをご確認ください。")
+                            
                     except Exception as e:
-                        pass  # エラーが発生した場合はメッセージ表示をスキップ
+                        print(f"サマリーメッセージ生成エラー: {e}")
+                        st.info("分析が完了しました。詳細は下記の詳細レポートをご確認ください。")
+                    
+                    # --- 詳細レポート（実行結果メッセージの直下に配置） ---
+                    with st.expander("詳細レポート", expanded=False):
+                        if report is not None:
+                            try:
+                                # レポートを日本語に翻訳
+                                st.markdown("**📋 Causal Impact分析の詳細レポート**")
+                                
+                                # 信頼水準を取得（デフォルト95%）
+                                confidence_level_alpha = confidence_level / 100 if confidence_level else 0.95
+                                
+                                # 翻訳処理を実行
+                                report_jp = translate_causal_impact_report(str(report), alpha=confidence_level_alpha)
+                                
+                                # 翻訳されたレポートを段落ごとに分割して表示
+                                report_paragraphs = report_jp.split('\n\n')
+                                
+                                for paragraph in report_paragraphs:
+                                    if paragraph.strip():
+                                        # 段落内の文章を適切に表示
+                                        paragraph = paragraph.strip()
+                                        
+                                        # タイトル行の処理
+                                        if '分析レポート {CausalImpact}' in paragraph:
+                                            st.markdown(f"**{paragraph}**")
+                                        # 事後確率などの重要な統計値を強調表示
+                                        elif '事後確率' in paragraph or 'p値' in paragraph:
+                                            st.markdown(f"**{paragraph}**")
+                                        else:
+                                            st.markdown(paragraph)
+                                
+                            except Exception as e:
+                                st.error(f"レポート翻訳でエラーが発生しました: {str(e)}")
+                                # フォールバック：元の英語レポートを表示
+                                st.text(str(report))
+                        else:
+                            st.warning("詳細レポートが生成されませんでした。")
                     
                     # 指標の説明（展開可能）
                     with st.expander("指標の説明", expanded=False):
                         st.markdown(get_metrics_explanation_table(), unsafe_allow_html=True)
+                        
                 else:
-                    # フォールバック：CausalImpactの結果から主要指標を抽出して表形式で表示
-                    if hasattr(ci, 'summary') and hasattr(ci.summary, 'iloc'):
-                        # pandas DataFrameとして処理
-                        summary_df_fallback = ci.summary.copy()
-                        
-                        # 主要指標の抽出と表形式での表示
-                        if 'Average' in summary_df_fallback.columns and 'Cumulative' in summary_df_fallback.columns:
-                            # 分析結果テーブルの作成
-                            results_data = []
-                            
-                            # 各指標の行を作成
-                            if 'Actual' in summary_df_fallback.index:
-                                avg_actual = summary_df_fallback.loc['Actual', 'Average']
-                                cum_actual = summary_df_fallback.loc['Actual', 'Cumulative']
-                                results_data.append(['実測値', f"{avg_actual:.1f}", f"{cum_actual:,.0f}"])
-                            
-                            if 'Predicted' in summary_df_fallback.index:
-                                avg_pred = summary_df_fallback.loc['Predicted', 'Average']
-                                cum_pred = summary_df_fallback.loc['Predicted', 'Cumulative']
-                                # 標準偏差がある場合は括弧内に表示
-                                if hasattr(summary_df_fallback.loc['Predicted', 'Average'], '__iter__'):
-                                    # 複数値の場合（標準偏差含む）
-                                    pred_str = str(summary_df_fallback.loc['Predicted', 'Average'])
-                                    cum_pred_str = str(summary_df_fallback.loc['Predicted', 'Cumulative'])
-                                else:
-                                    pred_str = f"{avg_pred:.1f}"
-                                    cum_pred_str = f"{cum_pred:,.0f}"
-                                results_data.append(['予測値（標準偏差）', pred_str, cum_pred_str])
-                            
-                            if '95% CI' in summary_df_fallback.index:
-                                avg_ci = str(summary_df_fallback.loc['95% CI', 'Average'])
-                                cum_ci = str(summary_df_fallback.loc['95% CI', 'Cumulative'])
-                                results_data.append(['予測値 95% 信頼区間', avg_ci, cum_ci])
-                            
-                            if 'AbsEffect' in summary_df_fallback.index:
-                                avg_abs = summary_df_fallback.loc['AbsEffect', 'Average']
-                                cum_abs = summary_df_fallback.loc['AbsEffect', 'Cumulative']
-                                # 標準偏差がある場合は括弧内に表示
-                                if hasattr(avg_abs, '__iter__'):
-                                    abs_str = str(avg_abs)
-                                    cum_abs_str = str(cum_abs)
-                                else:
-                                    abs_str = f"{avg_abs:.1f}"
-                                    cum_abs_str = f"{cum_abs:,.0f}"
-                                results_data.append(['絶対効果（標準偏差）', abs_str, cum_abs_str])
-                            
-                            if 'AbsEffect_lower' in summary_df_fallback.index and 'AbsEffect_upper' in summary_df_fallback.index:
-                                avg_abs_ci = f"[{summary_df_fallback.loc['AbsEffect_lower', 'Average']:.1f}, {summary_df_fallback.loc['AbsEffect_upper', 'Average']:.1f}]"
-                                cum_abs_ci = f"[{summary_df_fallback.loc['AbsEffect_lower', 'Cumulative']:,.0f}, {summary_df_fallback.loc['AbsEffect_upper', 'Cumulative']:,.0f}]"
-                                results_data.append(['絶対効果 95% 信頼区間', avg_abs_ci, cum_abs_ci])
-                            
-                            if 'RelEffect' in summary_df_fallback.index:
-                                avg_rel = summary_df_fallback.loc['RelEffect', 'Average']
-                                cum_rel = summary_df_fallback.loc['RelEffect', 'Cumulative']
-                                # パーセンテージ表示
-                                if hasattr(avg_rel, '__iter__'):
-                                    rel_str = str(avg_rel)
-                                    cum_rel_str = str(cum_rel)
-                                else:
-                                    rel_str = f"{avg_rel*100:.1f}%"
-                                    cum_rel_str = f"{cum_rel*100:.1f}%"
-                                    relative_effect_value = avg_rel*100  # 後で使用するため保存
-                                results_data.append(['相対効果（標準偏差）', rel_str, cum_rel_str])
-                            
-                            if 'RelEffect_lower' in summary_df_fallback.index and 'RelEffect_upper' in summary_df_fallback.index:
-                                avg_rel_ci = f"[{summary_df_fallback.loc['RelEffect_lower', 'Average']*100:.1f}%, {summary_df_fallback.loc['RelEffect_upper', 'Average']*100:.1f}%]"
-                                cum_rel_ci = f"[{summary_df_fallback.loc['RelEffect_lower', 'Cumulative']*100:.1f}%, {summary_df_fallback.loc['RelEffect_upper', 'Cumulative']*100:.1f}%]"
-                                results_data.append(['相対効果 95% 信頼区間', avg_rel_ci, cum_rel_ci])
-                            
-                            # 事後確率の追加
-                            if hasattr(ci, 'p_value'):
-                                p_value = ci.p_value if ci.p_value is not None else "N/A"
-                                results_data.append(['p値（事後確率）', str(p_value), "同左"])
-                            
-                            # 結果テーブルの表示
-                            if results_data:
-                                summary_df = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
-                                st.dataframe(summary_df, use_container_width=True, hide_index=True)
+                    # summary_dfが空の場合のフォールバック処理
+                    st.warning("分析結果サマリーの生成に問題が発生しました。詳細レポートをご確認ください。")
+                    summary_df = pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+                    
+                    # 詳細レポートは表示
+                    with st.expander("詳細レポート", expanded=True):
+                        if report is not None:
+                            try:
+                                # レポートを日本語に翻訳
+                                st.markdown("**📋 Causal Impact分析の詳細レポート**")
                                 
-                                # --- 分析レポートのまとめ（フォールバック版） ---
-                                try:
-                                    summary_message = get_analysis_summary_message(ci, confidence_level)
-                                    if summary_message:
-                                        st.success(summary_message)
-                                except Exception as e:
-                                    pass  # エラーが発生した場合はメッセージ表示をスキップ
+                                # 信頼水準を取得（デフォルト95%）
+                                confidence_level_alpha = confidence_level / 100 if confidence_level else 0.95
                                 
-                                # 指標の説明（展開可能）
-                                with st.expander("指標の説明", expanded=False):
-                                    st.markdown(get_metrics_explanation_table(), unsafe_allow_html=True)
-                        
-                        # 完全なサマリーテーブルをexpanderで表示
-                        with st.expander("完全なサマリーテーブル", expanded=False):
-                            st.dataframe(summary_df_fallback, use_container_width=True)
-                    else:
-                        # フォールバック2：テキスト形式で表示し、空のDataFrameをsummary_dfに設定
-                        with st.expander("分析結果（テキスト形式）", expanded=False):
+                                # 翻訳処理を実行
+                                report_jp = translate_causal_impact_report(str(report), alpha=confidence_level_alpha)
+                                
+                                # 翻訳されたレポートを段落ごとに分割して表示
+                                report_paragraphs = report_jp.split('\n\n')
+                                
+                                for paragraph in report_paragraphs:
+                                    if paragraph.strip():
+                                        # 段落内の文章を適切に表示
+                                        paragraph = paragraph.strip()
+                                        
+                                        # タイトル行の処理
+                                        if '分析レポート {CausalImpact}' in paragraph:
+                                            st.markdown(f"**{paragraph}**")
+                                        # 事後確率などの重要な統計値を強調表示
+                                        elif '事後確率' in paragraph or 'p値' in paragraph:
+                                            st.markdown(f"**{paragraph}**")
+                                        else:
+                                            st.markdown(paragraph)
+                                
+                            except Exception as e:
+                                st.error(f"レポート翻訳でエラーが発生しました: {str(e)}")
+                                # フォールバック：元の英語レポートを表示
+                                st.text(str(report))
+                        else:
                             st.text(str(summary))
-                        
-                        # ダウンロード機能で使用するため空のDataFrameを設定
-                        summary_df = pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
                             
             except Exception as e:
-                st.warning("サマリー情報の詳細表示でエラーが発生しました。基本情報を表示します。")
-                with st.expander("分析結果（テキスト形式）", expanded=False):
-                    st.text(str(summary))
+                print(f"分析結果サマリー生成でエラー: {e}")
+                st.warning("分析結果サマリーの生成でエラーが発生しました。詳細レポートをご確認ください。")
                 
                 # ダウンロード機能で使用するため空のDataFrameを設定
                 summary_df = pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
-        else:
-            # summaryがNoneの場合も空のDataFrameを設定
-            summary_df = pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+                
+                # 詳細レポートは表示
+                with st.expander("詳細レポート", expanded=True):
+                    if report is not None:
+                        try:
+                            # レポートを日本語に翻訳
+                            st.markdown("**📋 Causal Impact分析の詳細レポート**")
+                            
+                            # 信頼水準を取得（デフォルト95%）
+                            confidence_level_alpha = confidence_level / 100 if confidence_level else 0.95
+                            
+                            # 翻訳処理を実行
+                            report_jp = translate_causal_impact_report(str(report), alpha=confidence_level_alpha)
+                            
+                            # 翻訳されたレポートを段落ごとに分割して表示
+                            report_paragraphs = report_jp.split('\n\n')
+                            
+                            for paragraph in report_paragraphs:
+                                if paragraph.strip():
+                                    # 段落内の文章を適切に表示
+                                    paragraph = paragraph.strip()
+                                    
+                                    # タイトル行の処理
+                                    if '分析レポート {CausalImpact}' in paragraph:
+                                        st.markdown(f"**{paragraph}**")
+                                    # 事後確率などの重要な統計値を強調表示
+                                    elif '事後確率' in paragraph or 'p値' in paragraph:
+                                        st.markdown(f"**{paragraph}**")
+                                    else:
+                                        st.markdown(paragraph)
+                            
+                        except Exception as e:
+                            st.error(f"レポート翻訳でエラーが発生しました: {str(e)}")
+                            # フォールバック：元の英語レポートを表示
+                            st.text(str(report))
+                        else:
+                            st.text(str(summary))
         
-        # summary_dfが確実に定義されていることを確認
-        if summary_df is None:
-            summary_df = pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
-
         # --- 分析結果グラフ（改善版） ---
         st.markdown('<div class="section-title">分析結果グラフ</div>', unsafe_allow_html=True)
         

@@ -387,7 +387,7 @@ def get_detail_csv_download_link(ci, period, treatment_name):
     # データ
     output_df.to_csv(csv_buffer, index=False, header=False, encoding='utf-8-sig')
     # 注釈を末尾に追加
-    csv_buffer.write('\n※I～O列の累積値は、介入期間のみ出力しています（介入期間外は空欄）。\n')
+    csv_buffer.write('\n※I～O列の累積値は、介入期間のみ出力しています（介入期間外はゼロまたは空欄）。\n')
     csv_string = csv_buffer.getvalue()
     csv_base64 = base64.b64encode(csv_string.encode('utf-8-sig')).decode()
     filename = f"causal_impact_detail_{treatment_name}_{post_start.strftime('%Y%m%d')}_{post_end.strftime('%Y%m%d')}.csv"
@@ -443,11 +443,11 @@ def build_unified_summary_table(ci, confidence_level=95):
                 if 'Actual' in item_name:
                     jp_name = '実測値'
                 elif 'Predicted' in item_name:
-                    jp_name = '予測値' if '95% CI' not in line else f'予測値 {confidence_level}% 信頼区間'
+                    jp_name = '予測値 (標準偏差)' if '95% CI' not in line else f'予測値 {confidence_level}% 信頼区間'
                 elif 'AbsEffect' in item_name:
-                    jp_name = '絶対効果' if '95% CI' not in line else f'絶対効果 {confidence_level}% 信頼区間'
+                    jp_name = '絶対効果 (標準偏差)' if '95% CI' not in line else f'絶対効果 {confidence_level}% 信頼区間'
                 elif 'RelEffect' in item_name:
-                    jp_name = '相対効果' if '95% CI' not in line else f'相対効果 {confidence_level}% 信頼区間'
+                    jp_name = '相対効果 (標準偏差)' if '95% CI' not in line else f'相対効果 {confidence_level}% 信頼区間'
                 else:
                     jp_name = item_name
                 
@@ -1126,15 +1126,15 @@ def get_metrics_explanation_table():
 <td style="border:1px solid #dee2e6;padding:6px;">介入期間中に実際に観測された値です。</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:6px;">予測値</td>
+<td style="border:1px solid #dee2e6;padding:6px;">予測値 (標準偏差)</td>
 <td style="border:1px solid #dee2e6;padding:6px;">介入がなかった場合の予測値を表しています。カッコ内の値は標準偏差です。</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:6px;">絶対効果</td>
+<td style="border:1px solid #dee2e6;padding:6px;">絶対効果 (標準偏差)</td>
 <td style="border:1px solid #dee2e6;padding:6px;">実測値から予測値を差し引いた値で、介入による変化量を表しています。カッコ内の値は標準偏差です。</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:6px;">相対効果</td>
+<td style="border:1px solid #dee2e6;padding:6px;">相対効果 (標準偏差)</td>
 <td style="border:1px solid #dee2e6;padding:6px;">絶対効果を予測値で割った値で、変化率をパーセンテージで表しています。カッコ内の値は標準偏差です。</td>
 </tr>
 <tr>
@@ -1521,20 +1521,6 @@ def get_comprehensive_csv_download_link(ci, analysis_info, confidence_level=95):
     # CSVバッファを作成
     csv_buffer = io.StringIO()
     
-    # 統一関数によるサマリー情報をコメントとして追加
-    try:
-        unified_summary = build_unified_summary_table(ci, confidence_level)
-        csv_buffer.write("# 分析結果サマリー（CausalImpact summary()出力ベース）\n")
-        for idx, row in unified_summary.iterrows():
-            csv_buffer.write(f"# {row['指標']}: 平均値={row['分析期間の平均値']}, 累積値={row['分析期間の累積値']}\n")
-        csv_buffer.write("#\n")
-        csv_buffer.write("# 以下は日次詳細データ（15列フォーマット）\n")
-        csv_buffer.write("#\n")
-    except Exception as e:
-        print(f"統一サマリー追加でエラー: {e}")
-        csv_buffer.write("# 分析結果詳細データ\n")
-        csv_buffer.write("#\n")
-    
     # 1行目：日本語項目名
     csv_buffer.write(','.join(jp_names) + '\n')
     
@@ -1545,8 +1531,7 @@ def get_comprehensive_csv_download_link(ci, analysis_info, confidence_level=95):
     output_df.to_csv(csv_buffer, index=False, header=False)
     
     # 注釈を追加
-    csv_buffer.write('\n※I～O列の累積値は、介入期間のみ出力しています（介入期間外は空欄）。\n')
-    csv_buffer.write('※分析結果サマリーの数値は、CausalImpactライブラリのsummary()出力と完全一致しています。\n')
+    csv_buffer.write('\n※I～O列の累積値は、介入期間のみ出力しています（介入期間外はゼロまたは空欄）。\n')
     
     # Base64エンコード
     csv_string = csv_buffer.getvalue()
