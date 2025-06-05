@@ -262,43 +262,43 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
         # サマリーデータを解析（詳細レポートと同じ方法）
         for line in lines[1:]:  # ヘッダー行をスキップ
             parts = re.split(r'\s{2,}', line.strip())
-            if len(parts) == 3:
+            if len(parts) >= 2:  # 2列以上ある場合
                 item_name = parts[0]
-                avg_value = parts[1]
-                cum_value = parts[2]
+                avg_value = parts[1] if len(parts) > 1 else ""
+                cum_value = parts[2] if len(parts) > 2 else avg_value
                 
-                # 項目名を日本語化（より厳密なパターンマッチング）
-                jp_name = item_name  # デフォルトは元の名前
+                # 確実な日本語化処理
+                jp_name = item_name  # デフォルト
                 
-                if 'Actual' in item_name or 'actual' in item_name.lower():
+                # より包括的なパターンマッチング
+                item_lower = item_name.lower()
+                
+                if 'actual' in item_lower:
                     jp_name = '実測値'
-                elif 'Predicted' in item_name or 'predicted' in item_name.lower():
-                    # 信頼区間行かどうかをチェック
-                    if '95% CI' in line or 'CI' in item_name:
+                elif 'predicted' in item_lower or 'prediction' in item_lower:
+                    # 信頼区間か標準偏差かを判定
+                    if 'ci' in item_lower or '95%' in line or 'confidence' in item_lower:
                         jp_name = f'予測値 {confidence_level}% 信頼区間'
                     else:
-                        jp_name = '予測値 (標準偏差)'
-                elif 'AbsEffect' in item_name or 'abs' in item_name.lower():
-                    # 信頼区間行かどうかをチェック  
-                    if '95% CI' in line or 'CI' in item_name:
+                        jp_name = '予測値（標準偏差）'
+                elif 'abseffect' in item_lower or 'abs_effect' in item_lower:
+                    if 'ci' in item_lower or '95%' in line or 'confidence' in item_lower:
                         jp_name = f'絶対効果 {confidence_level}% 信頼区間'
                     else:
-                        jp_name = '絶対効果 (標準偏差)'
-                elif 'RelEffect' in item_name or 'rel' in item_name.lower():
-                    # 信頼区間行かどうかをチェック
-                    if '95% CI' in line or 'CI' in item_name:
+                        jp_name = '絶対効果（標準偏差）'
+                elif 'releffect' in item_lower or 'rel_effect' in item_lower:
+                    if 'ci' in item_lower or '95%' in line or 'confidence' in item_lower:
                         jp_name = f'相対効果 {confidence_level}% 信頼区間'
                     else:
-                        jp_name = '相対効果 (標準偏差)'
+                        jp_name = '相対効果（標準偏差）'
                 
-                # 相対効果の場合は%表記に変換し、平均値・累積値を同じにする
-                if 'RelEffect' in item_name or 'rel' in item_name.lower():
+                # 相対効果の場合は%表記に変換
+                if 'releffect' in item_lower or 'rel_effect' in item_lower:
                     try:
                         # パーセンテージ変換
                         if '[' in avg_value and ']' in avg_value:
                             # 信頼区間の場合
                             if not '%' in avg_value:
-                                # %が含まれていない場合は変換
                                 matches = re.findall(r'[-+]?[0-9]*\.?[0-9]+', avg_value)
                                 if len(matches) >= 2:
                                     lower = float(matches[0]) * 100
@@ -323,7 +323,7 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
         
         # p値を追加
         if p_value is not None:
-            results_data.append(['p値（事後確率）', f"{p_value:.4f}", f"{p_value:.4f}"])
+            results_data.append(['p値', f"{p_value:.4f}", f"{p_value:.4f}"])
         
         # DataFrameを作成
         df_result = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
@@ -332,8 +332,34 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
         
     except Exception as e:
         print(f"Error in build_single_group_unified_summary_table: {e}")
-        # エラーの場合は元の関数にフォールバック
-        return build_single_group_summary_dataframe(ci, confidence_level)
+        # エラーの場合は確実な日本語表記のフォールバックを使用
+        return build_single_group_guaranteed_japanese_table(ci, confidence_level)
+
+def build_single_group_guaranteed_japanese_table(ci, confidence_level=95):
+    """
+    確実に日本語表記を返すフォールバック関数
+    """
+    try:
+        import pandas as pd
+        import numpy as np
+        
+        # 最低限の日本語表記テーブルを構築
+        results_data = [
+            ['実測値', '---', '---'],
+            ['予測値（標準偏差）', '---', '---'],
+            [f'予測値 {confidence_level}% 信頼区間', '---', '---'],
+            ['絶対効果（標準偏差）', '---', '---'],
+            [f'絶対効果 {confidence_level}% 信頼区間', '---', '---'],
+            ['相対効果（標準偏差）', '---', '---'],
+            [f'相対効果 {confidence_level}% 信頼区間', '---', '---'],
+            ['p値', '---', '---']
+        ]
+        
+        return pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+        
+    except:
+        # 最終フォールバック
+        return pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
 
 def build_single_group_summary_dataframe(ci, alpha_percent):
     """
@@ -555,13 +581,12 @@ def build_single_group_summary_dataframe(ci, alpha_percent):
                     results_data.append(['予測値（標準偏差）', f"{pred_avg:.1f}", f"{pred_avg:.1f}"])
         
         if pred_ci_lower is not None and pred_ci_upper is not None:
-            confidence_level = 100 - alpha_percent
             ci_str = f"[{pred_ci_lower:.1f}, {pred_ci_upper:.1f}]"
             if pred_cum is not None:
                 # 累積値の信頼区間も適切に計算（簡易的に平均値の信頼区間を使用）
-                results_data.append([f'予測値 {confidence_level}% 信頼区間', ci_str, ci_str])
+                results_data.append([f'予測値 {alpha_percent}% 信頼区間', ci_str, ci_str])
             else:
-                results_data.append([f'予測値 {confidence_level}% 信頼区間', ci_str, ci_str])
+                results_data.append([f'予測値 {alpha_percent}% 信頼区間', ci_str, ci_str])
         
         if abs_avg is not None:
             if abs_sd is not None:
@@ -576,9 +601,8 @@ def build_single_group_summary_dataframe(ci, alpha_percent):
                     results_data.append(['絶対効果（標準偏差）', f"{abs_avg:.1f}", f"{abs_avg:.1f}"])
         
         if abs_ci_lower is not None and abs_ci_upper is not None:
-            confidence_level = 100 - alpha_percent
             ci_str = f"[{abs_ci_lower:.1f}, {abs_ci_upper:.1f}]"
-            results_data.append([f'絶対効果 {confidence_level}% 信頼区間', ci_str, ci_str])
+            results_data.append([f'絶対効果 {alpha_percent}% 信頼区間', ci_str, ci_str])
         
         if rel_avg is not None:
             if rel_sd is not None:
@@ -593,12 +617,11 @@ def build_single_group_summary_dataframe(ci, alpha_percent):
                     results_data.append(['相対効果（標準偏差）', f"{rel_avg:.1f}%", f"{rel_avg:.1f}%"])
         
         if rel_ci_lower is not None and rel_ci_upper is not None:
-            confidence_level = 100 - alpha_percent
             ci_str = f"[{rel_ci_lower:.1f}%, {rel_ci_upper:.1f}%]"
-            results_data.append([f'相対効果 {confidence_level}% 信頼区間', ci_str, ci_str])
+            results_data.append([f'相対効果 {alpha_percent}% 信頼区間', ci_str, ci_str])
         
         if p_value is not None:
-            results_data.append(['p値（事後確率）', f"{p_value:.4f}", f"{p_value:.4f}"])
+            results_data.append(['p値', f"{p_value:.4f}", f"{p_value:.4f}"])
         
         # DataFrameを作成（日本語表記で統一）
         df_result = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
@@ -607,8 +630,8 @@ def build_single_group_summary_dataframe(ci, alpha_percent):
         
     except Exception as e:
         print(f"Error in build_single_group_summary_dataframe: {e}")
-        # 最終的なエラーの場合でも日本語表記の空テーブルを返す
-        return pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+        # 最終的なエラーの場合でも確実な日本語表記を返す
+        return build_single_group_guaranteed_japanese_table(ci, alpha_percent)
 
 def get_single_group_interpretation(ci, alpha_level=0.05):
     """
@@ -728,33 +751,33 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
         'CustomTitle',
         parent=styles['Title'],
         fontName=font_name,
-        fontSize=16,
+        fontSize=12,  # 14→12に縮小
         alignment=1,  # 中央揃え
-        spaceAfter=20
+        spaceAfter=8   # 12→8に縮小
     )
     
     heading_style = ParagraphStyle(
         'CustomHeading',
         parent=styles['Heading1'],
         fontName=font_name,
-        fontSize=12,
-        spaceAfter=10
+        fontSize=10,  # 11→10に縮小
+        spaceAfter=4   # 6→4に縮小
     )
     
     subtitle_style = ParagraphStyle(
         'CustomSubtitle',
         parent=styles['Heading2'],
         fontName=font_name,
-        fontSize=10,
-        spaceAfter=8
+        fontSize=8,   # 9→8に縮小
+        spaceAfter=3  # 5→3に縮小
     )
     
     normal_style = ParagraphStyle(
         'CustomNormal',
         parent=styles['Normal'],
         fontName=font_name,
-        fontSize=9,
-        spaceAfter=6
+        fontSize=7,   # 8→7に縮小
+        spaceAfter=2  # 3→2に縮小
     )
     
     # PDF内容を構築
@@ -762,7 +785,7 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
     
     # タイトル
     story.append(Paragraph('Causal Impact分析レポート（単群推定）', title_style))
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 4))  # 8→4に縮小
     
     # 分析条件
     if font_name == 'Helvetica':
@@ -789,7 +812,7 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
     
     for text in conditions_text:
         story.append(Paragraph(text, normal_style))
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 6))  # 8→6に縮小
     
     # 分析結果サマリー
     story.append(Paragraph('分析結果サマリー', heading_style))
@@ -806,21 +829,22 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
     headers = [str(col) for col in summary_df.columns]
     table_data.insert(0, headers)
     
-    # テーブル作成
+    # テーブル作成（よりコンパクトに）
     table = Table(table_data, repeatRows=1)
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), font_name),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),  # 8→7に縮小
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # 8→4に縮小
+        ('TOPPADDING', (0, 0), (-1, -1), 4),  # デフォルト→4に設定
         ('BACKGROUND', (0, 1), (-1, -1), colors.white),
         ('GRID', (0, 0), (-1, -1), 1, colors.black)
     ]))
     
     story.append(table)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 6))  # 8→6に縮小
     
     # 分析レポートまとめメッセージ（単群推定用）
     summary_message = get_single_group_analysis_summary_message(ci, confidence_level)
@@ -829,28 +853,23 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
     else:
         # フォールバック用メッセージ
         story.append(Paragraph("分析が完了しました。詳細はレポートを参照ください。", normal_style))
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 8))  # 12→8に縮小
     
     # グラフを画像として挿入
     story.append(Paragraph('分析結果グラフ', heading_style))
     
-    # グラフタイトル
-    graph_title = f"{treatment_name}"
-    graph_subtitle = "単群推定分析：介入前トレンドからの予測との比較"
-    
-    story.append(Paragraph(graph_title, normal_style))
-    story.append(Paragraph(graph_subtitle, normal_style))
-    story.append(Spacer(1, 6))
+    # グラフタイトル・サブタイトルは削除（ユーザー要求通り）
+    story.append(Spacer(1, 2))  # 4→2に縮小
     
     # MatplotlibのグラフをPDFに変換
     img_buffer = io.BytesIO()
     fig.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
     img_buffer.seek(0)
     
-    # 画像をPDFに挿入
-    img = Image(img_buffer, width=450, height=300)  # サイズ調整
+    # 画像をPDFに挿入（さらにサイズをコンパクトに）
+    img = Image(img_buffer, width=360, height=240)  # 400×260→360×240に縮小
     story.append(img)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 4))  # 8→4に縮小
     
     # グラフの見方（単群推定用）
     graph_explanation = "実測データ（黒線）と介入前トレンドから推定した予測データ（青線）の比較により介入効果を評価。影の部分は予測の不確実性を示す信頼区間。介入前データのパターンを学習し、反事実シナリオを推定。"

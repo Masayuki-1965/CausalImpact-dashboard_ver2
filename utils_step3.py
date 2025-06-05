@@ -1244,41 +1244,41 @@ def get_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, conf
         'CustomTitle',
         parent=styles['Title'],
         fontName=font_name,
-        fontSize=16,
+        fontSize=12,  # 14→12に縮小
         alignment=1,  # 中央揃え
-        spaceAfter=20
+        spaceAfter=8   # 12→8に縮小
     )
     
     heading_style = ParagraphStyle(
         'CustomHeading',
         parent=styles['Heading1'],
         fontName=font_name,
-        fontSize=12,
-        spaceAfter=10
+        fontSize=10,  # 11→10に縮小
+        spaceAfter=4   # 6→4に縮小
     )
     
     subtitle_style = ParagraphStyle(
         'CustomSubtitle',
         parent=styles['Heading2'],
         fontName=font_name,
-        fontSize=10,
-        spaceAfter=8
+        fontSize=8,   # 9→8に縮小
+        spaceAfter=3  # 5→3に縮小
     )
     
     normal_style = ParagraphStyle(
         'CustomNormal',
         parent=styles['Normal'],
         fontName=font_name,
-        fontSize=9,
-        spaceAfter=6
+        fontSize=7,   # 8→7に縮小
+        spaceAfter=2  # 3→2に縮小
     )
     
     # PDF内容を構築
     story = []
     
     # タイトル
-    story.append(Paragraph('Causal Impact分析レポート', title_style))
-    story.append(Spacer(1, 12))
+    story.append(Paragraph('Causal Impact分析レポート（二群比較）', title_style))
+    story.append(Spacer(1, 4))  # 8→4に縮小
     
     # 分析条件
     if font_name == 'Helvetica':
@@ -1288,33 +1288,30 @@ def get_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, conf
     
     # analysis_info辞書から必要な情報を取得
     treatment_name = analysis_info.get('treatment_name', '分析対象')
-    control_name = analysis_info.get('control_name', '')
+    control_name = analysis_info.get('control_name', '対照群')
     period_start = analysis_info.get('period_start')
     period_end = analysis_info.get('period_end')
-    analysis_type = analysis_info.get('analysis_type', '二群比較')
     
     conditions_text = []
     if font_name == 'Helvetica':
-        conditions_text.append(f"Analysis Target: {treatment_name}")
-        if control_name:
-            conditions_text.append(f"vs {control_name}")
+        conditions_text.append(f"Treatment Group: {treatment_name}")
+        conditions_text.append(f"Control Group: {control_name}")
         conditions_text.append(f"Analysis Period: {period_start.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')}")
-        conditions_text.append(f"Method: {analysis_type}")
+        conditions_text.append(f"Method: Two-Group Causal Impact")
         conditions_text.append(f"Confidence Level: {confidence_level}%")
     else:
-        conditions_text.append(f"分析対象：{treatment_name}")
-        if control_name:
-            conditions_text.append(f"（vs {control_name}）")
+        conditions_text.append(f"処置群：{treatment_name}")
+        conditions_text.append(f"対照群：{control_name}")
         conditions_text.append(f"分析期間：{period_start.strftime('%Y年%m月%d日')} ～ {period_end.strftime('%Y年%m月%d日')}")
-        conditions_text.append(f"分析手法：{analysis_type}")
+        conditions_text.append(f"分析手法：二群比較Causal Impact")
         conditions_text.append(f"信頼水準：{confidence_level}%")
     
     for text in conditions_text:
         story.append(Paragraph(text, normal_style))
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 6))  # 8→6に縮小
     
-    # 分析結果概要テーブル
-    story.append(Paragraph('分析結果概要', heading_style))
+    # 分析結果サマリー
+    story.append(Paragraph('分析結果サマリー', heading_style))
     
     # サマリーテーブルをPDF用に変換
     table_data = []
@@ -1325,57 +1322,48 @@ def get_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, conf
     headers = [str(col) for col in summary_df.columns]
     table_data.insert(0, headers)
     
-    # テーブル作成
+    # テーブル作成（よりコンパクトに）
     table = Table(table_data, repeatRows=1)
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), font_name),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),  # 8→7に縮小
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # 8→4に縮小
+        ('TOPPADDING', (0, 0), (-1, -1), 4),  # デフォルト→4に設定
         ('BACKGROUND', (0, 1), (-1, -1), colors.white),
         ('GRID', (0, 0), (-1, -1), 1, colors.black)
     ]))
     
     story.append(table)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 6))  # 8→6に縮小
     
-    # 分析レポートまとめメッセージ
+    # 分析レポートまとめメッセージ（二群比較用）
     summary_message = get_analysis_summary_message(ci, confidence_level)
-    story.append(Paragraph(summary_message, normal_style))
-    story.append(Spacer(1, 20))
+    if summary_message:
+        story.append(Paragraph(summary_message, normal_style))
+    else:
+        # フォールバック用メッセージ
+        story.append(Paragraph("分析が完了しました。詳細はレポートを参照ください。", normal_style))
+    story.append(Spacer(1, 8))  # 12→8に縮小
     
     # グラフを画像として挿入
     story.append(Paragraph('分析結果グラフ', heading_style))
-    
-    # グラフタイトル
-    if analysis_type == "単群推定（処置群のみを使用）":
-        graph_title = f"{treatment_name}"
-        graph_subtitle = "単群推定分析：介入前トレンドからの予測との比較"
-    else:
-        graph_title = f"{treatment_name}（vs {control_name}）"
-        graph_subtitle = "二群比較分析：対照群との関係性による予測との比較"
-    
-    story.append(Paragraph(graph_title, normal_style))
-    story.append(Paragraph(graph_subtitle, normal_style))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 2))  # 4→2に縮小
     
     # MatplotlibのグラフをPDFに変換
     img_buffer = io.BytesIO()
     fig.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
     img_buffer.seek(0)
     
-    # 画像をPDFに挿入
-    img = Image(img_buffer, width=450, height=300)  # サイズ調整
+    # 画像をPDFに挿入（さらにサイズをコンパクトに）
+    img = Image(img_buffer, width=360, height=240)  # 400×260→360×240に縮小
     story.append(img)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 4))  # 8→4に縮小
     
-    # グラフの見方
-    if analysis_type == "単群推定（処置群のみを使用）":
-        graph_explanation = "実測データ（黒線）と介入前トレンドから推定した予測データ（青線）の比較により介入効果を評価。影の部分は予測の不確実性を示す信頼区間。"
-    else:
-        graph_explanation = "実測データ（黒線）と対照群から推定した予測データ（青線）の比較により純粋な介入効果を評価。影の部分は予測の不確実性を示す信頼区間。対照群により外部要因の影響を除去。"
+    # グラフの見方（二群比較用）
+    graph_explanation = "処置群データ（黒線）と対照群から構築した反事実シナリオ（青線）の比較により介入効果を評価。影の部分は予測の不確実性を示す信頼区間。対照群データのパターンを学習し、処置群への影響を推定。"
     
     story.append(Paragraph(f"グラフの見方：{graph_explanation}", normal_style))
     
@@ -1387,7 +1375,7 @@ def get_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, conf
     pdf_base64 = base64.b64encode(pdf_buffer.read()).decode()
     
     # ファイル名生成
-    analysis_type_short = "SingleGroup" if "単群推定" in analysis_type else "TwoGroup"
+    analysis_type_short = "SingleGroup" if "単群推定" in analysis_info.get('analysis_type', '') else "TwoGroup"
     filename = f"causal_impact_report_{treatment_name}_{period_start.strftime('%Y%m%d')}_{period_end.strftime('%Y%m%d')}_{analysis_type_short}.pdf"
     
     # ダウンロードリンク生成
