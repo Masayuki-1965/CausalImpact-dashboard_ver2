@@ -244,6 +244,102 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
         import numpy as np
         import re
         
+        # CausalImpactのsummary_dataから直接取得（より確実）
+        if hasattr(ci, 'summary_data') and ci.summary_data is not None:
+            summary_data = ci.summary_data
+            results_data = []
+            
+            # p値の取得
+            p_value = None
+            if hasattr(ci, 'p_value'):
+                p_value = ci.p_value
+            else:
+                # summary()テキストからp値を抽出
+                try:
+                    summary_text = str(ci.summary())
+                    p_match = re.search(r'Posterior tail-area probability p:\s+([0-9.]+)', summary_text)
+                    if p_match:
+                        p_value = float(p_match.group(1))
+                except:
+                    pass
+            
+            # 項目を順番に処理（シンプルな構成）
+            
+            # 1. 実測値
+            for index_name in summary_data.index:
+                if 'actual' in str(index_name).lower():
+                    avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
+                    cum_val = summary_data.loc[index_name, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[index_name].iloc[1]
+                    results_data.append(['実測値', f"{avg_val:.1f}", f"{cum_val:.1f}"])
+                    break
+            
+            # 2. 予測値
+            for index_name in summary_data.index:
+                if ('predicted' in str(index_name).lower() or 'prediction' in str(index_name).lower()) and 'lower' not in str(index_name).lower() and 'upper' not in str(index_name).lower():
+                    avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
+                    cum_val = summary_data.loc[index_name, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[index_name].iloc[1]
+                    results_data.append(['予測値', f"{avg_val:.1f}", f"{cum_val:.1f}"])
+                    break
+            
+            # 3. 予測値信頼区間（予測値のすぐ下に配置）
+            pred_lower = None
+            pred_upper = None
+            for index_name in summary_data.index:
+                if 'predicted' in str(index_name).lower() and 'lower' in str(index_name).lower():
+                    pred_lower = index_name
+                elif 'predicted' in str(index_name).lower() and 'upper' in str(index_name).lower():
+                    pred_upper = index_name
+            
+            if pred_lower and pred_upper:
+                lower_avg = summary_data.loc[pred_lower, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[pred_lower].iloc[0]
+                upper_avg = summary_data.loc[pred_upper, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[pred_upper].iloc[0]
+                lower_cum = summary_data.loc[pred_lower, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[pred_lower].iloc[1]
+                upper_cum = summary_data.loc[pred_upper, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[pred_upper].iloc[1]
+                results_data.append([f'予測値 {confidence_level}% 信頼区間', f"[{lower_avg:.1f}, {upper_avg:.1f}]", f"[{lower_cum:.1f}, {upper_cum:.1f}]"])
+            
+            # 4. 絶対効果
+            for index_name in summary_data.index:
+                if ('abseffect' in str(index_name).lower() or 'abs_effect' in str(index_name).lower() or 'absolute' in str(index_name).lower()) and 'lower' not in str(index_name).lower() and 'upper' not in str(index_name).lower():
+                    avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
+                    cum_val = summary_data.loc[index_name, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[index_name].iloc[1]
+                    results_data.append(['絶対効果', f"{avg_val:.1f}", f"{cum_val:.1f}"])
+                    break
+            
+            # 5. 相対効果
+            for index_name in summary_data.index:
+                if ('releffect' in str(index_name).lower() or 'rel_effect' in str(index_name).lower() or 'relative' in str(index_name).lower()) and 'lower' not in str(index_name).lower() and 'upper' not in str(index_name).lower():
+                    avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
+                    # %変換
+                    rel_pct = avg_val * 100 if abs(avg_val) < 10 else avg_val
+                    results_data.append(['相対効果', f"{rel_pct:.1f}%", f"{rel_pct:.1f}%"])
+                    break
+            
+            # 6. p値
+            if p_value is not None:
+                results_data.append(['p値', f"{p_value:.4f}", f"{p_value:.4f}"])
+            
+            # DataFrameを作成
+            df_result = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+            
+            return df_result
+        
+        else:
+            # フォールバック：テキスト解析
+            return build_single_group_text_based_summary_table(ci, confidence_level)
+        
+    except Exception as e:
+        print(f"Error in build_single_group_unified_summary_table: {e}")
+        # エラーの場合は確実な日本語表記のフォールバックを使用
+        return build_single_group_guaranteed_japanese_table(ci, confidence_level)
+
+def build_single_group_text_based_summary_table(ci, confidence_level=95):
+    """
+    CausalImpactのテキスト出力を解析して日本語表記のテーブルを生成
+    """
+    try:
+        import pandas as pd
+        import re
+        
         # CausalImpactのsummary()を取得
         summary_text = str(ci.summary())
         lines = [l for l in summary_text.split('\n') if l.strip()]
@@ -259,65 +355,53 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
                     p_value = float(p_match.group(1))
                     break
         
-        # サマリーデータを解析（詳細レポートと同じ方法）
+        # テキスト解析で確実な日本語化
         for line in lines[1:]:  # ヘッダー行をスキップ
+            if not line.strip():
+                continue
+                
             parts = re.split(r'\s{2,}', line.strip())
-            if len(parts) >= 2:  # 2列以上ある場合
+            if len(parts) >= 2:
                 item_name = parts[0]
                 avg_value = parts[1] if len(parts) > 1 else ""
                 cum_value = parts[2] if len(parts) > 2 else avg_value
                 
-                # 確実な日本語化処理
-                jp_name = item_name  # デフォルト
+                # 完全な英語→日本語変換辞書
+                translation_dict = {
+                    'Actual': '実測値',
+                    'Predicted': '予測値（標準偏差）',
+                    'AbsEffect': '絶対効果（標準偏差）',
+                    'RelEffect': '相対効果（標準偏差）'
+                }
                 
-                # より包括的なパターンマッチング
-                item_lower = item_name.lower()
+                jp_name = translation_dict.get(item_name, item_name)
                 
-                if 'actual' in item_lower:
-                    jp_name = '実測値'
-                elif 'predicted' in item_lower or 'prediction' in item_lower:
-                    # 信頼区間か標準偏差かを判定
-                    if 'ci' in item_lower or '95%' in line or 'confidence' in item_lower:
+                # CI行の判定と変換
+                if '95% CI' in line or 'CI' in item_name:
+                    if 'Predicted' in line or 'predicted' in item_name.lower():
                         jp_name = f'予測値 {confidence_level}% 信頼区間'
-                    else:
-                        jp_name = '予測値（標準偏差）'
-                elif 'abseffect' in item_lower or 'abs_effect' in item_lower:
-                    if 'ci' in item_lower or '95%' in line or 'confidence' in item_lower:
+                    elif 'AbsEffect' in line or 'abs' in item_name.lower():
                         jp_name = f'絶対効果 {confidence_level}% 信頼区間'
-                    else:
-                        jp_name = '絶対効果（標準偏差）'
-                elif 'releffect' in item_lower or 'rel_effect' in item_lower:
-                    if 'ci' in item_lower or '95%' in line or 'confidence' in item_lower:
+                    elif 'RelEffect' in line or 'rel' in item_name.lower():
                         jp_name = f'相対効果 {confidence_level}% 信頼区間'
-                    else:
-                        jp_name = '相対効果（標準偏差）'
                 
-                # 相対効果の場合は%表記に変換
-                if 'releffect' in item_lower or 'rel_effect' in item_lower:
-                    try:
-                        # パーセンテージ変換
-                        if '[' in avg_value and ']' in avg_value:
-                            # 信頼区間の場合
-                            if not '%' in avg_value:
-                                matches = re.findall(r'[-+]?[0-9]*\.?[0-9]+', avg_value)
-                                if len(matches) >= 2:
-                                    lower = float(matches[0]) * 100
-                                    upper = float(matches[1]) * 100
-                                    avg_value = f"[{lower:.1f}%, {upper:.1f}%]"
-                        else:
-                            # 単一値の場合
-                            try:
-                                if not '%' in avg_value:
-                                    rel_val = float(avg_value) * 100
-                                    avg_value = f"{rel_val:.1f}%"
-                            except:
-                                if not '%' in avg_value:
-                                    avg_value += '%'
-                        
-                        # 累積値は平均値と同じにする（相対効果の場合）
-                        cum_value = avg_value
-                    except:
-                        pass
+                # 相対効果の%変換
+                if 'rel' in jp_name.lower() or '相対効果' in jp_name:
+                    if '[' in avg_value and ']' in avg_value and '%' not in avg_value:
+                        # 信頼区間の%変換
+                        matches = re.findall(r'[-+]?[0-9]*\.?[0-9]+', avg_value)
+                        if len(matches) >= 2:
+                            lower = float(matches[0]) * 100
+                            upper = float(matches[1]) * 100
+                            avg_value = f"[{lower:.1f}%, {upper:.1f}%]"
+                            cum_value = avg_value
+                    elif '%' not in avg_value:
+                        try:
+                            rel_val = float(avg_value) * 100
+                            avg_value = f"{rel_val:.1f}%"
+                            cum_value = avg_value
+                        except:
+                            pass
                 
                 results_data.append([jp_name, avg_value, cum_value])
         
@@ -331,8 +415,7 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
         return df_result
         
     except Exception as e:
-        print(f"Error in build_single_group_unified_summary_table: {e}")
-        # エラーの場合は確実な日本語表記のフォールバックを使用
+        print(f"Error in build_single_group_text_based_summary_table: {e}")
         return build_single_group_guaranteed_japanese_table(ci, confidence_level)
 
 def build_single_group_guaranteed_japanese_table(ci, confidence_level=95):
@@ -818,7 +901,7 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
     story.append(Paragraph('分析結果サマリー', heading_style))
     
     # 分析結果概要テーブル
-    story.append(Paragraph('分析結果概要', heading_style))
+    story.append(Paragraph('分析結果概要：', heading_style))
     
     # サマリーテーブルをPDF用に変換
     table_data = []
@@ -1102,7 +1185,7 @@ def get_single_group_analysis_summary_message(ci, confidence_level=95):
             if 'preds' in df.columns and 'point_effects' in df.columns:
                 df['y'] = df['preds'] + df['point_effects']
             else:
-                return get_single_group_analysis_summary_message_fallback(ci, confidence_level)
+                df['y'] = np.nan
         
         # 介入期間のデータのみを抽出
         analysis_period = None
@@ -1167,7 +1250,7 @@ def get_single_group_analysis_summary_message(ci, confidence_level=95):
             final_significance = is_significant or is_significant_by_p
             
             if final_significance:
-                return f"相対効果は {relative_effect:+.1f}% で、統計的に有意です（p = {p_value:.3f}）。詳しくは、この下の「詳細レポート」を参照ください。"
+                return f"相対効果は {relative_effect:+.1f}% で、統計的に有意です（p = {p_value:.3f}）。詳しくは「詳細レポート」を参照ください。"
             else:
                 return f"相対効果は {relative_effect:+.1f}% ですが、統計的には有意ではありません（p = {p_value:.3f}）。詳しくは、この下の「詳細レポート」を参照ください。"
         

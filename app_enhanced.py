@@ -1840,10 +1840,10 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
         st.markdown(f'<div style="margin-bottom:0.8em;"><span style="font-weight:bold;font-size:1.05em;">分析期間：</span><span style="color:#424242;">{intervention_period_str}（{data_granularity}）</span></div>', unsafe_allow_html=True)
         
         # 分析手法（信頼水準を統合）
-        st.markdown(f'<div style="margin-bottom:1.5em;"><span style="font-weight:bold;font-size:1.05em;">分析手法：</span><span style="color:#424242;">{analysis_method}（信頼水準：{confidence_level}%）</span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="margin-bottom:0.8em;"><span style="font-weight:bold;font-size:1.05em;">分析手法：</span><span style="color:#424242;">{analysis_method}（信頼水準：{confidence_level}%）</span></div>', unsafe_allow_html=True)
         
         # 中項目「分析結果概要」を追加
-        st.markdown('<div style="font-weight:bold;margin-bottom:1em;font-size:1.05em;">分析結果概要</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-weight:bold;margin-bottom:0.8em;font-size:1.05em;">分析結果概要：</div>', unsafe_allow_html=True)
         
         # サマリー情報の詳細表示（表形式に改善）
         relative_effect_value = None
