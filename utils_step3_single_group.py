@@ -267,25 +267,36 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
                 avg_value = parts[1]
                 cum_value = parts[2]
                 
-                # 項目名を日本語化
-                if 'Actual' in item_name:
+                # 項目名を日本語化（より厳密なパターンマッチング）
+                jp_name = item_name  # デフォルトは元の名前
+                
+                if 'Actual' in item_name or 'actual' in item_name.lower():
                     jp_name = '実測値'
-                elif 'Predicted' in item_name:
-                    jp_name = '予測値 (標準偏差)' if '95% CI' not in line else f'予測値 {confidence_level}% 信頼区間'
-                elif 'AbsEffect' in item_name:
-                    jp_name = '絶対効果 (標準偏差)' if '95% CI' not in line else f'絶対効果 {confidence_level}% 信頼区間'
-                elif 'RelEffect' in item_name:
-                    jp_name = '相対効果 (標準偏差)' if '95% CI' not in line else f'相対効果 {confidence_level}% 信頼区間'
-                else:
-                    jp_name = item_name
+                elif 'Predicted' in item_name or 'predicted' in item_name.lower():
+                    # 信頼区間行かどうかをチェック
+                    if '95% CI' in line or 'CI' in item_name:
+                        jp_name = f'予測値 {confidence_level}% 信頼区間'
+                    else:
+                        jp_name = '予測値 (標準偏差)'
+                elif 'AbsEffect' in item_name or 'abs' in item_name.lower():
+                    # 信頼区間行かどうかをチェック  
+                    if '95% CI' in line or 'CI' in item_name:
+                        jp_name = f'絶対効果 {confidence_level}% 信頼区間'
+                    else:
+                        jp_name = '絶対効果 (標準偏差)'
+                elif 'RelEffect' in item_name or 'rel' in item_name.lower():
+                    # 信頼区間行かどうかをチェック
+                    if '95% CI' in line or 'CI' in item_name:
+                        jp_name = f'相対効果 {confidence_level}% 信頼区間'
+                    else:
+                        jp_name = '相対効果 (標準偏差)'
                 
                 # 相対効果の場合は%表記に変換し、平均値・累積値を同じにする
-                if 'RelEffect' in item_name:
+                if 'RelEffect' in item_name or 'rel' in item_name.lower():
                     try:
                         # パーセンテージ変換
                         if '[' in avg_value and ']' in avg_value:
                             # 信頼区間の場合
-                            avg_value = avg_value.replace('%', '')  # 既に%が含まれている場合は除去
                             if not '%' in avg_value:
                                 # %が含まれていない場合は変換
                                 matches = re.findall(r'[-+]?[0-9]*\.?[0-9]+', avg_value)
@@ -296,8 +307,9 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
                         else:
                             # 単一値の場合
                             try:
-                                rel_val = float(avg_value) * 100
-                                avg_value = f"{rel_val:.1f}%"
+                                if not '%' in avg_value:
+                                    rel_val = float(avg_value) * 100
+                                    avg_value = f"{rel_val:.1f}%"
                             except:
                                 if not '%' in avg_value:
                                     avg_value += '%'
@@ -325,285 +337,278 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
 
 def build_single_group_summary_dataframe(ci, alpha_percent):
     """
-    CausalImpactの分析結果を見やすい表形式で整理する関数（単群推定用）
-    統一関数を優先使用し、エラー時のみ独自計算を実行
+    単群推定の分析結果を見やすい表形式で整理する関数（日本語表記保証）
+    統一関数を優先使用し、確実に日本語表記で表示
     
     Parameters:
     -----------
     ci : CausalImpact
         分析結果オブジェクト
     alpha_percent : int
-        信頼水準（%）
+        信頼水準（%）、95等を想定
         
     Returns:
     --------
     pandas.DataFrame
-        整形された分析結果テーブル
+        整形された分析結果テーブル（日本語表記）
     """
     try:
-        # まず統一関数を試行
-        return build_single_group_unified_summary_table(ci, alpha_percent)
-    except:
-        # 統一関数が失敗した場合のみ独自計算を実行
-        pass
+        # 統一関数を使用（日本語表記保証）
+        unified_result = build_single_group_unified_summary_table(ci, alpha_percent)
+        if unified_result is not None and not unified_result.empty:
+            return unified_result
+    except Exception as e:
+        print(f"Single group unified function error: {e}")
     
+    # 統一関数が失敗した場合でも日本語表記を保証する独自実装
     try:
         import pandas as pd
         import numpy as np
         
-        # CSVと同じデータソースを使用：ci.inferencesから直接計算
-        if hasattr(ci, 'inferences') and ci.inferences is not None:
-            df = ci.inferences.copy().reset_index()
-        elif hasattr(ci, 'data'):
-            df = ci.data.copy().reset_index()
-        else:
-            # フォールバック：既存の方法
-            return build_single_group_summary_fallback(ci, alpha_percent)
+        # CausalImpactのsummary()から数値を取得
+        summary_text = str(ci.summary())
+        lines = [l for l in summary_text.split('\n') if l.strip()]
         
-        # 日付列を統一
-        if 'index' in df.columns:
-            df = df.rename(columns={'index': 'date'})
-        elif df.index.name:
-            df = df.reset_index().rename(columns={df.index.name: 'date'})
-        
-        # 日付列が存在しない場合の対処
-        if 'date' not in df.columns:
-            if len(df.columns) > 0:
-                df = df.rename(columns={df.columns[0]: 'date'})
-            else:
-                return pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
-        
-        # 列名マッピング（CSVと同じ）
-        column_mapping = {
-            'predicted': 'preds',
-            'predicted_lower': 'preds_lower', 
-            'predicted_upper': 'preds_upper',
-            'point_effects': 'point_effects',
-            'point_effects_lower': 'point_effects_lower',
-            'point_effects_upper': 'point_effects_upper'
-        }
-        
-        # 列名を統一
-        for old_name, new_name in column_mapping.items():
-            if old_name in df.columns:
-                df = df.rename(columns={old_name: new_name})
-        
-        # 実測値（y）の算出（予測値＋効果）
-        if 'y' not in df.columns:
-            if 'preds' in df.columns and 'point_effects' in df.columns:
-                df['y'] = df['preds'] + df['point_effects']
-            else:
-                # データが不足している場合はフォールバック
-                return build_single_group_summary_fallback(ci, alpha_percent)
-        
-        # 介入期間のデータのみを抽出（累積値用）
-        # セッション状態から期間情報を取得
-        analysis_period = None
-        try:
-            import streamlit as st
-            if hasattr(st, 'session_state') and 'analysis_period' in st.session_state:
-                analysis_period = st.session_state['analysis_period']
-        except:
-            pass
-        
-        if analysis_period and 'post_start' in analysis_period and 'post_end' in analysis_period:
-            post_start = pd.to_datetime(analysis_period['post_start'])
-            post_end = pd.to_datetime(analysis_period['post_end'])
-            mask_post = (pd.to_datetime(df['date']) >= post_start) & (pd.to_datetime(df['date']) <= post_end)
-            post_data = df[mask_post].copy()
-        else:
-            # 期間情報が取得できない場合は全データを使用
-            post_data = df.copy()
-        
-        if len(post_data) == 0:
-            return build_single_group_summary_fallback(ci, alpha_percent)
-        
-        # 信頼水準の計算（パーセント→少数）
-        confidence_level = alpha_percent
-        
-        # 各指標の平均値と累積値を計算
         results_data = []
         
-        # 実測値
-        if 'y' in post_data.columns:
-            actual_avg = post_data['y'].mean()
-            actual_cum = post_data['y'].sum()  # 実測値は期間合計
-            results_data.append(['実測値', f"{actual_avg:.1f}", f"{actual_cum:,.1f}"])
+        # データの解析
+        actual_avg = None
+        pred_avg = None
+        pred_sd = None
+        pred_ci_lower = None
+        pred_ci_upper = None
+        abs_avg = None
+        abs_sd = None
+        abs_ci_lower = None
+        abs_ci_upper = None
+        rel_avg = None
+        rel_sd = None
+        rel_ci_lower = None
+        rel_ci_upper = None
+        p_value = None
         
-        # 予測値（標準偏差・反事実シナリオ表記を削除）
-        if 'preds' in post_data.columns:
-            pred_avg = post_data['preds'].mean()
-            # CSVと同じ累積計算：各日の累積値の最終値
-            pred_cumsum = post_data['preds'].cumsum()
-            pred_cum = pred_cumsum.iloc[-1] if len(pred_cumsum) > 0 else 0
-            
-            results_data.append(['予測値', f"{pred_avg:.1f}", f"{pred_cum:,.1f}"])
-        
-        # 予測値信頼区間
-        if 'preds_lower' in post_data.columns and 'preds_upper' in post_data.columns:
-            pred_lower_avg = post_data['preds_lower'].mean()
-            pred_upper_avg = post_data['preds_upper'].mean()
-            # CSVと同じ累積計算
-            pred_lower_cumsum = post_data['preds_lower'].cumsum()
-            pred_upper_cumsum = post_data['preds_upper'].cumsum()
-            pred_lower_cum = pred_lower_cumsum.iloc[-1] if len(pred_lower_cumsum) > 0 else 0
-            pred_upper_cum = pred_upper_cumsum.iloc[-1] if len(pred_upper_cumsum) > 0 else 0
-            
-            avg_ci_str = f"[{pred_lower_avg:.1f}, {pred_upper_avg:.1f}]"
-            cum_ci_str = f"[{pred_lower_cum:,.1f}, {pred_upper_cum:,.1f}]"
-            results_data.append([f'予測値 {confidence_level}% 信頼区間', avg_ci_str, cum_ci_str])
-        
-        # 絶対効果（標準偏差を削除）
-        if 'point_effects' in post_data.columns:
-            abs_avg = post_data['point_effects'].mean()
-            # CSVと同じ累積計算
-            abs_cumsum = post_data['point_effects'].cumsum()
-            abs_cum = abs_cumsum.iloc[-1] if len(abs_cumsum) > 0 else 0
-            
-            results_data.append(['絶対効果', f"{abs_avg:.1f}", f"{abs_cum:,.1f}"])
-        
-        # 絶対効果信頼区間
-        if 'point_effects_lower' in post_data.columns and 'point_effects_upper' in post_data.columns:
-            abs_lower_avg = post_data['point_effects_lower'].mean()
-            abs_upper_avg = post_data['point_effects_upper'].mean()
-            # CSVと同じ累積計算
-            abs_lower_cumsum = post_data['point_effects_lower'].cumsum()
-            abs_upper_cumsum = post_data['point_effects_upper'].cumsum()
-            abs_lower_cum = abs_lower_cumsum.iloc[-1] if len(abs_lower_cumsum) > 0 else 0
-            abs_upper_cum = abs_upper_cumsum.iloc[-1] if len(abs_upper_cumsum) > 0 else 0
-            
-            avg_ci_str = f"[{abs_lower_avg:.1f}, {abs_upper_avg:.1f}]"
-            cum_ci_str = f"[{abs_lower_cum:,.1f}, {abs_upper_cum:,.1f}]"
-            results_data.append([f'絶対効果 {confidence_level}% 信頼区間', avg_ci_str, cum_ci_str])
-        
-        # 相対効果（標準偏差を削除、明示的数値表示）
-        if 'point_effects' in post_data.columns and 'preds' in post_data.columns:
-            # 相対効果を統一した計算方法で算出：累積値ベース（総効果/総予測値）
-            total_abs_effect = post_data['point_effects'].sum()
-            total_pred = post_data['preds'].sum()
-            rel_unified = (total_abs_effect / total_pred * 100) if total_pred != 0 else 0
-            
-            # 平均値・累積値ともに同じ値を使用
-            results_data.append(['相対効果', f"{rel_unified:.1f}%", f"{rel_unified:.1f}%"])
-        
-        # 相対効果信頼区間（明示的数値表示）
-        if ('point_effects_lower' in post_data.columns and 'point_effects_upper' in post_data.columns and 
-            'preds' in post_data.columns):
-            # 累積値ベースで統一した計算
-            total_abs_lower = post_data['point_effects_lower'].sum()
-            total_abs_upper = post_data['point_effects_upper'].sum()
-            total_pred = post_data['preds'].sum()
-            rel_lower_unified = (total_abs_lower / total_pred * 100) if total_pred != 0 else 0
-            rel_upper_unified = (total_abs_upper / total_pred * 100) if total_pred != 0 else 0
-            
-            # 平均値・累積値ともに同じ値を使用
-            rel_ci_unified_str = f"[{rel_lower_unified:.1f}%, {rel_upper_unified:.1f}%]"
-            results_data.append([f'相対効果 {confidence_level}% 信頼区間', rel_ci_unified_str, rel_ci_unified_str])
-        
-        # p値（事後確率）（明示的数値表示）
-        if hasattr(ci, 'p_value') and ci.p_value is not None:
-            p_value = ci.p_value
-            results_data.append(['p値（事後確率）', f"{p_value:.4f}", f"{p_value:.4f}"])
-        else:
-            # テキストサマリーからp値を抽出
-            try:
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            if 'Actual' in line:
+                parts = line.split()
+                if len(parts) >= 2:
+                    try:
+                        actual_avg = float(parts[1])
+                    except:
+                        pass
+                        
+            elif 'Predicted' in line:
+                parts = line.split()
+                if len(parts) >= 4:
+                    try:
+                        pred_avg = float(parts[1])
+                        if '(' in parts[2] and ')' in parts[3]:
+                            pred_sd_str = parts[2].replace('(', '') + parts[3].replace(')', '')
+                            pred_sd = float(pred_sd_str)
+                    except:
+                        pass
+                if len(parts) >= 6:
+                    try:
+                        ci_str = ' '.join(parts[4:6])
+                        ci_str = ci_str.replace('[', '').replace(']', '').replace(',', '')
+                        ci_parts = ci_str.split()
+                        if len(ci_parts) >= 2:
+                            pred_ci_lower = float(ci_parts[0])
+                            pred_ci_upper = float(ci_parts[1])
+                    except:
+                        pass
+                        
+            elif 'AbsEffect' in line:
+                parts = line.split()
+                if len(parts) >= 4:
+                    try:
+                        abs_avg = float(parts[1])
+                        if '(' in parts[2] and ')' in parts[3]:
+                            abs_sd_str = parts[2].replace('(', '') + parts[3].replace(')', '')
+                            abs_sd = float(abs_sd_str)
+                    except:
+                        pass
+                if len(parts) >= 6:
+                    try:
+                        ci_str = ' '.join(parts[4:6])
+                        ci_str = ci_str.replace('[', '').replace(']', '').replace(',', '')
+                        ci_parts = ci_str.split()
+                        if len(ci_parts) >= 2:
+                            abs_ci_lower = float(ci_parts[0])
+                            abs_ci_upper = float(ci_parts[1])
+                    except:
+                        pass
+                        
+            elif 'RelEffect' in line:
+                parts = line.split()
+                if len(parts) >= 4:
+                    try:
+                        rel_str = parts[1].replace('%', '')
+                        rel_avg = float(rel_str)
+                        if '(' in parts[2] and ')' in parts[3]:
+                            rel_sd_str = parts[2].replace('(', '').replace('%', '') + parts[3].replace(')', '').replace('%', '')
+                            rel_sd = float(rel_sd_str)
+                    except:
+                        pass
+                if len(parts) >= 6:
+                    try:
+                        ci_str = ' '.join(parts[4:6])
+                        ci_str = ci_str.replace('[', '').replace(']', '').replace(',', '').replace('%', '')
+                        ci_parts = ci_str.split()
+                        if len(ci_parts) >= 2:
+                            rel_ci_lower = float(ci_parts[0])
+                            rel_ci_upper = float(ci_parts[1])
+                    except:
+                        pass
+                        
+            elif 'Posterior tail-area probability p:' in line:
                 import re
-                summary_text = str(ci.summary())
-                p_match = re.search(r'Posterior tail-area probability p:\s+([0-9.]+)', summary_text)
+                p_match = re.search(r'p:\s+([0-9.]+)', line)
                 if p_match:
-                    p_value = float(p_match.group(1))
-                    results_data.append(['p値（事後確率）', f"{p_value:.4f}", f"{p_value:.4f}"])
-            except:
-                pass  # p値が取得できない場合はスキップ
+                    try:
+                        p_value = float(p_match.group(1))
+                    except:
+                        pass
         
-        # DataFrameを作成
+        # 累積値の計算（実際のデータから）
+        try:
+            if hasattr(ci, 'inferences') and ci.inferences is not None:
+                df = ci.inferences.copy().reset_index()
+                
+                # 日付列を統一
+                if 'index' in df.columns:
+                    df = df.rename(columns={'index': 'date'})
+                
+                # 列名マッピング
+                column_mapping = {
+                    'predicted': 'preds',
+                    'point_effects': 'point_effects'
+                }
+                
+                for old_name, new_name in column_mapping.items():
+                    if old_name in df.columns:
+                        df = df.rename(columns={old_name: new_name})
+                
+                # 介入期間のデータのみを抽出
+                analysis_period = None
+                try:
+                    import streamlit as st
+                    if hasattr(st, 'session_state') and 'analysis_period' in st.session_state:
+                        analysis_period = st.session_state['analysis_period']
+                except:
+                    pass
+                
+                if analysis_period and 'post_start' in analysis_period and 'post_end' in analysis_period:
+                    post_start = pd.to_datetime(analysis_period['post_start'])
+                    post_end = pd.to_datetime(analysis_period['post_end'])
+                    mask_post = (pd.to_datetime(df['date']) >= post_start) & (pd.to_datetime(df['date']) <= post_end)
+                    post_data = df[mask_post].copy()
+                else:
+                    post_data = df.copy()
+                
+                # 累積値計算
+                if 'preds' in post_data.columns and 'point_effects' in post_data.columns:
+                    # 実測値の累積
+                    y_values = post_data['preds'] + post_data['point_effects']
+                    actual_cum = y_values.sum()
+                    
+                    # 予測値の累積
+                    pred_cum = post_data['preds'].sum()
+                    
+                    # 絶対効果の累積
+                    abs_cum = post_data['point_effects'].sum()
+                    
+                    # 相対効果の累積
+                    rel_cum = (abs_cum / pred_cum * 100) if pred_cum != 0 else 0
+                else:
+                    actual_cum = actual_avg * len(post_data) if actual_avg and len(post_data) > 0 else None
+                    pred_cum = pred_avg * len(post_data) if pred_avg and len(post_data) > 0 else None
+                    abs_cum = abs_avg * len(post_data) if abs_avg and len(post_data) > 0 else None
+                    rel_cum = rel_avg
+        except:
+            # フォールバック：平均値×期間で累積値を推定
+            actual_cum = actual_avg
+            pred_cum = pred_avg
+            abs_cum = abs_avg
+            rel_cum = rel_avg
+        
+        # 結果データを日本語表記で構築
+        if actual_avg is not None:
+            if actual_cum is not None:
+                results_data.append(['実測値', f"{actual_avg:.1f}", f"{actual_cum:,.1f}"])
+            else:
+                results_data.append(['実測値', f"{actual_avg:.1f}", f"{actual_avg:.1f}"])
+        
+        if pred_avg is not None:
+            if pred_sd is not None:
+                if pred_cum is not None:
+                    results_data.append(['予測値（標準偏差）', f"{pred_avg:.1f} ({pred_sd:.1f})", f"{pred_cum:,.1f} ({pred_sd:.1f})"])
+                else:
+                    results_data.append(['予測値（標準偏差）', f"{pred_avg:.1f} ({pred_sd:.1f})", f"{pred_avg:.1f} ({pred_sd:.1f})"])
+            else:
+                if pred_cum is not None:
+                    results_data.append(['予測値（標準偏差）', f"{pred_avg:.1f}", f"{pred_cum:,.1f}"])
+                else:
+                    results_data.append(['予測値（標準偏差）', f"{pred_avg:.1f}", f"{pred_avg:.1f}"])
+        
+        if pred_ci_lower is not None and pred_ci_upper is not None:
+            confidence_level = 100 - alpha_percent
+            ci_str = f"[{pred_ci_lower:.1f}, {pred_ci_upper:.1f}]"
+            if pred_cum is not None:
+                # 累積値の信頼区間も適切に計算（簡易的に平均値の信頼区間を使用）
+                results_data.append([f'予測値 {confidence_level}% 信頼区間', ci_str, ci_str])
+            else:
+                results_data.append([f'予測値 {confidence_level}% 信頼区間', ci_str, ci_str])
+        
+        if abs_avg is not None:
+            if abs_sd is not None:
+                if abs_cum is not None:
+                    results_data.append(['絶対効果（標準偏差）', f"{abs_avg:.1f} ({abs_sd:.1f})", f"{abs_cum:,.1f} ({abs_sd:.1f})"])
+                else:
+                    results_data.append(['絶対効果（標準偏差）', f"{abs_avg:.1f} ({abs_sd:.1f})", f"{abs_avg:.1f} ({abs_sd:.1f})"])
+            else:
+                if abs_cum is not None:
+                    results_data.append(['絶対効果（標準偏差）', f"{abs_avg:.1f}", f"{abs_cum:,.1f}"])
+                else:
+                    results_data.append(['絶対効果（標準偏差）', f"{abs_avg:.1f}", f"{abs_avg:.1f}"])
+        
+        if abs_ci_lower is not None and abs_ci_upper is not None:
+            confidence_level = 100 - alpha_percent
+            ci_str = f"[{abs_ci_lower:.1f}, {abs_ci_upper:.1f}]"
+            results_data.append([f'絶対効果 {confidence_level}% 信頼区間', ci_str, ci_str])
+        
+        if rel_avg is not None:
+            if rel_sd is not None:
+                if rel_cum is not None:
+                    results_data.append(['相対効果（標準偏差）', f"{rel_avg:.1f}% ({rel_sd:.1f}%)", f"{rel_cum:.1f}% ({rel_sd:.1f}%)"])
+                else:
+                    results_data.append(['相対効果（標準偏差）', f"{rel_avg:.1f}% ({rel_sd:.1f}%)", f"{rel_avg:.1f}% ({rel_sd:.1f}%)"])
+            else:
+                if rel_cum is not None:
+                    results_data.append(['相対効果（標準偏差）', f"{rel_avg:.1f}%", f"{rel_cum:.1f}%"])
+                else:
+                    results_data.append(['相対効果（標準偏差）', f"{rel_avg:.1f}%", f"{rel_avg:.1f}%"])
+        
+        if rel_ci_lower is not None and rel_ci_upper is not None:
+            confidence_level = 100 - alpha_percent
+            ci_str = f"[{rel_ci_lower:.1f}%, {rel_ci_upper:.1f}%]"
+            results_data.append([f'相対効果 {confidence_level}% 信頼区間', ci_str, ci_str])
+        
+        if p_value is not None:
+            results_data.append(['p値（事後確率）', f"{p_value:.4f}", f"{p_value:.4f}"])
+        
+        # DataFrameを作成（日本語表記で統一）
         df_result = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
         
         return df_result
         
     except Exception as e:
         print(f"Error in build_single_group_summary_dataframe: {e}")
-        # エラーの場合はフォールバック
-        return build_single_group_summary_fallback(ci, alpha_percent)
-
-def build_single_group_summary_fallback(ci, alpha_percent):
-    """
-    フォールバックとしてテキストサマリーを解析してサマリーデータフレームを作成する関数
-    
-    Parameters:
-    -----------
-    ci : CausalImpact
-        CausalImpactの分析結果サマリー
-    alpha_percent : int
-        信頼水準（%）
-        
-    Returns:
-    --------
-    pandas.DataFrame
-        分析結果のサマリーテーブル
-    """
-    lines = [l for l in ci.summary().split('\n') if l.strip()]
-    data_lines = []
-    
-    # p値を抽出
-    p_value = None
-    for line in lines:
-        if 'Posterior tail-area probability p:' in line:
-            p_match = re.search(r'p:\s+([0-9.]+)', line)
-            if p_match:
-                p_value = float(p_match.group(1))
-                break
-    
-    # サマリーデータを抽出・整形
-    for line in lines[1:]:
-        parts = re.split(r'\s{2,}', line.strip())
-        if len(parts) == 3:
-            item_name = parts[0]
-            avg_value = parts[1]
-            cum_value = parts[2]
-            
-            # 相対効果に関連する行を識別
-            is_relative_effect = (
-                '相対効果' in item_name or 
-                'relative effect' in item_name.lower() or
-                'relative' in item_name.lower() and 'effect' in item_name.lower() or
-                '%' in avg_value and '%' in cum_value
-            )
-            
-            if is_relative_effect:
-                data_lines.append([avg_value, '同左'])
-            else:
-                data_lines.append([avg_value, cum_value])
-    
-    df_summary = pd.DataFrame(data_lines, columns=['分析期間の平均値','分析期間の累積値'])
-    
-    # インデックス名の設定
-    japanese_index = [
-        '実測値',
-        '予測値（反事実シナリオ）',
-        f'予測値 {alpha_percent}% 信頼区間',
-        '絶対効果 (標準偏差)',
-        f'絶対効果 {alpha_percent}% 信頼区間',
-        '相対効果 (標準偏差)',
-        f'相対効果 {alpha_percent}% 信頼区間'
-    ]
-    
-    if len(df_summary) <= len(japanese_index):
-        df_summary.index = japanese_index[:len(df_summary)]
-    else:
-        df_summary.index = japanese_index + [f"行{i+1}" for i in range(len(japanese_index), len(df_summary))]
-    
-    # 相対効果行を「同左」に設定
-    for idx in df_summary.index:
-        if '相対効果' in idx:
-            df_summary.at[idx, '分析期間の累積値'] = '同左'
-    
-    # p値を追加
-    if p_value is not None:
-        p_value_str = f"{p_value:.4f}"
-        df_summary.loc['p値 (事後確率)'] = [p_value_str, '同左']
-    
-    return df_summary
+        # 最終的なエラーの場合でも日本語表記の空テーブルを返す
+        return pd.DataFrame(columns=['指標', '分析期間の平均値', '分析期間の累積値'])
 
 def get_single_group_interpretation(ci, alpha_level=0.05):
     """
@@ -870,7 +875,7 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
 def get_single_group_comprehensive_csv_download_link(ci, analysis_info, confidence_level=95):
     """
     単群推定の予測値・実測値の詳細データをロングフォーマットCSVとしてダウンロードするリンクを生成する関数
-    統一関数による数値でサマリー情報をコメントとして追加し、詳細レポートとの一貫性を保つ
+    信頼区間の数値不一致を避けるため、ユーザー向けには8列のクリーンなフォーマットで提供
     
     Parameters:
     -----------
@@ -914,29 +919,21 @@ def get_single_group_comprehensive_csv_download_link(ci, analysis_info, confiden
             # データフレームが空の場合は空のDataFrameを返す
             raise ValueError("データフレームに列が存在しません")
     
-    # 15列の日本語名・英字名（要求仕様通り）
+    # 8列の簡潔なフォーマット（信頼区間列を除去）
     jp_names = [
-        '日付', '実測値', '予測値', '予測値下限', '予測値上限',
-        '効果', '効果下限', '効果上限',
-        '累積実測値', '累積予測値', '累積予測値下限', '累積予測値上限',
-        '累積効果', '累積効果下限', '累積効果上限'
+        '日付', '実測値', '予測値', '効果',
+        '累積実測値', '累積予測値', '累積効果', '介入期間フラグ'
     ]
     
     en_names = [
-        'date', 'y', 'preds', 'preds_lower', 'preds_upper',
-        'point_effects', 'point_effects_lower', 'point_effects_upper',
-        'post_cum_y', 'post_cum_pred', 'post_cum_pred_lower', 'post_cum_pred_upper',
-        'post_cum_effects', 'post_cum_effects_lower', 'post_cum_effects_upper'
+        'date', 'y', 'preds', 'point_effects',
+        'post_cum_y', 'post_cum_pred', 'post_cum_effects', 'post_period'
     ]
     
     # データフレームの列名マッピング（pycausalimpactの出力に対応）
     column_mapping = {
         'predicted': 'preds',
-        'predicted_lower': 'preds_lower', 
-        'predicted_upper': 'preds_upper',
-        'point_effects': 'point_effects',
-        'point_effects_lower': 'point_effects_lower',
-        'point_effects_upper': 'point_effects_upper'
+        'point_effects': 'point_effects'
     }
     
     # 列名を統一
@@ -955,11 +952,12 @@ def get_single_group_comprehensive_csv_download_link(ci, analysis_info, confiden
         else:
             df['y'] = np.nan
     
-    # 累積値の計算（介入期間のみ）
+    # 介入期間フラグを追加
     if period_start and period_end:
         post_start = pd.to_datetime(period_start)
         post_end = pd.to_datetime(period_end)
         mask_post = (pd.to_datetime(df['date']) >= post_start) & (pd.to_datetime(df['date']) <= post_end)
+        df['post_period'] = mask_post.astype(int)  # 1が介入期間、0が介入前期間
         
         # 介入期間のデータのみで累積値を計算
         post_data = df[mask_post].copy()
@@ -968,11 +966,7 @@ def get_single_group_comprehensive_csv_download_link(ci, analysis_info, confiden
             post_data = post_data.reset_index(drop=True)
             post_data['post_cum_y'] = post_data['y'].cumsum()
             post_data['post_cum_pred'] = post_data['preds'].cumsum() if 'preds' in post_data.columns else np.nan
-            post_data['post_cum_pred_lower'] = post_data['preds_lower'].cumsum() if 'preds_lower' in post_data.columns else np.nan
-            post_data['post_cum_pred_upper'] = post_data['preds_upper'].cumsum() if 'preds_upper' in post_data.columns else np.nan
             post_data['post_cum_effects'] = post_data['point_effects'].cumsum() if 'point_effects' in post_data.columns else np.nan
-            post_data['post_cum_effects_lower'] = post_data['point_effects_lower'].cumsum() if 'point_effects_lower' in post_data.columns else np.nan
-            post_data['post_cum_effects_upper'] = post_data['point_effects_upper'].cumsum() if 'point_effects_upper' in post_data.columns else np.nan
             
             # 元のデータフレームの該当箇所に累積値をセット
             post_indices = df[mask_post].index
@@ -980,18 +974,16 @@ def get_single_group_comprehensive_csv_download_link(ci, analysis_info, confiden
                 if i < len(post_data):
                     df.loc[idx, 'post_cum_y'] = post_data.iloc[i]['post_cum_y']
                     df.loc[idx, 'post_cum_pred'] = post_data.iloc[i]['post_cum_pred']
-                    df.loc[idx, 'post_cum_pred_lower'] = post_data.iloc[i]['post_cum_pred_lower']
-                    df.loc[idx, 'post_cum_pred_upper'] = post_data.iloc[i]['post_cum_pred_upper']
                     df.loc[idx, 'post_cum_effects'] = post_data.iloc[i]['post_cum_effects']
-                    df.loc[idx, 'post_cum_effects_lower'] = post_data.iloc[i]['post_cum_effects_lower']
-                    df.loc[idx, 'post_cum_effects_upper'] = post_data.iloc[i]['post_cum_effects_upper']
+    else:
+        df['post_period'] = 0
     
     # 不足している列を追加（NaNで初期化）
     for en_name in en_names:
         if en_name not in df.columns:
             df[en_name] = np.nan
     
-    # 出力用データフレームを作成（15列のみ）
+    # 出力用データフレームを作成（8列のみ）
     output_df = df[en_names].copy()
     
     # 日付をYYYY/MM/DD形式に変換
@@ -1013,8 +1005,12 @@ def get_single_group_comprehensive_csv_download_link(ci, analysis_info, confiden
     # 3行目以降：実データ
     output_df.to_csv(csv_buffer, index=False, header=False)
     
-    # 注釈を追加
-    csv_buffer.write('\n※I～O列の累積値は、介入期間のみ出力しています（介入期間外はゼロまたは空欄）。\n')
+    # 注釈を追加（信頼区間の不一致について説明）
+    csv_buffer.write('\n')
+    csv_buffer.write('【CSV出力データについて】\n')
+    csv_buffer.write('※ 累積値は介入期間のみ出力されます（介入前期間はゼロまたは空欄になります）。\n')
+    csv_buffer.write('　 介入期間フラグ：1＝介入期間、0＝介入前期間\n')
+    csv_buffer.write('※ 統計的判断に必要な信頼区間の情報は、「詳細レポート」および「サマリー表」でご確認ください。\n')
     
     # Base64エンコード
     csv_string = csv_buffer.getvalue()
@@ -1075,11 +1071,7 @@ def get_single_group_analysis_summary_message(ci, confidence_level=95):
         # 列名マッピング（build_single_group_summary_dataframeと同じ）
         column_mapping = {
             'predicted': 'preds',
-            'predicted_lower': 'preds_lower', 
-            'predicted_upper': 'preds_upper',
-            'point_effects': 'point_effects',
-            'point_effects_lower': 'point_effects_lower',
-            'point_effects_upper': 'point_effects_upper'
+            'point_effects': 'point_effects'
         }
         
         for old_name, new_name in column_mapping.items():

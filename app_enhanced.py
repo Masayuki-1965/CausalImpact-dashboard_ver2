@@ -2203,7 +2203,28 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                     st.markdown(
                         f"""
                         <a href="{pdf_href}" download="{pdf_filename}">
-                            <button style="width:100%;background-color:#ff4b4b;color:white;padding:0.5rem 1rem;border:none;border-radius:0.25rem;cursor:pointer;font-size:16px;font-weight:bold;">
+                            <button style="
+                                background:linear-gradient(90deg,#ff6b6b,#ee5a52);
+                                border:1px solid transparent;
+                                border-radius:0.5rem;
+                                color:white;
+                                cursor:pointer;
+                                font-family:'Source Sans Pro',sans-serif;
+                                font-size:1rem;
+                                font-weight:400;
+                                line-height:1.6;
+                                margin:0;
+                                padding:0.5rem 0.75rem;
+                                text-align:center;
+                                text-decoration:none;
+                                user-select:none;
+                                vertical-align:middle;
+                                width:100%;
+                                box-sizing:border-box;
+                                transition:all 0.2s;
+                            " 
+                            onmouseover="this.style.background='linear-gradient(90deg,#ff5252,#e53935)';"
+                            onmouseout="this.style.background='linear-gradient(90deg,#ff6b6b,#ee5a52)';">
                                 分析結果サマリーとグラフ（PDF）
                             </button>
                         </a>
@@ -2238,7 +2259,28 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                     st.markdown(
                         f"""
                         <a href="{csv_href}" download="{csv_filename}">
-                            <button style="width:100%;background-color:#ff4b4b;color:white;padding:0.5rem 1rem;border:none;border-radius:0.25rem;cursor:pointer;font-size:16px;font-weight:bold;">
+                            <button style="
+                                background:linear-gradient(90deg,#ff6b6b,#ee5a52);
+                                border:1px solid transparent;
+                                border-radius:0.5rem;
+                                color:white;
+                                cursor:pointer;
+                                font-family:'Source Sans Pro',sans-serif;
+                                font-size:1rem;
+                                font-weight:400;
+                                line-height:1.6;
+                                margin:0;
+                                padding:0.5rem 0.75rem;
+                                text-align:center;
+                                text-decoration:none;
+                                user-select:none;
+                                vertical-align:middle;
+                                width:100%;
+                                box-sizing:border-box;
+                                transition:all 0.2s;
+                            " 
+                            onmouseover="this.style.background='linear-gradient(90deg,#ff5252,#e53935)';"
+                            onmouseout="this.style.background='linear-gradient(90deg,#ff6b6b,#ee5a52)';">
                                 予測値・実測値の詳細データ（CSV）
                             </button>
                         </a>
