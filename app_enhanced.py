@@ -783,8 +783,8 @@ if st.session_state.get('data_loaded', False):
             preview_df_treat = df_treat[['ymd', 'qty']].head(10).copy()
             preview_df_treat['ymd'] = preview_df_treat['ymd'].dt.strftime('%Y-%m-%d')
             
-            # 単群推定のカラム名を適切に表示（省略幅は小さめ）
-            treatment_display_name = truncate_text_for_display(treatment_name, max_length=18)
+            # 単群推定のカラム名を適切に表示（省略幅を統一）
+            treatment_display_name = truncate_text_for_display(treatment_name, max_length=16)
             preview_df_treat = preview_df_treat.rename(columns={'qty': f'処置群（{treatment_display_name}）'})
             
             preview_df_treat.index = range(1, len(preview_df_treat) + 1)
@@ -1050,14 +1050,18 @@ if st.session_state.get('data_loaded', False):
                 preview_dataset = dataset.head(10).copy()
                 preview_dataset['ymd'] = preview_dataset['ymd'].dt.strftime('%Y-%m-%d')
                 
-                # データセットの実際のカラム名を使用し、省略して表示
+                # データセットのカラム名を統一された省略幅で表示
                 original_columns = preview_dataset.columns.tolist()
                 truncated_columns = {}
                 for col in original_columns:
                     if col != 'ymd':
-                        # 単群推定の場合は省略幅を小さめに
-                        max_length = 18 if current_analysis_type == "単群推定（処置群のみを使用）" else 12
-                        truncated_col = truncate_text_for_display(col, max_length=max_length)
+                        if current_analysis_type == "単群推定（処置群のみを使用）":
+                            # 単群推定の場合：データ読み込み直後と同じ表示形式
+                            treatment_display_name = truncate_text_for_display(treatment_name, max_length=16)
+                            truncated_col = f'処置群（{treatment_display_name}）'
+                        else:
+                            # 二群比較の場合：既存のロジック
+                            truncated_col = truncate_text_for_display(col, max_length=12)
                         truncated_columns[col] = truncated_col
                         preview_dataset = preview_dataset.rename(columns={col: truncated_col})
                 
@@ -1085,9 +1089,14 @@ if st.session_state.get('data_loaded', False):
                 
                 stats_df = pd.DataFrame(stats_data).T
                 
-                # カラム名を省略（分析タイプに応じて省略幅を調整）
-                max_length_stats = 18 if current_analysis_type == "単群推定（処置群のみを使用）" else 12
-                truncated_stats_columns = [truncate_text_for_display(col, max_length=max_length_stats) for col in numeric_columns]
+                # カラム名を省略（分析タイプに応じて統一された省略幅）
+                if current_analysis_type == "単群推定（処置群のみを使用）":
+                    # 単群推定の場合：データ読み込み直後と同じ表示形式
+                    treatment_display_name = truncate_text_for_display(treatment_name, max_length=16)
+                    truncated_stats_columns = [f'処置群（{treatment_display_name}）']
+                else:
+                    # 二群比較の場合：既存のロジック
+                    truncated_stats_columns = [truncate_text_for_display(col, max_length=12) for col in numeric_columns]
                 stats_df.columns = truncated_stats_columns
                 stats_df.index = ['count（個数）', 'mean（平均）', 'std（標準偏差）', 'min（最小値）', '25%（第1四分位数）', '50%（中央値）', '75%（第3四分位数）', 'max（最大値）']
                 stats_df.insert(0, '統計項目', stats_df.index)
@@ -1846,8 +1855,14 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
         data_granularity = f"{freq_option}集計"
         
         # 分析条件を中項目として表示（一部を横並びに）
-        # 分析対象（中項目） - ファイル名が長い場合は省略
-        analysis_target_display = analysis_target if len(analysis_target) <= 50 else analysis_target[:47] + "..."
+        # 分析対象（中項目） - グラフ表示と統一して20文字に省略
+        if current_analysis_type == "単群推定（処置群のみを使用）":
+            analysis_target_display = truncate_text_for_display(analysis_target, max_length=30)
+        else:
+            # 二群比較の場合はグラフ表示と統一
+            treatment_display_name = truncate_text_for_display(treatment_name, max_length=20)
+            control_display_name = truncate_text_for_display(control_name, max_length=20)
+            analysis_target_display = f"{treatment_display_name}（vs {control_display_name}）"
         st.markdown(f'<div style="margin-bottom:0.8em;"><span style="font-weight:bold;font-size:1.05em;">分析対象：</span><span style="color:#424242;">{analysis_target_display}</span></div>', unsafe_allow_html=True)
         
         # 分析期間（データ粒度を統合）
