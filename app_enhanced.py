@@ -757,16 +757,16 @@ if st.session_state.get('data_loaded', False):
         # 二群比較の場合（処置群 + 対照群）
         col1, col2 = st.columns(2)
         with col1:
-            # 処置群名を省略
-            treatment_display_name = truncate_text_for_display(treatment_name, max_length=20)
+            # 処置群名を省略（二群比較では省略幅をやや大きめに）
+            treatment_display_name = truncate_text_for_display(treatment_name, max_length=15)
             st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_display_name}）</div>', unsafe_allow_html=True)
             preview_df_treat = df_treat[['ymd', 'qty']].head(10).copy()
             preview_df_treat['ymd'] = preview_df_treat['ymd'].dt.strftime('%Y-%m-%d')
             preview_df_treat.index = range(1, len(preview_df_treat) + 1)
             st.dataframe(preview_df_treat, use_container_width=True)
         with col2:
-            # 対照群名を省略
-            control_display_name = truncate_text_for_display(control_name, max_length=20)
+            # 対照群名を省略（二群比較では省略幅をやや大きめに）
+            control_display_name = truncate_text_for_display(control_name, max_length=15)
             st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群（{control_display_name}）</div>', unsafe_allow_html=True)
             preview_df_ctrl = df_ctrl[['ymd', 'qty']].head(10).copy()
             preview_df_ctrl['ymd'] = preview_df_ctrl['ymd'].dt.strftime('%Y-%m-%d')
@@ -782,12 +782,21 @@ if st.session_state.get('data_loaded', False):
             st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">データプレビュー（上位10件表示）</div>', unsafe_allow_html=True)
             preview_df_treat = df_treat[['ymd', 'qty']].head(10).copy()
             preview_df_treat['ymd'] = preview_df_treat['ymd'].dt.strftime('%Y-%m-%d')
+            
+            # 単群推定のカラム名を適切に表示（省略幅は小さめ）
+            treatment_display_name = truncate_text_for_display(treatment_name, max_length=18)
+            preview_df_treat = preview_df_treat.rename(columns={'qty': f'処置群（{treatment_display_name}）'})
+            
             preview_df_treat.index = range(1, len(preview_df_treat) + 1)
             st.dataframe(preview_df_treat, use_container_width=True)
         with col2:
             st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">統計情報</div>', unsafe_allow_html=True)
             if 'qty' in df_treat.columns:
+                # 統計情報も同じ省略幅で表示
                 stats_treat = format_stats_with_japanese(df_treat[['qty']])
+                # format_stats_with_japanese関数は2列（統計項目、数値）を返すため、数値列のみ名前変更
+                if len(stats_treat.columns) == 2:
+                    stats_treat.columns = ['統計項目', f'処置群（{treatment_display_name}）']
                 st.dataframe(stats_treat, use_container_width=True, hide_index=True)
             else:
                 st.error("データに 'qty' カラムが見つかりません")
@@ -806,8 +815,8 @@ if st.session_state.get('data_loaded', False):
         # 二群比較の統計情報表示
         col1, col2 = st.columns(2)
         with col1:
-            # 処置群名を省略
-            treatment_display_name = truncate_text_for_display(treatment_name, max_length=20)
+            # 処置群名を省略（二群比較では省略幅をやや大きめに）
+            treatment_display_name = truncate_text_for_display(treatment_name, max_length=15)
             st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">処置群（{treatment_display_name}）</div>', unsafe_allow_html=True)
             if 'qty' in df_treat.columns:
                 stats_treat = format_stats_with_japanese(df_treat[['qty']])
@@ -816,8 +825,8 @@ if st.session_state.get('data_loaded', False):
                 st.error("データに 'qty' カラムが見つかりません")
                 
         with col2:
-            # 対照群名を省略
-            control_display_name = truncate_text_for_display(control_name, max_length=20)
+            # 対照群名を省略（二群比較では省略幅をやや大きめに）
+            control_display_name = truncate_text_for_display(control_name, max_length=15)
             st.markdown(f'<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">対照群（{control_display_name}）</div>', unsafe_allow_html=True)
             if 'qty' in df_ctrl.columns:
                 stats_ctrl = format_stats_with_japanese(df_ctrl[['qty']])
@@ -1036,20 +1045,24 @@ if st.session_state.get('data_loaded', False):
             col1, col2 = st.columns(2)
             with col1:
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">データプレビュー（上位10件表示）</div>', unsafe_allow_html=True)
-                preview_df_treat = df_treat[['ymd', 'qty']].head(10).copy()
-                preview_df_treat['ymd'] = preview_df_treat['ymd'].dt.strftime('%Y-%m-%d')
                 
-                # カラム名を省略
-                original_columns = preview_df_treat.columns.tolist()
+                # データセットから実際のカラム名を取得してプレビュー表示
+                preview_dataset = dataset.head(10).copy()
+                preview_dataset['ymd'] = preview_dataset['ymd'].dt.strftime('%Y-%m-%d')
+                
+                # データセットの実際のカラム名を使用し、省略して表示
+                original_columns = preview_dataset.columns.tolist()
                 truncated_columns = {}
                 for col in original_columns:
                     if col != 'ymd':
-                        truncated_col = truncate_text_for_display(col, max_length=14)
+                        # 単群推定の場合は省略幅を小さめに
+                        max_length = 18 if current_analysis_type == "単群推定（処置群のみを使用）" else 12
+                        truncated_col = truncate_text_for_display(col, max_length=max_length)
                         truncated_columns[col] = truncated_col
-                        preview_df_treat = preview_df_treat.rename(columns={col: truncated_col})
+                        preview_dataset = preview_dataset.rename(columns={col: truncated_col})
                 
-                preview_df_treat.index = range(1, len(preview_df_treat) + 1)
-                st.dataframe(preview_df_treat, use_container_width=True)
+                preview_dataset.index = range(1, len(preview_dataset) + 1)
+                st.dataframe(preview_dataset, use_container_width=True)
                             
             with col2:
                 st.markdown('<div style="font-weight:bold;margin-bottom:0.5em;font-size:1.05em;">統計情報</div>', unsafe_allow_html=True)
@@ -1072,8 +1085,9 @@ if st.session_state.get('data_loaded', False):
                 
                 stats_df = pd.DataFrame(stats_data).T
                 
-                # カラム名を省略
-                truncated_stats_columns = [truncate_text_for_display(col, max_length=14) for col in numeric_columns]
+                # カラム名を省略（分析タイプに応じて省略幅を調整）
+                max_length_stats = 18 if current_analysis_type == "単群推定（処置群のみを使用）" else 12
+                truncated_stats_columns = [truncate_text_for_display(col, max_length=max_length_stats) for col in numeric_columns]
                 stats_df.columns = truncated_stats_columns
                 stats_df.index = ['count（個数）', 'mean（平均）', 'std（標準偏差）', 'min（最小値）', '25%（第1四分位数）', '50%（中央値）', '75%（第3四分位数）', 'max（最大値）']
                 stats_df.insert(0, '統計項目', stats_df.index)

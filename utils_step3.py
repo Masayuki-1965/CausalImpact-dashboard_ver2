@@ -1212,8 +1212,8 @@ def get_metrics_explanation_table():
 <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
 <thead>
 <tr style="background-color:#f8f9fa;">
-<th style="border:1px solid #dee2e6;padding:6px;text-align:left;font-weight:bold;width:30%;">指標名</th>
-<th style="border:1px solid #dee2e6;padding:6px;text-align:left;font-weight:bold;width:70%;">意味</th>
+<th style="border:1px solid #dee2e6;padding:6px;text-align:left;font-weight:bold;width:20%;">指標名</th>
+<th style="border:1px solid #dee2e6;padding:6px;text-align:left;font-weight:bold;width:80%;">意味</th>
 </tr>
 </thead>
 <tbody>
