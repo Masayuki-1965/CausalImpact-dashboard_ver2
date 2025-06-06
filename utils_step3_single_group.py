@@ -760,25 +760,6 @@ def get_single_group_interpretation(ci, alpha_level=0.05):
 def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, confidence_level=95):
     """
     単群推定の分析結果の包括的PDFレポートを生成してダウンロードリンクを返す関数
-    統一関数による数値でサマリーテーブルを更新し、詳細レポートとの一貫性を保つ
-    
-    Parameters:
-    -----------
-    ci : CausalImpact
-        CausalImpactオブジェクト
-    analysis_info : dict
-        分析情報辞書
-    summary_df : pandas.DataFrame
-        分析結果概要テーブル
-    fig : matplotlib.figure.Figure
-        分析結果グラフ
-    confidence_level : int
-        信頼水準（95等）
-        
-    Returns:
-    --------
-    href, filename : str, str
-        ダウンロードリンクのbase64データとファイル名
     """
     try:
         # 統一関数によるサマリーテーブルで更新
@@ -813,54 +794,38 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
     # スタイル設定
     styles = getSampleStyleSheet()
     
-    # フォント設定（日本語対応のためフォールバック）
+    # フォント設定
     try:
-        # Windowsの場合
-        font_path = "C:/Windows/Fonts/NotoSansCJK-Regular.ttc"
-        pdfmetrics.registerFont(TTFont('NotoSansCJK', font_path))
-        font_name = 'NotoSansCJK'
+        font_path = "C:/Windows/Fonts/msgothic.ttc"
+        pdfmetrics.registerFont(TTFont('MSGothic', font_path))
+        font_name = 'MSGothic'
     except:
-        try:
-            # 代替フォント
-            font_path = "C:/Windows/Fonts/msgothic.ttc"
-            pdfmetrics.registerFont(TTFont('MSGothic', font_path))
-            font_name = 'MSGothic'
-        except:
-            # フォールバック：英語フォント
-            font_name = 'Helvetica'
+        font_name = 'Helvetica'
     
-    # カスタムスタイル
+    # カスタムスタイル（1ページ収容のため行間を詰める）
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Title'],
         fontName=font_name,
-        fontSize=12,  # 14→12に縮小
-        alignment=1,  # 中央揃え
-        spaceAfter=8   # 12→8に縮小
+        fontSize=15,
+        alignment=1,
+        spaceAfter=6
     )
     
     heading_style = ParagraphStyle(
         'CustomHeading',
         parent=styles['Heading1'],
         fontName=font_name,
-        fontSize=10,  # 11→10に縮小
-        spaceAfter=4   # 6→4に縮小
-    )
-    
-    subtitle_style = ParagraphStyle(
-        'CustomSubtitle',
-        parent=styles['Heading2'],
-        fontName=font_name,
-        fontSize=8,   # 9→8に縮小
-        spaceAfter=3  # 5→3に縮小
+        fontSize=11,
+        spaceAfter=2
     )
     
     normal_style = ParagraphStyle(
         'CustomNormal',
         parent=styles['Normal'],
         fontName=font_name,
-        fontSize=7,   # 8→7に縮小
-        spaceAfter=2  # 3→2に縮小
+        fontSize=8,
+        spaceAfter=1
     )
     
     # PDF内容を構築
@@ -868,96 +833,83 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
     
     # タイトル
     story.append(Paragraph('Causal Impact分析レポート（単群推定）', title_style))
-    story.append(Spacer(1, 4))  # 8→4に縮小
+    story.append(Spacer(1, 6))
     
-    # 分析条件
-    if font_name == 'Helvetica':
-        story.append(Paragraph("Analysis Conditions", subtitle_style))
-    else:
-        story.append(Paragraph("分析条件", subtitle_style))
+    # ■分析対象と条件（見出し直下の空白行削除）
+    story.append(Paragraph('■分析対象と条件', heading_style))
     
     # analysis_info辞書から必要な情報を取得
     treatment_name = analysis_info.get('treatment_name', '分析対象')
     period_start = analysis_info.get('period_start')
     period_end = analysis_info.get('period_end')
+    freq_option = analysis_info.get('freq_option', '')
     
-    conditions_text = []
-    if font_name == 'Helvetica':
-        conditions_text.append(f"Analysis Target: {treatment_name}")
-        conditions_text.append(f"Analysis Period: {period_start.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')}")
-        conditions_text.append(f"Method: Single Group Causal Impact")
-        conditions_text.append(f"Confidence Level: {confidence_level}%")
-    else:
-        conditions_text.append(f"分析対象：{treatment_name}")
-        conditions_text.append(f"分析期間：{period_start.strftime('%Y年%m月%d日')} ～ {period_end.strftime('%Y年%m月%d日')}")
-        conditions_text.append(f"分析手法：単群推定Causal Impact")
-        conditions_text.append(f"信頼水準：{confidence_level}%")
+    # データの件数を算出
+    total_data_count = len(summary_df) if summary_df is not None else 0
     
-    for text in conditions_text:
-        story.append(Paragraph(text, normal_style))
-    story.append(Spacer(1, 6))  # 8→6に縮小
+    # 分析条件を記載
+    story.append(Paragraph(f'　分析対象：　{treatment_name}', normal_style))
     
-    # 分析結果サマリー
-    story.append(Paragraph('分析結果サマリー', heading_style))
+    if period_start and period_end:
+        story.append(Paragraph(f'　分析期間：　{period_start.strftime("%Y-%m-%d")} ～ {period_end.strftime("%Y-%m-%d")}（{total_data_count}件）（{freq_option}）', normal_style))
     
-    # 分析結果概要テーブル
-    story.append(Paragraph('分析結果概要：', heading_style))
+    story.append(Paragraph(f'　分析手法：　単群推定（Single Group Causal Impact）（信頼水準：{confidence_level}%）', normal_style))
+    story.append(Spacer(1, 6))
     
-    # サマリーテーブルをPDF用に変換
-    table_data = []
-    for index, row in summary_df.iterrows():
-        table_data.append([str(row[col]) for col in summary_df.columns])
+    # ■分析結果サマリー（見出し前に空白行を追加）
+    story.append(Spacer(1, 6))
+    story.append(Paragraph('■分析結果サマリー', heading_style))
     
-    # ヘッダーを追加
-    headers = [str(col) for col in summary_df.columns]
-    table_data.insert(0, headers)
+    # サマリーテーブルを表示（横幅をグラフに合わせて拡大）
+    if summary_df is not None and not summary_df.empty:
+        table_data = []
+        # ヘッダーを追加
+        headers = [str(col) for col in summary_df.columns]
+        table_data.append(headers)
+        
+        # データ行を追加
+        for index, row in summary_df.iterrows():
+            table_data.append([str(row[col]) for col in summary_df.columns])
+        
+        # テーブル作成（グラフ横幅420に合わせて拡大）
+        table = Table(table_data, repeatRows=1, colWidths=[120, 120, 120])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, -1), font_name),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(table)
+        story.append(Spacer(1, 4))
     
-    # テーブル作成（よりコンパクトに）
-    table = Table(table_data, repeatRows=1)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, -1), font_name),
-        ('FONTSIZE', (0, 0), (-1, -1), 7),  # 8→7に縮小
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # 8→4に縮小
-        ('TOPPADDING', (0, 0), (-1, -1), 4),  # デフォルト→4に設定
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ]))
-    
-    story.append(table)
-    story.append(Spacer(1, 6))  # 8→6に縮小
-    
-    # 分析レポートまとめメッセージ（単群推定用）
+    # メッセージ（「メッセージ：」削除、1行表示）
     summary_message = get_single_group_analysis_summary_message(ci, confidence_level)
     if summary_message:
         story.append(Paragraph(summary_message, normal_style))
-    else:
-        # フォールバック用メッセージ
-        story.append(Paragraph("分析が完了しました。詳細はレポートを参照ください。", normal_style))
-    story.append(Spacer(1, 8))  # 12→8に縮小
+    story.append(Spacer(1, 6))
+    
+    # ■分析結果グラフ（見出し前に空白行を追加）
+    story.append(Spacer(1, 6))
+    story.append(Paragraph('■分析結果グラフ', heading_style))
     
     # グラフを画像として挿入
-    story.append(Paragraph('分析結果グラフ', heading_style))
-    
-    # グラフタイトル・サブタイトルは削除（ユーザー要求通り）
-    story.append(Spacer(1, 2))  # 4→2に縮小
-    
-    # MatplotlibのグラフをPDFに変換
     img_buffer = io.BytesIO()
     fig.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
     img_buffer.seek(0)
     
-    # 画像をPDFに挿入（さらにサイズをコンパクトに）
-    img = Image(img_buffer, width=360, height=240)  # 400×260→360×240に縮小
+    img = Image(img_buffer, width=420, height=280)
     story.append(img)
-    story.append(Spacer(1, 4))  # 8→4に縮小
+    story.append(Spacer(1, 4))
     
-    # グラフの見方（単群推定用）
-    graph_explanation = "実測データ（黒線）と介入前トレンドから推定した予測データ（青線）の比較により介入効果を評価。影の部分は予測の不確実性を示す信頼区間。介入前データのパターンを学習し、反事実シナリオを推定。"
-    
-    story.append(Paragraph(f"グラフの見方：{graph_explanation}", normal_style))
+    # グラフの見方
+    graph_explanation = "　グラフの見方：実測データ（黒線）と予測データ（青線）の比較により介入効果を評価。影の部分は予測の不確実性を示す信頼区間。対照群がないため、外部要因の影響に注意が必要。"
+    story.append(Paragraph(graph_explanation, normal_style))
     
     # PDFを構築
     doc.build(story)
