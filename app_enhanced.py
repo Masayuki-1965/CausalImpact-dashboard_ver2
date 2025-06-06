@@ -2308,13 +2308,6 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
         st.info("これでCausal Impactの分析は終了です。新たなデータで再度分析を行う場合は、画面左上の更新ボタン（⟳）をクリックするか、Ctrl＋Rを押して、STEP 1 のデータの取り込みから再実行してください。")
 
 st.markdown("---")
-st.markdown("### 🚧 開発進捗")
-st.markdown("**処置群のみ分析機能**の実装進捗：")
-st.markdown("""
-- ✅ 処置群のみデータの取り込み機能
-- ✅ 介入ポイント自動推奨機能  
-- ✅ 期間設定・パラメータ設定機能
-- ✅ 分析実行機能（Phase 3.1完了）
-- 🔄 結果表示機能（Phase 3.2実装中）
-- 🔄 ダウンロード機能（Phase 3.3実装予定）
-""") 
+st.markdown("**Causal Impact分析アプリケーション**をご利用いただき、ありがとうございました。")
+st.markdown("分析結果がお役に立てば幸いです。")
+st.markdown("</div>", unsafe_allow_html=True) 
