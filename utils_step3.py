@@ -405,7 +405,7 @@ def get_detail_csv_download_link(ci, period, treatment_name):
 
 def build_unified_summary_table(ci, confidence_level=95):
     """
-    CausalImpactのsummary()出力を直接使用して統一した分析結果テーブルを生成する関数
+    CausalImpactのsummary()出力を直接使用して統一した分析結果テーブルを生成する関数（多言語対応）
     詳細レポート、分析結果概要、CSV出力で同じ数値を使用して一貫性を保つ
     
     Parameters:
@@ -424,6 +424,27 @@ def build_unified_summary_table(ci, confidence_level=95):
         import pandas as pd
         import numpy as np
         import re
+        
+        # 多言語対応コンテンツの取得
+        try:
+            from config.pdf_templates import get_pdf_content
+            from config.font_config import is_japanese_font_available
+            use_japanese = is_japanese_font_available()
+            content = get_pdf_content(use_japanese)
+        except:
+            # フォールバック（日本語）
+            content = {
+                'table_actual': '実測値',
+                'table_predicted': '予測値',
+                'table_predicted_ci': f'予測値 {confidence_level}% 信頼区間',
+                'table_absolute_effect': '絶対効果',
+                'table_relative_effect': '相対効果',
+                'table_p_value': 'p値',
+                'table_indicator': '指標',
+                'table_avg_analysis_period': '分析期間の平均値',
+                'table_total_analysis_period': '分析期間の累積値'
+            }
+            use_japanese = True
         
         # CausalImpactのsummary_dataから直接取得（より確実）
         if hasattr(ci, 'summary_data') and ci.summary_data is not None:
@@ -444,14 +465,14 @@ def build_unified_summary_table(ci, confidence_level=95):
                 except:
                     pass
             
-            # 項目を順番に処理（シンプルな構成）
+            # 項目を順番に処理（多言語対応）
             
             # 1. 実測値
             for index_name in summary_data.index:
                 if 'actual' in str(index_name).lower():
                     avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
                     cum_val = summary_data.loc[index_name, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[index_name].iloc[1]
-                    results_data.append(['実測値', f"{avg_val:.1f}", f"{cum_val:.1f}"])
+                    results_data.append([content['table_actual'], f"{avg_val:.1f}", f"{cum_val:.1f}"])
                     break
             
             # 2. 予測値
@@ -459,7 +480,7 @@ def build_unified_summary_table(ci, confidence_level=95):
                 if ('predicted' in str(index_name).lower() or 'prediction' in str(index_name).lower()) and 'lower' not in str(index_name).lower() and 'upper' not in str(index_name).lower():
                     avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
                     cum_val = summary_data.loc[index_name, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[index_name].iloc[1]
-                    results_data.append(['予測値', f"{avg_val:.1f}", f"{cum_val:.1f}"])
+                    results_data.append([content['table_predicted'], f"{avg_val:.1f}", f"{cum_val:.1f}"])
                     break
             
             # 3. 予測値信頼区間（予測値のすぐ下に配置）
@@ -476,14 +497,15 @@ def build_unified_summary_table(ci, confidence_level=95):
                 upper_avg = summary_data.loc[pred_upper, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[pred_upper].iloc[0]
                 lower_cum = summary_data.loc[pred_lower, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[pred_lower].iloc[1]
                 upper_cum = summary_data.loc[pred_upper, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[pred_upper].iloc[1]
-                results_data.append([f'予測値 {confidence_level}% 信頼区間', f"[{lower_avg:.1f}, {upper_avg:.1f}]", f"[{lower_cum:.1f}, {upper_cum:.1f}]"])
+                ci_label = content['table_predicted_ci'].format(confidence_level)
+                results_data.append([ci_label, f"[{lower_avg:.1f}, {upper_avg:.1f}]", f"[{lower_cum:.1f}, {upper_cum:.1f}]"])
             
             # 4. 絶対効果
             for index_name in summary_data.index:
                 if ('abseffect' in str(index_name).lower() or 'abs_effect' in str(index_name).lower() or 'absolute' in str(index_name).lower()) and 'lower' not in str(index_name).lower() and 'upper' not in str(index_name).lower():
                     avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
                     cum_val = summary_data.loc[index_name, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[index_name].iloc[1]
-                    results_data.append(['絶対効果', f"{avg_val:.1f}", f"{cum_val:.1f}"])
+                    results_data.append([content['table_absolute_effect'], f"{avg_val:.1f}", f"{cum_val:.1f}"])
                     break
             
             # 5. 相対効果
@@ -492,15 +514,20 @@ def build_unified_summary_table(ci, confidence_level=95):
                     avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
                     # %変換
                     rel_pct = avg_val * 100 if abs(avg_val) < 10 else avg_val
-                    results_data.append(['相対効果', f"{rel_pct:.1f}%", f"{rel_pct:.1f}%"])
+                    results_data.append([content['table_relative_effect'], f"{rel_pct:.1f}%", f"{rel_pct:.1f}%"])
                     break
             
             # 6. p値
             if p_value is not None:
-                results_data.append(['p値', f"{p_value:.4f}", f"{p_value:.4f}"])
+                results_data.append([content['table_p_value'], f"{p_value:.4f}", f"{p_value:.4f}"])
             
-            # DataFrameを作成
-            df_result = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+            # DataFrameを作成（多言語対応）
+            columns = [
+                content['table_indicator'],
+                content['table_avg_analysis_period'], 
+                content['table_total_analysis_period']
+            ]
+            df_result = pd.DataFrame(results_data, columns=columns)
             
             return df_result
         
@@ -515,11 +542,32 @@ def build_unified_summary_table(ci, confidence_level=95):
 
 def build_two_group_text_based_summary_table(ci, confidence_level=95):
     """
-    二群比較のCausalImpactのテキスト出力を解析して日本語表記のテーブルを生成
+    二群比較のCausalImpactのテキスト出力を解析してテーブルを生成（多言語対応）
     """
     try:
         import pandas as pd
         import re
+        
+        # 多言語対応コンテンツの取得
+        try:
+            from config.pdf_templates import get_pdf_content
+            from config.font_config import is_japanese_font_available
+            use_japanese = is_japanese_font_available()
+            content = get_pdf_content(use_japanese)
+        except:
+            # フォールバック（日本語）
+            content = {
+                'table_actual': '実測値',
+                'table_predicted': '予測値',
+                'table_predicted_ci': f'予測値 {confidence_level}% 信頼区間',
+                'table_absolute_effect': '絶対効果',
+                'table_relative_effect': '相対効果',
+                'table_p_value': 'p値',
+                'table_indicator': '指標',
+                'table_avg_analysis_period': '分析期間の平均値',
+                'table_total_analysis_period': '分析期間の累積値'
+            }
+            use_japanese = True
         
         # CausalImpactのsummary()を取得
         summary_text = str(ci.summary())
@@ -536,7 +584,7 @@ def build_two_group_text_based_summary_table(ci, confidence_level=95):
                     p_value = float(p_match.group(1))
                     break
         
-        # テキスト解析で確実な日本語化
+        # テキスト解析で多言語対応変換
         for line in lines[1:]:  # ヘッダー行をスキップ
             if not line.strip():
                 continue
@@ -547,27 +595,27 @@ def build_two_group_text_based_summary_table(ci, confidence_level=95):
                 avg_value = parts[1] if len(parts) > 1 else ""
                 cum_value = parts[2] if len(parts) > 2 else avg_value
                 
-                # 完全な英語→日本語変換辞書
+                # 多言語対応変換辞書
                 translation_dict = {
-                    'Actual': '実測値',
-                    'Predicted': '予測値（標準偏差）',
-                    'AbsEffect': '絶対効果（標準偏差）',
-                    'RelEffect': '相対効果（標準偏差）'
+                    'Actual': content['table_actual'],
+                    'Predicted': content['table_predicted'],
+                    'AbsEffect': content['table_absolute_effect'],
+                    'RelEffect': content['table_relative_effect']
                 }
                 
-                jp_name = translation_dict.get(item_name, item_name)
+                translated_name = translation_dict.get(item_name, item_name)
                 
                 # CI行の判定と変換
                 if '95% CI' in line or 'CI' in item_name:
                     if 'Predicted' in line or 'predicted' in item_name.lower():
-                        jp_name = f'予測値 {confidence_level}% 信頼区間'
+                        translated_name = content['table_predicted_ci'].format(confidence_level)
                     elif 'AbsEffect' in line or 'abs' in item_name.lower():
-                        jp_name = f'絶対効果 {confidence_level}% 信頼区間'
+                        translated_name = f"{content['table_absolute_effect']} {confidence_level}% {'信頼区間' if use_japanese else 'CI'}"
                     elif 'RelEffect' in line or 'rel' in item_name.lower():
-                        jp_name = f'相対効果 {confidence_level}% 信頼区間'
+                        translated_name = f"{content['table_relative_effect']} {confidence_level}% {'信頼区間' if use_japanese else 'CI'}"
                 
                 # 相対効果の%変換
-                if 'rel' in jp_name.lower() or '相対効果' in jp_name:
+                if 'rel' in translated_name.lower() or '相対効果' in translated_name or 'relative' in translated_name.lower():
                     if '[' in avg_value and ']' in avg_value and '%' not in avg_value:
                         # 信頼区間の%変換
                         matches = re.findall(r'[-+]?[0-9]*\.?[0-9]+', avg_value)
@@ -584,14 +632,19 @@ def build_two_group_text_based_summary_table(ci, confidence_level=95):
                         except:
                             pass
                 
-                results_data.append([jp_name, avg_value, cum_value])
+                results_data.append([translated_name, avg_value, cum_value])
         
         # p値を追加
         if p_value is not None:
-            results_data.append(['p値', f"{p_value:.4f}", f"{p_value:.4f}"])
+            results_data.append([content['table_p_value'], f"{p_value:.4f}", f"{p_value:.4f}"])
         
-        # DataFrameを作成
-        df_result = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+        # DataFrameを作成（多言語対応）
+        columns = [
+            content['table_indicator'],
+            content['table_avg_analysis_period'], 
+            content['table_total_analysis_period']
+        ]
+        df_result = pd.DataFrame(results_data, columns=columns)
         
         return df_result
         
