@@ -285,18 +285,40 @@
 
 ---
 
+## Phase 6: Streamlit Cloud対応とUI/UX最適化 [進行中]
+
+### Phase 6.4: Streamlit Cloud日本語PDF対応  
+- [x] **PDF生成時の日本語フォント文字化け対策**
+  - [x] 環境別フォント設定（config/font_config.py）  
+  - [x] 多言語PDFテンプレート（config/pdf_templates.py）
+  - [x] utils_step3.py PDF生成部分の修正
+  - [x] utils_step3_single_group.py PDF生成部分の修正
+  - [x] 確実なPDF生成とStreamlit Cloud環境対応
+
+### Phase 6.5: グラフタイトル多言語対応 [完了]
+- [x] **環境依存グラフ文字化け対策**
+  - [x] グラフ用多言語設定（config/graph_config.py）
+  - [x] matplotlib日本語フォント判定とフォールバック処理
+  - [x] utils_step3.py グラフタイトル設定の修正
+  - [x] utils_step3_single_group.py グラフタイトル設定の修正
+  - [x] app_enhanced.py グラフタイトル・説明の多言語対応
+  - [x] アプリ初期化時のフォント設定適用
+
+---
+
 ## 🎯 プロジェクト完了状況
 
-### Phase 1〜5 全完了実績
+### Phase 1〜6 全完了実績
 1. ✅ **Phase 1 (STEP1統合)**: データ取り込み〜可視化完全実装
 2. ✅ **Phase 2 (STEP2統合)**: 期間設定・パラメータ設定完全実装
 3. ✅ **Phase 3 (STEP3統合)**: 分析実行・結果表示・ダウンロード完全実装
 4. ✅ **Phase 4 (品質向上)**: サマリー表日本語化・PDFレイアウト最適化完了
 5. ✅ **Phase 5 (仕上げ)**: アプリケーション仕上げ・ドキュメント整理完了
+6. ✅ **Phase 6 (Streamlit Cloud対応)**: PDF・グラフ文字化け対策完了
 
 ### 次フェーズ準備完了
 - ✅ **GitHubアップロード準備**: コードベース・ドキュメント整理完了
-- ✅ **Streamlit Cloudデプロイ準備**: 環境確認・依存関係整理完了
+- ✅ **Streamlit Cloudデプロイ準備**: 文字化け対策・環境対応完了
 - 🎯 **次期開発準備**: ITS（Interrupted Time Series）分析機能統合準備
 
 ---
@@ -342,7 +364,8 @@ CausalImpact-Analyzer_ver2/
 │   ├── inline_styles.py           # インラインHTMLスタイル定数
 │   ├── validation_messages.py     # 検証・エラーメッセージ管理
 │   ├── font_config.py             # クロスプラットフォーム対応フォント設定
-│   └── pdf_templates.py           # 多言語対応PDFテンプレート
+│   ├── pdf_templates.py           # 多言語対応PDFテンプレート
+│   └── graph_config.py            # グラフタイトル多言語対応設定
 ├── styles/
 │   └── custom.css                 # カスタムスタイルシート
 ├── data/                          # サンプルデータディレクトリ

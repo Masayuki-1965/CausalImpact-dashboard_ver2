@@ -44,6 +44,16 @@ from config.help_texts import (
 )
 from utils_common import load_css, initialize_session_state, reset_session_state, get_step_status
 
+# グラフフォント設定の初期化（エラーで止まらないよう try-except で保護）
+try:
+    from config.graph_config import apply_graph_style
+    apply_graph_style()
+    print("グラフフォント設定完了")
+except ImportError:
+    print("グラフ設定モジュールをインポートできませんでした")
+except Exception as e:
+    print(f"グラフフォント設定エラー: {e}")
+
 # --- ユーティリティ関数の定義 ---
 def truncate_text_for_display(text, max_length=20):
     """
@@ -2080,10 +2090,19 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                 try:
                     axes = fig.get_axes()
                     if len(axes) >= 3:
-                        # 各グラフのタイトルを通常文字に設定
-                        axes[0].set_title('実測値 vs 予測値', fontsize=12, weight='normal')
-                        axes[1].set_title('時点効果', fontsize=12, weight='normal')
-                        axes[2].set_title('累積効果', fontsize=12, weight='normal')
+                        # グラフタイトル設定（多言語対応）
+                        try:
+                            from config.graph_config import get_graph_config
+                            use_japanese, labels = get_graph_config()
+                            axes[0].set_title(labels['actual_vs_predicted'], fontsize=12, weight='normal')
+                            axes[1].set_title(labels['point_effects'], fontsize=12, weight='normal')
+                            axes[2].set_title(labels['cumulative_effects'], fontsize=12, weight='normal')
+                        except Exception as e:
+                            print(f"グラフタイトル設定エラー: {e}")
+                            # フォールバック（英語）
+                            axes[0].set_title('Actual vs Predicted', fontsize=12, weight='normal')
+                            axes[1].set_title('Point Effects', fontsize=12, weight='normal')
+                            axes[2].set_title('Cumulative Effects', fontsize=12, weight='normal')
                     
                     # 下部の注釈メッセージを削除
                     for ax in axes:
@@ -2103,19 +2122,38 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                 # matplotlibの図をStreamlitに表示
                 st.pyplot(fig)
                 
-                # グラフの見方（常時表示）
-                if current_analysis_type == "単群推定（処置群のみを使用）":
-                    st.markdown("""
+                # グラフの見方（常時表示・多言語対応）
+                try:
+                    from config.graph_config import get_graph_config
+                    use_japanese, labels = get_graph_config()
+                    
+                    if current_analysis_type == "単群推定（処置群のみを使用）":
+                        graph_note = labels['graph_note_single_group']
+                    else:
+                        graph_note = labels['graph_note_two_group']
+                    
+                    label_text = "グラフの見方：" if use_japanese else "How to read the graph: "
+                    
+                    st.markdown(f"""
 <div style="color:#666;font-size:0.95em;margin-top:0.5em;padding:10px;background-color:#f8f9fa;border-radius:4px;">
-<strong>グラフの見方：</strong>実測データ（黒線）と予測データ（青線）の比較により介入効果を評価。影部分は予測の不確実性を示す信頼区間。対照群がないため外部要因の影響に注意。
+<strong>{label_text}</strong>{graph_note}
 </div>
                     """, unsafe_allow_html=True)
-                else:
-                    st.markdown("""
+                except Exception as e:
+                    # フォールバック
+                    print(f"グラフ説明表示エラー: {e}")
+                    if current_analysis_type == "単群推定（処置群のみを使用）":
+                        st.markdown("""
 <div style="color:#666;font-size:0.95em;margin-top:0.5em;padding:10px;background-color:#f8f9fa;border-radius:4px;">
-<strong>グラフの見方：</strong>実測データ（黒線）と対照群から推定した予測データ（青線）の比較により純粋な介入効果を評価。影部分は予測の不確実性を示す信頼区間。対照群により外部要因の影響を除去。
+<strong>How to read the graph:</strong> Evaluate intervention effects by comparing actual data (black) with predicted data (blue). Shaded area shows confidence interval indicating prediction uncertainty. Attention needed for external factors due to absence of control group.
 </div>
-                    """, unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown("""
+<div style="color:#666;font-size:0.95em;margin-top:0.5em;padding:10px;background-color:#f8f9fa;border-radius:4px;">
+<strong>How to read the graph:</strong> Evaluate pure intervention effects by comparing actual data (black) with predicted data (blue) estimated from control group. Shaded area shows confidence interval indicating prediction uncertainty. External factors are eliminated by control group.
+</div>
+                        """, unsafe_allow_html=True)
             
             except Exception as e:
                 st.error(f"グラフ表示でエラーが発生しました: {str(e)}")
