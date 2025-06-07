@@ -254,6 +254,27 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
         import numpy as np
         import re
         
+        # 多言語対応コンテンツの取得
+        try:
+            from config.pdf_templates import get_pdf_content
+            from config.font_config import is_japanese_font_available
+            use_japanese = is_japanese_font_available()
+            content = get_pdf_content(use_japanese)
+        except:
+            # フォールバック（日本語）
+            content = {
+                'table_indicator': '指標',
+                'table_avg_analysis_period': '分析期間の平均値',
+                'table_total_analysis_period': '分析期間の累積値',
+                'table_actual': '実測値',
+                'table_predicted': '予測値',
+                'table_predicted_ci': '予測値 95% 信頼区間',
+                'table_absolute_effect': '絶対効果',
+                'table_relative_effect': '相対効果',
+                'table_p_value': 'p値'
+            }
+            use_japanese = True
+        
         # CausalImpactのsummary_dataから直接取得（より確実）
         if hasattr(ci, 'summary_data') and ci.summary_data is not None:
             summary_data = ci.summary_data
@@ -280,7 +301,7 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
                 if 'actual' in str(index_name).lower():
                     avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
                     cum_val = summary_data.loc[index_name, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[index_name].iloc[1]
-                    results_data.append(['実測値', f"{avg_val:.1f}", f"{cum_val:.1f}"])
+                    results_data.append([content['table_actual'], f"{avg_val:.1f}", f"{cum_val:.1f}"])
                     break
             
             # 2. 予測値
@@ -288,7 +309,7 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
                 if ('predicted' in str(index_name).lower() or 'prediction' in str(index_name).lower()) and 'lower' not in str(index_name).lower() and 'upper' not in str(index_name).lower():
                     avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
                     cum_val = summary_data.loc[index_name, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[index_name].iloc[1]
-                    results_data.append(['予測値', f"{avg_val:.1f}", f"{cum_val:.1f}"])
+                    results_data.append([content['table_predicted'], f"{avg_val:.1f}", f"{cum_val:.1f}"])
                     break
             
             # 3. 予測値信頼区間（予測値のすぐ下に配置）
@@ -305,14 +326,15 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
                 upper_avg = summary_data.loc[pred_upper, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[pred_upper].iloc[0]
                 lower_cum = summary_data.loc[pred_lower, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[pred_lower].iloc[1]
                 upper_cum = summary_data.loc[pred_upper, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[pred_upper].iloc[1]
-                results_data.append([f'予測値 {confidence_level}% 信頼区間', f"[{lower_avg:.1f}, {upper_avg:.1f}]", f"[{lower_cum:.1f}, {upper_cum:.1f}]"])
+                ci_label = f"{content['table_predicted_ci'].replace('95%', str(confidence_level) + '%')}"
+                results_data.append([ci_label, f"[{lower_avg:.1f}, {upper_avg:.1f}]", f"[{lower_cum:.1f}, {upper_cum:.1f}]"])
             
             # 4. 絶対効果
             for index_name in summary_data.index:
                 if ('abseffect' in str(index_name).lower() or 'abs_effect' in str(index_name).lower() or 'absolute' in str(index_name).lower()) and 'lower' not in str(index_name).lower() and 'upper' not in str(index_name).lower():
                     avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
                     cum_val = summary_data.loc[index_name, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[index_name].iloc[1]
-                    results_data.append(['絶対効果', f"{avg_val:.1f}", f"{cum_val:.1f}"])
+                    results_data.append([content['table_absolute_effect'], f"{avg_val:.1f}", f"{cum_val:.1f}"])
                     break
             
             # 5. 相対効果
@@ -321,15 +343,20 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
                     avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
                     # %変換
                     rel_pct = avg_val * 100 if abs(avg_val) < 10 else avg_val
-                    results_data.append(['相対効果', f"{rel_pct:.1f}%", f"{rel_pct:.1f}%"])
+                    results_data.append([content['table_relative_effect'], f"{rel_pct:.1f}%", f"{rel_pct:.1f}%"])
                     break
             
             # 6. p値
             if p_value is not None:
-                results_data.append(['p値', f"{p_value:.4f}", f"{p_value:.4f}"])
+                results_data.append([content['table_p_value'], f"{p_value:.4f}", f"{p_value:.4f}"])
             
-            # DataFrameを作成
-            df_result = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+            # DataFrameを作成（多言語対応）
+            columns = [
+                content['table_indicator'],
+                content['table_avg_analysis_period'], 
+                content['table_total_analysis_period']
+            ]
+            df_result = pd.DataFrame(results_data, columns=columns)
             
             return df_result
         
@@ -869,18 +896,29 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
     # データの件数を算出
     total_data_count = len(summary_df) if summary_df is not None else 0
     
-    # 分析条件を記載
-    story.append(Paragraph(f'　分析対象：　{treatment_name}', normal_style))
-    
-    if period_start and period_end:
-        story.append(Paragraph(f'　分析期間：　{period_start.strftime("%Y-%m-%d")} ～ {period_end.strftime("%Y-%m-%d")}（{total_data_count}件）（{freq_option}）', normal_style))
-    
-    story.append(Paragraph(f'　分析手法：　単群推定（Single Group Causal Impact）（信頼水準：{confidence_level}%）', normal_style))
+    # 分析条件を記載（テンプレート対応）
+    try:
+        from config.pdf_templates import format_analysis_info_section
+        analysis_texts = format_analysis_info_section(content, analysis_info, total_data_count, confidence_level, is_single_group=True)
+        for text in analysis_texts:
+            story.append(Paragraph(text, normal_style))
+    except:
+        # フォールバック
+        label_target = content.get('label_target', 'Analysis Target: ')
+        label_period = content.get('label_period', 'Analysis Period: ')
+        label_method = content.get('label_method', 'Analysis Method: ')
+        method_single = content.get('method_single_group', 'Single Group Causal Impact')
+        confidence_text = content.get('confidence_level', 'Confidence Level: ')
+        
+        story.append(Paragraph(f'　{label_target}　{treatment_name}', normal_style))
+        if period_start and period_end:
+            story.append(Paragraph(f'　{label_period}　{period_start.strftime("%Y-%m-%d")} ～ {period_end.strftime("%Y-%m-%d")}（{total_data_count}件）（{freq_option}）', normal_style))
+        story.append(Paragraph(f'　{label_method}　{method_single}（{confidence_text}{confidence_level}%）', normal_style))
     story.append(Spacer(1, 6))
     
     # ■分析結果サマリー（見出し前に空白行を追加）
     story.append(Spacer(1, 6))
-    story.append(Paragraph('■分析結果サマリー', heading_style))
+    story.append(Paragraph(content['section_summary'], heading_style))
     
     # サマリーテーブルを表示（横幅をグラフに合わせて拡大）
     if summary_df is not None and not summary_df.empty:
@@ -910,15 +948,55 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
         story.append(table)
         story.append(Spacer(1, 4))
     
-    # メッセージ（「メッセージ：」削除、1行表示）
-    summary_message = get_single_group_analysis_summary_message(ci, confidence_level)
-    if summary_message:
-        story.append(Paragraph(summary_message, normal_style))
+    # メッセージ（多言語対応）
+    try:
+        # 相対効果とp値を取得
+        relative_effect = None
+        p_value = None
+        
+        # 相対効果の計算
+        if hasattr(ci, 'inferences') and ci.inferences is not None:
+            df = ci.inferences.copy().reset_index()
+            post_data = df[df['date'] >= period_start] if period_start else df
+            if 'point_effects' in post_data.columns and 'preds' in post_data.columns:
+                total_abs_effect = post_data['point_effects'].sum()
+                total_pred = post_data['preds'].sum()
+                relative_effect = (total_abs_effect / total_pred * 100) if total_pred != 0 else 0
+        
+        # p値の取得
+        if hasattr(ci, 'p_value') and ci.p_value is not None:
+            p_value = ci.p_value
+        else:
+            try:
+                import re
+                summary_text = str(ci.summary())
+                p_match = re.search(r'Posterior tail-area probability p:\s+([0-9.]+)', summary_text)
+                if p_match:
+                    p_value = float(p_match.group(1))
+            except:
+                pass
+        
+        # 多言語対応コメント生成
+        if relative_effect is not None and p_value is not None:
+            is_significant = p_value < 0.05
+            from config.pdf_templates import get_pdf_comment_message
+            summary_message = get_pdf_comment_message(relative_effect, p_value, is_significant, use_japanese)
+            story.append(Paragraph(summary_message, normal_style))
+        else:
+            # フォールバック
+            summary_message = get_single_group_analysis_summary_message(ci, confidence_level)
+            if summary_message:
+                story.append(Paragraph(summary_message, normal_style))
+    except:
+        # エラー時のフォールバック
+        summary_message = get_single_group_analysis_summary_message(ci, confidence_level)
+        if summary_message:
+            story.append(Paragraph(summary_message, normal_style))
     story.append(Spacer(1, 6))
     
     # ■分析結果グラフ（見出し前に空白行を追加）
     story.append(Spacer(1, 6))
-    story.append(Paragraph('■分析結果グラフ', heading_style))
+    story.append(Paragraph(content['section_graph'], heading_style))
     
     # グラフを画像として挿入
     img_buffer = io.BytesIO()
@@ -929,8 +1007,8 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
     story.append(img)
     story.append(Spacer(1, 4))
     
-    # グラフの見方
-    graph_explanation = "　グラフの見方：実測データ（黒線）と予測データ（青線）の比較により介入効果を評価。影の部分は予測の不確実性を示す信頼区間。対照群がないため、外部要因の影響に注意が必要。"
+    # グラフの見方（多言語対応）
+    graph_explanation = f"　{content.get('graph_explanation_single_group', 'Graph explanation: Compare actual vs predicted data.')}"
     story.append(Paragraph(graph_explanation, normal_style))
     
     # PDFを構築
@@ -1226,7 +1304,7 @@ def get_single_group_analysis_summary_message(ci, confidence_level=95):
             if final_significance:
                 return f"相対効果は {relative_effect:+.1f}% で、統計的に有意です（p = {p_value:.3f}）。詳しくは「詳細レポート」を参照ください。"
             else:
-                return f"相対効果は {relative_effect:+.1f}% ですが、統計的には有意ではありません（p = {p_value:.3f}）。詳しくは、この下の「詳細レポート」を参照ください。"
+                return f"相対効果は {relative_effect:+.1f}% ですが、統計的には有意ではありません（p = {p_value:.3f}）。詳しくは「詳細レポート」を参照ください。"
         
         return get_single_group_analysis_summary_message_fallback(ci, confidence_level)
         
@@ -1301,9 +1379,9 @@ def get_single_group_analysis_summary_message_fallback(ci, confidence_level=95):
             final_significance = is_significant or is_significant_by_p
             
             if final_significance:
-                return f"相対効果は {relative_effect:+.1f}% で、統計的に有意です（p = {p_value:.3f}）。詳しくは、この下の「詳細レポート」を参照ください。"
+                return f"相対効果は {relative_effect:+.1f}% で、統計的に有意です（p = {p_value:.3f}）。詳しくは「詳細レポート」を参照ください。"
             else:
-                return f"相対効果は {relative_effect:+.1f}% ですが、統計的には有意ではありません（p = {p_value:.3f}）。詳しくは、この下の「詳細レポート」を参照ください。"
+                return f"相対効果は {relative_effect:+.1f}% ですが、統計的には有意ではありません（p = {p_value:.3f}）。詳しくは「詳細レポート」を参照ください。"
         
         return None
         

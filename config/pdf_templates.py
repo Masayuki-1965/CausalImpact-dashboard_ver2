@@ -16,7 +16,22 @@ def get_pdf_content_japanese():
         'method_single_group': '単群推定（Single Group Causal Impact）',
         'confidence_level': '信頼水準：',
         'graph_explanation_two_group': 'グラフの見方：実測データ（黒線）と対照群から推定した予測データ（青線）の比較により純粋な介入効果を評価。影の部分は予測の不確実性を示す信頼区間。対照群により外部要因の影響を除去。',
-        'graph_explanation_single_group': 'グラフの見方：実測データ（黒線）と予測データ（青線）の比較により介入効果を評価。影の部分は予測の不確実性を示す信頼区間。対照群がないため、外部要因の影響に注意が必要。'
+        'graph_explanation_single_group': 'グラフの見方：実測データ（黒線）と予測データ（青線）の比較により介入効果を評価。影の部分は予測の不確実性を示す信頼区間。対照群がないため、外部要因の影響に注意が必要。',
+        
+        # テーブル項目名
+        'table_indicator': '指標',
+        'table_avg_analysis_period': '分析期間の平均値',
+        'table_total_analysis_period': '分析期間の累積値',
+        'table_actual': '実測値',
+        'table_predicted': '予測値',
+        'table_predicted_ci': '予測値 95% 信頼区間',
+        'table_absolute_effect': '絶対効果',
+        'table_relative_effect': '相対効果',
+        'table_p_value': 'p値',
+        
+        # コメント文テンプレート
+        'comment_significant': '相対効果は {effect:+.1f}% で、統計的に有意です（p = {p_value:.3f}）。詳しくは「詳細レポート」を参照ください。',
+        'comment_not_significant': '相対効果は {effect:+.1f}% ですが、統計的には有意ではありません（p = {p_value:.3f}）。詳しくは「詳細レポート」を参照ください。'
     }
 
 def get_pdf_content_english():
@@ -24,9 +39,9 @@ def get_pdf_content_english():
     return {
         'title_two_group': 'Causal Impact Analysis Report (Two-Group Comparison)',
         'title_single_group': 'Causal Impact Analysis Report (Single Group Estimation)',
-        'section_analysis_info': '■ Analysis Target and Conditions',
-        'section_summary': '■ Analysis Result Summary',
-        'section_graph': '■ Analysis Result Graph',
+        'section_analysis_info': 'Analysis Target and Conditions',
+        'section_summary': 'Analysis Result Summary',
+        'section_graph': 'Analysis Result Graph',
         'label_target': 'Analysis Target: ',
         'label_period': 'Analysis Period: ',
         'label_method': 'Analysis Method: ',
@@ -34,7 +49,22 @@ def get_pdf_content_english():
         'method_single_group': 'Single Group Causal Impact',
         'confidence_level': 'Confidence Level: ',
         'graph_explanation_two_group': 'How to read the graph: Evaluate pure intervention effects by comparing actual data (black line) with predicted data (blue line) estimated from control group. Shaded area shows confidence interval indicating prediction uncertainty. External factors are eliminated by control group.',
-        'graph_explanation_single_group': 'How to read the graph: Evaluate intervention effects by comparing actual data (black line) with predicted data (blue line). Shaded area shows confidence interval indicating prediction uncertainty. Attention needed for external factors due to absence of control group.'
+        'graph_explanation_single_group': 'How to read the graph: Evaluate intervention effects by comparing actual data (black line) with predicted data (blue line). Shaded area shows confidence interval indicating prediction uncertainty. Attention needed for external factors due to absence of control group.',
+        
+        # テーブル項目名（英語版）
+        'table_indicator': 'Indicator',
+        'table_avg_analysis_period': 'Average in Analysis Period',
+        'table_total_analysis_period': 'Cumulative in Analysis Period',
+        'table_actual': 'Actual',
+        'table_predicted': 'Predicted',
+        'table_predicted_ci': 'Predicted 95% CI',
+        'table_absolute_effect': 'Absolute Effect',
+        'table_relative_effect': 'Relative Effect',
+        'table_p_value': 'p-value',
+        
+        # コメント文テンプレート（英語版）
+        'comment_significant': 'Relative effect is {effect:+.1f}% and statistically significant (p = {p_value:.3f}). Please refer to "Detailed Report" for more information.',
+        'comment_not_significant': 'Relative effect is {effect:+.1f}% but not statistically significant (p = {p_value:.3f}). Please refer to "Detailed Report" for more information.'
     }
 
 def get_pdf_content(use_japanese=True):
@@ -99,4 +129,30 @@ def format_analysis_info_section(content, analysis_info, total_data_count, confi
     method = content['method_single_group'] if is_single_group else content['method_two_group']
     result.append(f"　{content['label_method']}　{method}（{content['confidence_level']}{confidence_level}%）")
     
-    return result 
+    return result
+
+def get_pdf_comment_message(relative_effect, p_value, is_significant, use_japanese=True):
+    """
+    PDF用コメントメッセージを生成
+    
+    Parameters:
+    -----------
+    relative_effect : float
+        相対効果（%）
+    p_value : float
+        p値
+    is_significant : bool
+        統計的有意性
+    use_japanese : bool
+        日本語版の場合True
+        
+    Returns:
+    --------
+    str: フォーマット済みコメントメッセージ
+    """
+    content = get_pdf_content(use_japanese)
+    
+    if is_significant:
+        return content['comment_significant'].format(effect=relative_effect, p_value=p_value)
+    else:
+        return content['comment_not_significant'].format(effect=relative_effect, p_value=p_value)
