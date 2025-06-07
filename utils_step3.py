@@ -748,7 +748,8 @@ def build_enhanced_summary_table(ci, confidence_level=95):
             
             avg_ci_str = f"[{abs_lower_avg:.1f}, {abs_upper_avg:.1f}]"
             cum_ci_str = f"[{abs_lower_cum:,.1f}, {abs_upper_cum:,.1f}]"
-            results_data.append([f'絶対効果 {confidence_level}% 信頼区間', avg_ci_str, cum_ci_str])
+            abs_ci_label = f"{content['table_absolute_effect']} {confidence_level}% {'信頼区間' if use_japanese else 'CI'}"
+            results_data.append([abs_ci_label, avg_ci_str, cum_ci_str])
         
         # 相対効果（標準偏差）
         if 'point_effects' in post_data.columns and 'preds' in post_data.columns:
@@ -915,7 +916,7 @@ def build_enhanced_summary_table_fallback(ci, confidence_level=95):
             content = {
                 'table_actual': '実測値',
                 'table_predicted': '予測値',
-                'table_predicted_ci': '予測値 95% 信頼区間',
+                'table_predicted_ci': f'予測値 {confidence_level}% 信頼区間',
                 'table_absolute_effect': '絶対効果',
                 'table_relative_effect': '相対効果',
                 'table_p_value': 'p値'
@@ -951,7 +952,7 @@ def build_enhanced_summary_table_fallback(ci, confidence_level=95):
             
             avg_ci_str = f"[{pred_lower_avg:.1f}, {pred_upper_avg:.1f}]"
             cum_ci_str = f"[{pred_lower_cum:,.1f}, {pred_upper_cum:,.1f}]"
-            ci_label = f"{content['table_predicted_ci'].replace('95%', str(confidence_level) + '%')}"
+            ci_label = content['table_predicted_ci'].format(confidence_level)
             results_data.append([ci_label, avg_ci_str, cum_ci_str])
         
         # 絶対効果（標準偏差を削除）
@@ -1000,12 +1001,13 @@ def build_enhanced_summary_table_fallback(ci, confidence_level=95):
             
             # 平均値・累積値ともに同じ値を使用
             rel_ci_unified_str = f"[{rel_lower_unified:.1f}%, {rel_upper_unified:.1f}%]"
-            results_data.append([f'相対効果 {confidence_level}% 信頼区間', rel_ci_unified_str, rel_ci_unified_str])
+            rel_ci_label = f"{content['table_relative_effect']} {confidence_level}% {'信頼区間' if use_japanese else 'CI'}"
+            results_data.append([rel_ci_label, rel_ci_unified_str, rel_ci_unified_str])
         
         # p値（明示的数値表示）
         if hasattr(ci, 'p_value') and ci.p_value is not None:
             p_value = ci.p_value
-            results_data.append(['p値', f"{p_value:.4f}", f"{p_value:.4f}"])
+            results_data.append([content['table_p_value'], f"{p_value:.4f}", f"{p_value:.4f}"])
         else:
             # テキストサマリーからp値を抽出
             try:
@@ -1014,12 +1016,17 @@ def build_enhanced_summary_table_fallback(ci, confidence_level=95):
                 p_match = re.search(r'Posterior tail-area probability p:\s+([0-9.]+)', summary_text)
                 if p_match:
                     p_value = float(p_match.group(1))
-                    results_data.append(['p値', f"{p_value:.4f}", f"{p_value:.4f}"])
+                    results_data.append([content['table_p_value'], f"{p_value:.4f}", f"{p_value:.4f}"])
             except:
                 pass  # p値が取得できない場合はスキップ
         
-        # DataFrameを作成
-        df_result = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+        # DataFrameを作成（多言語対応）
+        columns = [
+            content['table_indicator'],
+            content['table_avg_analysis_period'], 
+            content['table_total_analysis_period']
+        ]
+        df_result = pd.DataFrame(results_data, columns=columns)
         
         return df_result
         

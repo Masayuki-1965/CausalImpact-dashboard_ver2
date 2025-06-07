@@ -326,7 +326,7 @@ def build_single_group_unified_summary_table(ci, confidence_level=95):
                 upper_avg = summary_data.loc[pred_upper, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[pred_upper].iloc[0]
                 lower_cum = summary_data.loc[pred_lower, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[pred_lower].iloc[1]
                 upper_cum = summary_data.loc[pred_upper, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[pred_upper].iloc[1]
-                ci_label = f"{content['table_predicted_ci'].replace('95%', str(confidence_level) + '%')}"
+                ci_label = content['table_predicted_ci'].format(confidence_level)
                 results_data.append([ci_label, f"[{lower_avg:.1f}, {upper_avg:.1f}]", f"[{lower_cum:.1f}, {upper_cum:.1f}]"])
             
             # 4. 絶対効果

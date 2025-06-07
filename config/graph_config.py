@@ -39,8 +39,8 @@ def get_graph_labels(use_japanese=True):
             'intervention_line': '介入時点',
             
             # グラフ説明
-            'graph_note_two_group': '実測データ（黒線）と対照群から推定した予測データ（青線）の比較により純粋な介入効果を評価',
-            'graph_note_single_group': '実測データ（黒線）と予測データ（青線）の比較により介入効果を評価'
+            'graph_note_two_group': '実測データ（黒線）と対照群から推定した予測データ（青線）の比較により純粋な介入効果を評価。影の部分は予測の不確実性を示す信頼区間。対照群により外部要因の影響を除去。',
+            'graph_note_single_group': '実測データ（黒線）と予測データ（青線）の比較により介入効果を評価。影の部分は予測の不確実性を示す信頼区間。対照群がないため、外部要因の影響に注意が必要。'
         }
     else:
         return {
@@ -61,8 +61,8 @@ def get_graph_labels(use_japanese=True):
             'intervention_line': 'Intervention Point',
             
             # グラフ説明
-            'graph_note_two_group': 'Evaluate pure intervention effects by comparing actual data (black) with predicted data (blue) estimated from control group',
-            'graph_note_single_group': 'Evaluate intervention effects by comparing actual data (black) with predicted data (blue)'
+            'graph_note_two_group': 'Evaluate pure intervention effects by comparing actual data (black line) with predicted data (blue line) estimated from control group. Shaded area shows confidence interval indicating prediction uncertainty. External factors are eliminated by control group.',
+            'graph_note_single_group': 'Evaluate intervention effects by comparing actual data (black line) with predicted data (blue line). Shaded area shows confidence interval indicating prediction uncertainty. Attention needed for external factors due to absence of control group.'
         }
 
 

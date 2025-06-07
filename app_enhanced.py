@@ -2252,6 +2252,11 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                 'freq_option': freq_option
             }
             
+            # 信頼水準を動的に取得
+            analysis_params = st.session_state.get('analysis_params', {})
+            alpha = analysis_params.get('alpha', 0.05)
+            confidence_level = int((1 - alpha) * 100)  # 0.05 → 95%, 0.1 → 90%
+            
             # ボタンを横並びで配置
             col1, col2 = st.columns(2)
             
@@ -2260,11 +2265,11 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                 try:
                     if current_analysis_type == "単群推定（処置群のみを使用）":
                         pdf_href, pdf_filename = get_single_group_comprehensive_pdf_download_link(
-                            ci, analysis_info, summary_df, fig, confidence_level=95
+                            ci, analysis_info, summary_df, fig, confidence_level=confidence_level
                         )
                     else:
                         pdf_href, pdf_filename = get_comprehensive_pdf_download_link(
-                            ci, analysis_info, summary_df, fig, confidence_level=95
+                            ci, analysis_info, summary_df, fig, confidence_level=confidence_level
                         )
                     
                     st.markdown(
@@ -2316,11 +2321,11 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                 try:
                     if current_analysis_type == "単群推定（処置群のみを使用）":
                         csv_href, csv_filename = get_single_group_comprehensive_csv_download_link(
-                            ci, analysis_info, confidence_level=95
+                            ci, analysis_info, confidence_level=confidence_level
                         )
                     else:
                         csv_href, csv_filename = get_comprehensive_csv_download_link(
-                            ci, analysis_info, confidence_level=95
+                            ci, analysis_info, confidence_level=confidence_level
                         )
                     
                     st.markdown(
@@ -2373,8 +2378,11 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
         
         # アプリ終了メッセージ（要求仕様：メッセージ②）
         st.info("これでCausal Impactの分析は終了です。新たなデータで再度分析を行う場合は、画面左上の更新ボタン（⟳）をクリックするか、Ctrl＋Rを押して、STEP 1 のデータの取り込みから再実行してください。")
+        
+        # 感謝メッセージを分析実行後に表示
+        st.markdown("---")
+        st.markdown("**Causal Impact分析アプリケーション**をご利用いただき、ありがとうございました。")
+        st.markdown("分析結果がお役に立てば幸いです。")
 
-st.markdown("---")
-st.markdown("**Causal Impact分析アプリケーション**をご利用いただき、ありがとうございました。")
-st.markdown("分析結果がお役に立てば幸いです。")
+# 分析が完了していない場合は一般的な感謝メッセージは表示しない
 st.markdown("</div>", unsafe_allow_html=True) 

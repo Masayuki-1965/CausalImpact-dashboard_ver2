@@ -24,7 +24,7 @@ def get_pdf_content_japanese():
         'table_total_analysis_period': '分析期間の累積値',
         'table_actual': '実測値',
         'table_predicted': '予測値',
-        'table_predicted_ci': '予測値 95% 信頼区間',
+        'table_predicted_ci': '予測値 {}% 信頼区間',
         'table_absolute_effect': '絶対効果',
         'table_relative_effect': '相対効果',
         'table_p_value': 'p値',
@@ -57,7 +57,7 @@ def get_pdf_content_english():
         'table_total_analysis_period': 'Cumulative in Analysis Period',
         'table_actual': 'Actual',
         'table_predicted': 'Predicted',
-        'table_predicted_ci': 'Predicted 95% CI',
+        'table_predicted_ci': 'Predicted {}% CI',
         'table_absolute_effect': 'Absolute Effect',
         'table_relative_effect': 'Relative Effect',
         'table_p_value': 'p-value',
@@ -84,6 +84,40 @@ def get_pdf_content(use_japanese=True):
         return get_pdf_content_japanese()
     else:
         return get_pdf_content_english()
+
+def get_frequency_display_name(freq_option, use_japanese=True):
+    """
+    データ頻度の表示名を取得（多言語対応）
+    
+    Parameters:
+    -----------
+    freq_option : str
+        データ頻度オプション
+    use_japanese : bool
+        日本語表示の場合True
+        
+    Returns:
+    --------
+    str: 表示名
+    """
+    if use_japanese:
+        freq_mapping = {
+            '月次': '月次',
+            '旬次': '旬次',
+            '週次': '週次',
+            '日次': '日次',
+            '時次': '時次'
+        }
+    else:
+        freq_mapping = {
+            '月次': 'Monthly',
+            '旬次': 'Dekadly',
+            '週次': 'Weekly',
+            '日次': 'Daily',
+            '時次': 'Hourly'
+        }
+    
+    return freq_mapping.get(freq_option, freq_option)
 
 def format_analysis_info_section(content, analysis_info, total_data_count, confidence_level, is_single_group=False):
     """
@@ -123,7 +157,9 @@ def format_analysis_info_section(content, analysis_info, total_data_count, confi
     
     # 分析期間
     if period_start and period_end:
-        result.append(f"　{content['label_period']}　{period_start.strftime('%Y-%m-%d')} ～ {period_end.strftime('%Y-%m-%d')}（{total_data_count}件）（{freq_option}）")
+        # 頻度の多言語対応
+        freq_display = get_frequency_display_name(freq_option, use_japanese=(content == get_pdf_content_japanese()))
+        result.append(f"　{content['label_period']}　{period_start.strftime('%Y-%m-%d')} ～ {period_end.strftime('%Y-%m-%d')}（{total_data_count}件）（{freq_display}）")
     
     # 分析手法
     method = content['method_single_group'] if is_single_group else content['method_two_group']
