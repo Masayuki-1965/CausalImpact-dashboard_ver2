@@ -1287,13 +1287,25 @@ def get_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, conf
     # スタイル設定
     styles = getSampleStyleSheet()
     
-    # フォント設定
+    # 日本語フォント設定（クロスプラットフォーム対応）
     try:
-        font_path = "C:/Windows/Fonts/msgothic.ttc"
-        pdfmetrics.registerFont(TTFont('MSGothic', font_path))
-        font_name = 'MSGothic'
-    except:
+        from config.font_config import get_simple_japanese_font, is_japanese_font_available
+        from config.pdf_templates import get_pdf_content
+        font_name = get_simple_japanese_font()
+        use_japanese = is_japanese_font_available() and font_name != 'Helvetica'
+        content = get_pdf_content(use_japanese)
+    except Exception as e:
+        print(f"フォント設定エラー: {e}")
         font_name = 'Helvetica'
+        use_japanese = False
+        # フォールバック用簡易コンテンツ
+        content = {
+            'title_two_group': 'Causal Impact Analysis Report (Two-Group)',
+            'section_analysis_info': '■ Analysis Target and Conditions',
+            'section_summary': '■ Analysis Result Summary',  
+            'section_graph': '■ Analysis Result Graph',
+            'graph_explanation_two_group': 'Graph explanation: Compare actual data (black) vs predicted data (blue) from control group to evaluate intervention effects.'
+        }
     
     # カスタムスタイル（1ページ収容のため行間を詰める）
     title_style = ParagraphStyle(
@@ -1325,11 +1337,11 @@ def get_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, conf
     story = []
     
     # タイトル
-    story.append(Paragraph('Causal Impact分析レポート（二群比較）', title_style))
+    story.append(Paragraph(content['title_two_group'], title_style))
     story.append(Spacer(1, 6))
     
     # ■分析対象と条件（見出し直下の空白行削除）
-    story.append(Paragraph('■分析対象と条件', heading_style))
+    story.append(Paragraph(content['section_analysis_info'], heading_style))
     
     # analysis_info辞書から必要な情報を取得
     treatment_name = analysis_info.get('treatment_name', '分析対象')
@@ -1341,18 +1353,23 @@ def get_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, conf
     # データの件数を算出
     total_data_count = len(summary_df) if summary_df is not None else 0
     
-    # 分析条件を記載
-    story.append(Paragraph(f'　分析対象：　{treatment_name}（vs {control_name}）', normal_style))
-    
-    if period_start and period_end:
-        story.append(Paragraph(f'　分析期間：　{period_start.strftime("%Y-%m-%d")} ～ {period_end.strftime("%Y-%m-%d")}（{total_data_count}件）（{freq_option}）', normal_style))
-    
-    story.append(Paragraph(f'　分析手法：　二群比較（Two-Group Causal Impact）（信頼水準：{confidence_level}%）', normal_style))
+    # 分析条件を記載（テンプレート対応）
+    try:
+        from config.pdf_templates import format_analysis_info_section
+        analysis_texts = format_analysis_info_section(content, analysis_info, total_data_count, confidence_level, is_single_group=False)
+        for text in analysis_texts:
+            story.append(Paragraph(text, normal_style))
+    except:
+        # フォールバック
+        story.append(Paragraph(f'　Analysis Target: {treatment_name} (vs {control_name})', normal_style))
+        if period_start and period_end:
+            story.append(Paragraph(f'　Analysis Period: {period_start.strftime("%Y-%m-%d")} - {period_end.strftime("%Y-%m-%d")} ({total_data_count} records) ({freq_option})', normal_style))
+        story.append(Paragraph(f'　Analysis Method: Two-Group Causal Impact (Confidence: {confidence_level}%)', normal_style))
     story.append(Spacer(1, 6))
     
     # ■分析結果サマリー（見出し前に空白行を追加）
     story.append(Spacer(1, 6))
-    story.append(Paragraph('■分析結果サマリー', heading_style))
+    story.append(Paragraph(content['section_summary'], heading_style))
     
     # サマリーテーブルを表示（横幅をグラフに合わせて拡大）
     if summary_df is not None and not summary_df.empty:
@@ -1390,7 +1407,7 @@ def get_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, conf
     
     # ■分析結果グラフ（見出し前に空白行を追加）
     story.append(Spacer(1, 6))
-    story.append(Paragraph('■分析結果グラフ', heading_style))
+    story.append(Paragraph(content['section_graph'], heading_style))
     
     # グラフを画像として挿入
     img_buffer = io.BytesIO()
@@ -1402,7 +1419,7 @@ def get_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, conf
     story.append(Spacer(1, 4))
     
     # グラフの見方
-    graph_explanation = "　グラフの見方：実測データ（黒線）と対照群から推定した予測データ（青線）の比較により純粋な介入効果を評価。影の部分は予測の不確実性を示す信頼区間。対照群により外部要因の影響を除去。"
+    graph_explanation = f"　{content.get('graph_explanation_two_group', 'Graph explanation: Compare actual vs predicted data.')}"
     story.append(Paragraph(graph_explanation, normal_style))
     
     # PDFを構築

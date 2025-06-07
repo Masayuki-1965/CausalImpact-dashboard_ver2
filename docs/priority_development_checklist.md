@@ -17,10 +17,10 @@
 ### プロジェクト構成
 - **プロジェクトルート**: `/c:/Users/kanek/AICording/Lectures/Python講座/CausalImpact-Analyzer_ver2`
 - **Python仮想環境**: ✅ Python 3.13.2 正常動作確認済み (`venv/Scripts/activate.ps1`)
-- **メインアプリケーション**: `app_enhanced.py` (137KB, 2320行)
+- **メインアプリケーション**: `app_enhanced.py` (139KB, 2342行)
 - **分析エンジン**: 
-  - `utils_step3.py` (69KB, 1554行) - 二群比較分析
-  - `utils_step3_single_group.py` (53KB, 1236行) - 単群推定分析
+  - `utils_step3.py` (72KB, 1580行) - 二群比較分析
+  - `utils_step3_single_group.py` (57KB, 1290行) - 単群推定分析
 
 ### パッケージ環境
 - **Streamlit**: 1.43.2 ✅
@@ -30,7 +30,7 @@
 - **reportlab**: 4.4.1 ✅ (PDF生成)
 - **matplotlib**: 3.10.1 ✅
 - **pymc**: 5.21.1 ✅ (Bayesian分析エンジン)
-- **その他依存関係**: 全て正常インストール済み (計61パッケージ)
+- **その他依存関係**: 全て正常インストール済み (計134パッケージ)
 
 ### ドキュメント管理
 - **実装進捗**: `docs/priority_development_checklist.md` ✅ (本ファイル - 統合・最新化済み)
@@ -325,7 +325,7 @@
 ### 現在のファイル構成
 ```
 CausalImpact-Analyzer_ver2/
-├── app_enhanced.py                 # メインアプリケーション (2320行)
+├── app_enhanced.py                 # メインアプリケーション (2342行)
 ├── app.py                          # 旧バージョン（参考用保持）
 ├── utils_step3.py                  # 二群比較分析エンジン (1580行)
 ├── utils_step3_single_group.py     # 単群推定分析エンジン (1290行)
@@ -334,19 +334,27 @@ CausalImpact-Analyzer_ver2/
 ├── utils_common.py                 # 共通処理・セッション管理
 ├── utils_its_analysis.py           # ITS分析準備ファイル（次期開発用）
 ├── causal_impact_translator.py     # 分析結果日本語化処理
-├── requirements.txt                # 依存パッケージ（61パッケージ）
+├── requirements.txt                # 依存パッケージ（134パッケージ）
 ├── README.md                       # 使用説明書
 ├── config/
 │   ├── constants.py               # 定数・設定値
-│   └── help_texts.py              # ヘルプテキスト・HTML
-├── styles/                        # カスタムスタイルシート
-├── data/                          # データディレクトリ（空）
-├── docs/                          # ドキュメント一式（5ファイル）
+│   ├── help_texts.py              # ヘルプテキスト・HTML
+│   ├── inline_styles.py           # インラインHTMLスタイル定数
+│   ├── validation_messages.py     # 検証・エラーメッセージ管理
+│   ├── font_config.py             # クロスプラットフォーム対応フォント設定
+│   └── pdf_templates.py           # 多言語対応PDFテンプレート
+├── styles/
+│   └── custom.css                 # カスタムスタイルシート
+├── data/                          # サンプルデータディレクトリ
+│   ├── treatment_data/            # 処置群サンプルデータ
+│   └── control_data/              # 対照群サンプルデータ
+├── docs/                          # ドキュメント一式（6ファイル）
 │   ├── priority_development_checklist.md  # 本ファイル（統合管理）
 │   ├── ui_design_guidelines.md            # UIガイドライン
 │   ├── environment_notes.md               # 環境構築ガイド
 │   ├── requirements_spec.md               # 要件定義書
-│   └── streamlit_dashboard_structure.md   # 画面構成仕様
+│   ├── streamlit_dashboard_structure.md   # 画面構成仕様
+│   └── cleanup_candidates.md              # 削除候補・整理指針
 └── venv/                          # Python仮想環境
 ```
 
@@ -355,10 +363,63 @@ CausalImpact-Analyzer_ver2/
 - ✅ **依存関係**: requirements.txt完備・動作確認済み
 - ✅ **ドキュメント**: 統合整理・最新化完了
 - ✅ **エラーハンドリング**: 完全実装・フォールバック機能完備
+- ✅ **リファクタリング準備**: 補助的な整理・外部ファイル化対応完了
 
 ---
 
-**最終更新**: 2025年1月 - Phase 5 アプリケーション仕上げ完了  
+## 🎯 Phase 6 実装準備完了（ITS分析統合前のコードベース整理）
+
+### 6.1 プロジェクト構成の最終確認 【完了】
+- [x] **コードベース最新状況確認**
+  - [x] メインアプリケーション：`app_enhanced.py` (2342行)
+  - [x] 分析エンジン：`utils_step3.py` (1580行)、`utils_step3_single_group.py` (1290行)
+  - [x] 設定ファイル：`config/constants.py`、`config/help_texts.py`
+  - [x] スタイルシート：`styles/custom.css`
+
+- [x] **仮想環境最終確認**
+  - [x] Python 3.13.2 正常動作確認
+  - [x] 134パッケージの正常インストール確認
+  - [x] 主要パッケージ（Streamlit 1.43.2、pycausalimpact 0.0.13等）の動作確認
+
+- [x] **ドキュメント整理完了**
+  - [x] 不要リファクタリング計画文書削除（`refactoring_plan_phase6.md`）
+  - [x] メインチェックリストの最新化完了
+  - [x] 残存ドキュメント6ファイルの役割明確化
+  - [x] 削除候補リスト作成（`docs/cleanup_candidates.md`）
+
+### 6.3 補助的リファクタリング実施 【完了】
+- [x] **インラインHTML外部ファイル化**
+  - [x] `config/inline_styles.py` 作成（HTMLスタイル定数管理）
+  - [x] `config/validation_messages.py` 作成（メッセージ統一管理）
+  - [x] メインアプリケーションの可読性向上
+
+- [x] **不要ファイル削除候補の特定**
+  - [x] 旧バージョン `app.py` (98KB) - 即座削除推奨
+  - [x] Pythonキャッシュファイル - GitHubアップロード前削除推奨
+  - [x] サンプルデータファイル - 任意削除（開発時有用）
+  - [x] 削除候補リスト・実行手順の文書化完了
+
+### 6.4 Streamlit Cloud日本語PDF文字化け対策 【完了】
+- [x] **クロスプラットフォーム対応フォント設定**
+  - [x] `config/font_config.py` 作成（環境別フォント自動選択）
+  - [x] Windows/macOS: 日本語フォント使用
+  - [x] Linux（Streamlit Cloud）: 英語フォント使用
+  - [x] 既存PDF生成処理の完全対応
+
+- [x] **多言語対応PDFテンプレート**
+  - [x] `config/pdf_templates.py` 作成（日本語・英語両対応）
+  - [x] 環境に応じた自動言語切り替え
+  - [x] 二群比較・単群推定の両分析タイプ対応
+  - [x] フォールバック機能による確実な動作保証
+
+### 6.2 次期開発準備状況
+- ✅ **GitHub/Streamlit Cloudデプロイ準備**: 完了
+- ✅ **ITS分析機能統合準備**: 基盤整理完了
+- ✅ **コードベース保守性向上**: リファクタリング対象特定完了
+
+---
+
+**最終更新**: 2025年1月 - Phase 6 ITS分析統合前準備完了  
 **現在の実装者**: AI Assistant  
-**プロジェクト状況**: 全Phase完了・次期開発準備完了  
-**次のマイルストーン**: ITS（Interrupted Time Series）分析機能統合 
+**プロジェクト状況**: 全Phase完了・ITS分析統合準備完了  
+**次のマイルストーン**: ITS（Interrupted Time Series）分析機能統合開始 

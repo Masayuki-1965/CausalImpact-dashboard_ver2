@@ -794,13 +794,25 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
     # スタイル設定
     styles = getSampleStyleSheet()
     
-    # フォント設定
+    # 日本語フォント設定（クロスプラットフォーム対応）
     try:
-        font_path = "C:/Windows/Fonts/msgothic.ttc"
-        pdfmetrics.registerFont(TTFont('MSGothic', font_path))
-        font_name = 'MSGothic'
-    except:
+        from config.font_config import get_simple_japanese_font, is_japanese_font_available
+        from config.pdf_templates import get_pdf_content
+        font_name = get_simple_japanese_font()
+        use_japanese = is_japanese_font_available() and font_name != 'Helvetica'
+        content = get_pdf_content(use_japanese)
+    except Exception as e:
+        print(f"フォント設定エラー: {e}")
         font_name = 'Helvetica'
+        use_japanese = False
+        # フォールバック用簡易コンテンツ
+        content = {
+            'title_single_group': 'Causal Impact Analysis Report (Single Group)',
+            'section_analysis_info': '■ Analysis Target and Conditions',
+            'section_summary': '■ Analysis Result Summary',
+            'section_graph': '■ Analysis Result Graph',
+            'graph_explanation_single_group': 'Graph explanation: Compare actual data (black) vs predicted data (blue) to evaluate intervention effects.'
+        }
     
     # カスタムスタイル（1ページ収容のため行間を詰める）
     title_style = ParagraphStyle(
@@ -832,11 +844,11 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
     story = []
     
     # タイトル
-    story.append(Paragraph('Causal Impact分析レポート（単群推定）', title_style))
+    story.append(Paragraph(content['title_single_group'], title_style))
     story.append(Spacer(1, 6))
     
     # ■分析対象と条件（見出し直下の空白行削除）
-    story.append(Paragraph('■分析対象と条件', heading_style))
+    story.append(Paragraph(content['section_analysis_info'], heading_style))
     
     # analysis_info辞書から必要な情報を取得
     treatment_name = analysis_info.get('treatment_name', '分析対象')
