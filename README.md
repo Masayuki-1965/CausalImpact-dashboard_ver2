@@ -1,31 +1,52 @@
-# Causal Impact Analyzer
+# Causal Impact Analyzer ver2
 
 Causal Impactを用いて介入効果を可視化・分析するPython Streamlitアプリケーションです。
+二群比較（Two-Group）と単群推定（Single Group）の両方の分析手法に対応しています。
 
 ## アプリケーション概要
 
-このアプリケーションでは、処置群（介入効果を測定したい対象）と対照群（比較対象）のデータを用いて、
-CausalImpactによる介入効果の測定・分析を行うことができます。
+このアプリケーションでは、以下の2つの分析手法を選択できます：
 
-主な機能：
-- CSVファイルからの時系列データ読み込み
-- データの可視化と統計情報の表示
-- 分析期間（介入前期間・介入期間）の設定
-- モデルパラメータの詳細設定
-- CausalImpact分析の実行と結果表示
-- 分析レポートの日本語化表示
+### 1. 二群比較分析（Two-Group Causal Impact）
+処置群（介入効果を測定したい対象）と対照群（比較対象）のデータを用いて介入効果を分析
+
+### 2. 単群推定分析（Single Group Causal Impact）  
+処置群のみのデータを用いて介入効果を推定（対照群なしの分析）
+
+## 主な機能
+- **多様なデータ取り込み**: CSVファイル・テキスト入力対応
+- **柔軟な分析期間設定**: 介入前期間・介入期間の詳細設定
+- **高度な可視化**: 時系列プロット・分析結果グラフ・統計情報表示
+- **包括的なレポート**: PDF・CSV形式での分析結果ダウンロード
+- **多言語対応**: 日本語・英語対応（環境に応じた自動切り替え）
+- **Streamlit Cloud対応**: クロスプラットフォーム動作保証
 
 ## ファイル構成
 
-- `app.py`: メインアプリケーションファイル
+### メインアプリケーション
+- `app_enhanced.py`: メインアプリケーションファイル（2342行）
 - `utils_step1.py`: データ取り込み・可視化（STEP1）用の補助関数モジュール
 - `utils_step2.py`: 分析期間・パラメータ設定（STEP2）用の補助関数モジュール
-- `utils_step3.py`: 分析実行・結果表示（STEP3）用の補助関数モジュール
+- `utils_step3.py`: 二群比較分析実行・結果表示（STEP3）用の補助関数モジュール（1580行）
+- `utils_step3_single_group.py`: 単群推定分析実行・結果表示用の補助関数モジュール（1290行）
+- `utils_common.py`: 共通処理・セッション管理モジュール
 - `causal_impact_translator.py`: 分析レポートの日本語翻訳モジュール
-- `data/` : サンプルデータ格納ディレクトリ
+
+### 設定ファイル
+- `config/constants.py`: 定数・設定値管理
+- `config/help_texts.py`: ヘルプテキスト・HTML管理
+- `config/inline_styles.py`: インラインHTMLスタイル定数管理
+- `config/validation_messages.py`: 検証・エラーメッセージ管理
+- `config/font_config.py`: クロスプラットフォーム対応フォント設定
+- `config/pdf_templates.py`: 多言語対応PDFテンプレート
+- `config/graph_config.py`: グラフタイトル多言語対応設定
+
+### スタイル・データ
+- `styles/custom.css`: カスタムスタイルシート
+- `data/`: サンプルデータ格納ディレクトリ
   - `treatment_data/`: 処置群データCSVファイル
   - `control_data/`: 対照群データCSVファイル
-- `requirements.txt`: 必要パッケージリスト
+- `requirements.txt`: 必要パッケージリスト（134パッケージ）
 
 ## モジュール分割について
 
@@ -81,10 +102,39 @@ if new_pattern_match:
 
 ## インストールと実行
 
+### ローカル環境での実行
 ```bash
+# リポジトリのクローン
+git clone <repository-url>
+cd CausalImpact-Analyzer_ver2
+
+# Python仮想環境の作成（推奨）
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# または
+venv\Scripts\activate     # Windows
+
 # 必要パッケージのインストール
 pip install -r requirements.txt
 
 # アプリケーションの実行
-streamlit run app.py
-``` 
+streamlit run app_enhanced.py
+```
+
+### Streamlit Cloudでの実行
+1. GitHubリポジトリにプッシュ
+2. [Streamlit Cloud](https://streamlit.io/cloud) でデプロイ
+3. 多言語対応により、環境に応じて自動的に日本語/英語が切り替わります
+
+## 最新の更新内容（Phase 6.7）
+
+- ✅ **PDF分析期間件数表示の修正**: STEP2で設定した介入期間の件数がPDFに正確に反映されるよう修正
+- ✅ **Streamlit Cloud完全対応**: 日本語フォント・グラフタイトルの文字化け対策完了
+- ✅ **多言語自動切り替え**: 環境に応じて日本語/英語が自動選択される機能
+- ✅ **エラーハンドリング強化**: 確実な動作を保証するフォールバック機能
+
+---
+
+**開発バージョン**: ver2 (Phase 6.7完了)  
+**対応環境**: Windows, macOS, Linux (Streamlit Cloud)  
+**Python要件**: 3.8以上（推奨: 3.13） 

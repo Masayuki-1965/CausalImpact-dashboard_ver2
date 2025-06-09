@@ -1326,24 +1326,24 @@ def get_metrics_explanation_table():
 <td style="border:1px solid #dee2e6;padding:6px;">介入期間中に実際に観測された値です。</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:6px;">予測値 (標準偏差)</td>
-<td style="border:1px solid #dee2e6;padding:6px;">介入がなかった場合の予測値を表しています。カッコ内の値は標準偏差です。</td>
+<td style="border:1px solid #dee2e6;padding:6px;">予測値</td>
+<td style="border:1px solid #dee2e6;padding:6px;">介入がなかった場合の予測値を表しています。</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:6px;">絶対効果 (標準偏差)</td>
-<td style="border:1px solid #dee2e6;padding:6px;">実測値から予測値を差し引いた値で、介入による変化量を表しています。カッコ内の値は標準偏差です。</td>
+<td style="border:1px solid #dee2e6;padding:6px;">予測値 XX% 信頼区間</td>
+<td style="border:1px solid #dee2e6;padding:6px;">予測値の信頼区間を示しています。予測値がこの範囲内に収まる確率が XX％ であることを意味しています</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:6px;">相対効果 (標準偏差)</td>
-<td style="border:1px solid #dee2e6;padding:6px;">絶対効果を予測値で割った値で、変化率をパーセンテージで表しています。カッコ内の値は標準偏差です。</td>
+<td style="border:1px solid #dee2e6;padding:6px;">絶対効果</td>
+<td style="border:1px solid #dee2e6;padding:6px;">実測値から予測値を差し引いた値で、介入による効果の絶対値を表しています。</td>
 </tr>
 <tr>
-<td style="border:1px solid #dee2e6;padding:6px;">信頼区間</td>
-<td style="border:1px solid #dee2e6;padding:6px;">効果の推定範囲を示しています。0を含まない場合は統計的に有意な効果があると判断されます。</td>
+<td style="border:1px solid #dee2e6;padding:6px;">相対効果</td>
+<td style="border:1px solid #dee2e6;padding:6px;">絶対効果を予測値で割った比率で、効果の大きさをパーセンテージで表しています。</td>
 </tr>
 <tr>
 <td style="border:1px solid #dee2e6;padding:6px;">p値</td>
-<td style="border:1px solid #dee2e6;padding:6px;">効果が偶然による確率を表しています。0.05未満の場合は統計的に有意な効果があると判断されます。</td>
+<td style="border:1px solid #dee2e6;padding:6px;">効果が単なる偶然で生じる確率を表しています。0.05未満の場合、効果は統計的に有意であると判断されます。</td>
 </tr>
 </tbody>
 </table>
@@ -1454,8 +1454,52 @@ def get_comprehensive_pdf_download_link(ci, analysis_info, summary_df, fig, conf
     period_end = analysis_info.get('period_end')
     freq_option = analysis_info.get('freq_option', '')
     
-    # データの件数を算出
-    total_data_count = len(summary_df) if summary_df is not None else 0
+    # 介入期間の実際のデータ件数を算出
+    total_data_count = 0
+    try:
+        if hasattr(ci, 'inferences') and ci.inferences is not None:
+            df = ci.inferences.copy()
+            
+            # インデックスが日付の場合の処理
+            if df.index.name or 'date' in str(type(df.index)):
+                df = df.reset_index()
+                if 'index' in df.columns:
+                    df = df.rename(columns={'index': 'date'})
+                elif df.columns[0] not in ['date']:
+                    df = df.rename(columns={df.columns[0]: 'date'})
+            
+            # 日付列の処理
+            if 'date' in df.columns:
+                # 日付列をdatetime型に変換
+                df['date'] = pd.to_datetime(df['date'])
+                
+                # period_startとperiod_endもdatetime型に変換
+                if period_start and period_end:
+                    period_start_dt = pd.to_datetime(period_start)
+                    period_end_dt = pd.to_datetime(period_end)
+                    
+                    # 介入期間のデータをフィルタリング
+                    post_data = df[(df['date'] >= period_start_dt) & (df['date'] <= period_end_dt)]
+                    total_data_count = len(post_data)
+                else:
+                    total_data_count = len(df)
+            else:
+                # date列がない場合は全体の件数を使用
+                total_data_count = len(df)
+        else:
+            # CausalImpactオブジェクトのdataから取得を試行
+            if hasattr(ci, 'data') and ci.data is not None:
+                df = ci.data.copy()
+                if hasattr(df, 'index'):
+                    total_data_count = len(df)
+                else:
+                    total_data_count = len(summary_df) if summary_df is not None else 0
+            else:
+                # フォールバック: サマリーテーブルの行数を使用
+                total_data_count = len(summary_df) if summary_df is not None else 0
+    except Exception as e:
+        # エラー時のフォールバック: サマリーテーブルの行数を使用
+        total_data_count = len(summary_df) if summary_df is not None else 0
     
     # 分析条件を記載（テンプレート対応）
     try:

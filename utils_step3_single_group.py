@@ -893,8 +893,52 @@ def get_single_group_comprehensive_pdf_download_link(ci, analysis_info, summary_
     period_end = analysis_info.get('period_end')
     freq_option = analysis_info.get('freq_option', '')
     
-    # データの件数を算出
-    total_data_count = len(summary_df) if summary_df is not None else 0
+    # 介入期間の実際のデータ件数を算出
+    total_data_count = 0
+    try:
+        if hasattr(ci, 'inferences') and ci.inferences is not None:
+            df = ci.inferences.copy()
+            
+            # インデックスが日付の場合の処理
+            if df.index.name or 'date' in str(type(df.index)):
+                df = df.reset_index()
+                if 'index' in df.columns:
+                    df = df.rename(columns={'index': 'date'})
+                elif df.columns[0] not in ['date']:
+                    df = df.rename(columns={df.columns[0]: 'date'})
+            
+            # 日付列の処理
+            if 'date' in df.columns:
+                # 日付列をdatetime型に変換
+                df['date'] = pd.to_datetime(df['date'])
+                
+                # period_startとperiod_endもdatetime型に変換
+                if period_start and period_end:
+                    period_start_dt = pd.to_datetime(period_start)
+                    period_end_dt = pd.to_datetime(period_end)
+                    
+                    # 介入期間のデータをフィルタリング
+                    post_data = df[(df['date'] >= period_start_dt) & (df['date'] <= period_end_dt)]
+                    total_data_count = len(post_data)
+                else:
+                    total_data_count = len(df)
+            else:
+                # date列がない場合は全体の件数を使用
+                total_data_count = len(df)
+        else:
+            # CausalImpactオブジェクトのdataから取得を試行
+            if hasattr(ci, 'data') and ci.data is not None:
+                df = ci.data.copy()
+                if hasattr(df, 'index'):
+                    total_data_count = len(df)
+                else:
+                    total_data_count = len(summary_df) if summary_df is not None else 0
+            else:
+                # フォールバック: サマリーテーブルの行数を使用
+                total_data_count = len(summary_df) if summary_df is not None else 0
+    except Exception as e:
+        # エラー時のフォールバック: サマリーテーブルの行数を使用
+        total_data_count = len(summary_df) if summary_df is not None else 0
     
     # 分析条件を記載（テンプレート対応）
     try:
