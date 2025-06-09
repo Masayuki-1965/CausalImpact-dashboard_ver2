@@ -1331,7 +1331,7 @@ def get_metrics_explanation_table():
 </tr>
 <tr>
 <td style="border:1px solid #dee2e6;padding:6px;">予測値 XX% 信頼区間</td>
-<td style="border:1px solid #dee2e6;padding:6px;">予測値の信頼区間を示しています。予測値がこの範囲内に収まる確率が XX％ であることを意味しています</td>
+<td style="border:1px solid #dee2e6;padding:6px;">予測値の信頼区間を示しています。予測値がこの範囲内に収まる確率が XX％ であることを意味しています。</td>
 </tr>
 <tr>
 <td style="border:1px solid #dee2e6;padding:6px;">絶対効果</td>
