@@ -71,17 +71,16 @@ def run_single_group_causal_impact_analysis(data, pre_period, post_period, nseas
         axes = fig.get_axes()
         if len(axes) >= 3:
             try:
-                from config.graph_config import get_graph_config
-                use_japanese, labels = get_graph_config()
-                axes[0].set_title(labels['actual_vs_predicted'], fontsize=12, weight='normal')
-                axes[1].set_title(labels['point_effects'], fontsize=12, weight='normal')
-                axes[2].set_title(labels['cumulative_effects'], fontsize=12, weight='normal')
+                # PC環境と同じ日本語タイトルを使用
+                axes[0].set_title('実測値 vs 予測値', fontsize=12, weight='normal')
+                axes[1].set_title('時点効果', fontsize=12, weight='normal')
+                axes[2].set_title('累積効果', fontsize=12, weight='normal')
             except Exception as e:
                 print(f"グラフタイトル設定エラー: {e}")
-                # フォールバック（英語）
-                axes[0].set_title('Actual vs Predicted', fontsize=12, weight='normal')
-                axes[1].set_title('Point Effects', fontsize=12, weight='normal')
-                axes[2].set_title('Cumulative Effects', fontsize=12, weight='normal')
+                # フォールバック（アプリ画面でも日本語固定）
+                axes[0].set_title('実測値 vs 予測値', fontsize=12, weight='normal')
+                axes[1].set_title('時点効果', fontsize=12, weight='normal')
+                axes[2].set_title('累積効果', fontsize=12, weight='normal')
         
         # 下部の注釈メッセージを非表示にする
         for ax in axes:
