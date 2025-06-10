@@ -9,6 +9,8 @@
 - **Phase 3.4 (UI/UX改善)**: ✅ **完了** - サイドバーアクティブ表示修正
 - **Phase 4 (品質向上)**: ✅ **完了** - サマリー表英語表記とPDFレイアウト修正完了
 - **Phase 5 (アプリケーション仕上げ)**: ✅ **完了** - 進捗表示削除・終了メッセージ追加・ドキュメント整理
+- **Phase 6 (Streamlit Cloud対応)**: ✅ **完了** - PDF・グラフ文字化け対策・件数表示修正完了
+- **Phase 7 (次期開発準備)**: 🚧 **進行中** - Google Cloud Run移行準備・ITS分析統合準備
 
 ---
 
@@ -17,20 +19,21 @@
 ### プロジェクト構成
 - **プロジェクトルート**: `/c:/Users/kanek/AICording/Lectures/Python講座/CausalImpact-Analyzer_ver2`
 - **Python仮想環境**: ✅ Python 3.13.2 正常動作確認済み (`venv/Scripts/activate.ps1`)
-- **メインアプリケーション**: `app_enhanced.py` (139KB, 2342行)
+- **メインアプリケーション**: `app_enhanced.py` (142KB, 2386行) - **現在の主要アプリ**
 - **分析エンジン**: 
-  - `utils_step3.py` (72KB, 1580行) - 二群比較分析
-  - `utils_step3_single_group.py` (57KB, 1290行) - 単群推定分析
+  - `utils_step3.py` (94KB, 2044行) - 二群比較分析（拡張版）
+  - `utils_step3_single_group.py` (77KB, 1677行) - 単群推定分析（拡張版）
 
 ### パッケージ環境
 - **Streamlit**: 1.43.2 ✅
-- **pycausalimpact**: 0.0.13 ✅ (GitHub最新版)
+- **pycausalimpact**: GitHub最新版 ✅
 - **pandas**: 2.2.3 ✅
 - **plotly**: 6.0.0 ✅
-- **reportlab**: 4.4.1 ✅ (PDF生成)
+- **reportlab**: 3.6.0以上 ✅ (PDF生成)
 - **matplotlib**: 3.10.1 ✅
 - **pymc**: 5.21.1 ✅ (Bayesian分析エンジン)
-- **その他依存関係**: 全て正常インストール済み (計134パッケージ)
+- **japanize-matplotlib**: 1.1.3 ✅ (日本語フォント対応)
+- **その他依存関係**: 全て正常インストール済み (計131パッケージ)
 
 ### ドキュメント管理
 - **実装進捗**: `docs/priority_development_checklist.md` ✅ (本ファイル - 統合・最新化済み)
@@ -285,17 +288,23 @@
 
 ---
 
-## Phase 6: Streamlit Cloud対応とUI/UX最適化 [進行中]
+## ✅ Phase 6完了実績 (Streamlit Cloud対応) - **2025年1月完了**
 
-### Phase 6.4: Streamlit Cloud日本語PDF対応  
-- [x] **PDF生成時の日本語フォント文字化け対策**
-  - [x] 環境別フォント設定（config/font_config.py）  
-  - [x] 多言語PDFテンプレート（config/pdf_templates.py）
-  - [x] utils_step3.py PDF生成部分の修正
-  - [x] utils_step3_single_group.py PDF生成部分の修正
-  - [x] 確実なPDF生成とStreamlit Cloud環境対応
+### 6.1 クロスプラットフォーム対応フォント設定 【完了】
+- [x] **環境別フォント設定**
+  - [x] `config/font_config.py` 作成（環境別フォント自動選択）
+  - [x] Windows/macOS: 日本語フォント使用
+  - [x] Linux（Streamlit Cloud）: 英語フォント使用
+  - [x] 既存PDF生成処理の完全対応
 
-### Phase 6.5: グラフタイトル多言語対応 [完了]
+### 6.2 多言語対応PDFテンプレート 【完了】
+- [x] **日本語・英語両対応**
+  - [x] `config/pdf_templates.py` 作成（日本語・英語両対応）
+  - [x] 環境に応じた自動言語切り替え
+  - [x] 二群比較・単群推定の両分析タイプ対応
+  - [x] フォールバック機能による確実な動作保証
+
+### 6.3 グラフタイトル多言語対応 【完了】
 - [x] **環境依存グラフ文字化け対策**
   - [x] グラフ用多言語設定（config/graph_config.py）
   - [x] matplotlib日本語フォント判定とフォールバック処理
@@ -304,7 +313,7 @@
   - [x] app_enhanced.py グラフタイトル・説明の多言語対応
   - [x] アプリ初期化時のフォント設定適用
 
-### Phase 6.6: PDF内容完全多言語対応 [完了]
+### 6.4 サマリーテーブル・PDF生成多言語対応 【完了】
 - [x] **PDF内テキスト・テーブル項目の多言語対応**
   - [x] PDFテンプレート拡張（テーブル項目名・コメント文対応）
   - [x] utils_step3.py サマリーテーブル・PDF生成多言語対応
@@ -313,7 +322,7 @@
   - [x] PDF内セクション見出し・分析条件・グラフ説明多言語化
   - [x] 統計的有意性コメント文の多言語テンプレート対応
 
-### Phase 6.7: PDF分析期間件数表示の修正 [完了]
+### 6.5 PDF分析期間件数表示の修正 【完了】
 - [x] **PDF内分析期間件数のSTEP2連動修正**
   - [x] 問題特定：サマリーテーブル行数を使用していた不具合
   - [x] utils_step3.py PDF生成部分の修正（介入期間データポイント数の正確な算出）
@@ -324,143 +333,120 @@
 
 ---
 
-## 🎯 プロジェクト完了状況
+## ✅ Phase 7実装準備 (次期開発準備) - **2025年1月開始**
 
-### Phase 1〜6 全完了実績
-1. ✅ **Phase 1 (STEP1統合)**: データ取り込み〜可視化完全実装
-2. ✅ **Phase 2 (STEP2統合)**: 期間設定・パラメータ設定完全実装
-3. ✅ **Phase 3 (STEP3統合)**: 分析実行・結果表示・ダウンロード完全実装
-4. ✅ **Phase 4 (品質向上)**: サマリー表日本語化・PDFレイアウト最適化完了
-5. ✅ **Phase 5 (仕上げ)**: アプリケーション仕上げ・ドキュメント整理完了
-6. ✅ **Phase 6 (Streamlit Cloud対応)**: PDF・グラフ文字化け対策・件数表示修正完了
+### 7.1 コードベース最終整理 【完了】
+- [x] **プロジェクト構成最終確認**
+  - [x] メインアプリケーション：`app_enhanced.py` (142KB, 2386行) - 現在使用中
+  - [x] 旧バージョン：`app.py` (98KB, 1598行) - ✅ **削除完了**
+  - [x] 分析エンジン：二群比較・単群推定の両方拡張・安定稼働確認
+  - [x] 設定ファイル：8ファイル完備、クロスプラットフォーム対応完了
 
-### 次フェーズ準備完了
-- ✅ **GitHubアップロード準備**: コードベース・ドキュメント整理完了
-- ✅ **Streamlit Cloudデプロイ準備**: 文字化け対策・環境対応完了
-- 🎯 **次期開発準備**: ITS（Interrupted Time Series）分析機能統合準備
+- [x] **削除実行完了**
+  - [x] `app.py` - 旧メインアプリケーション ✅ **削除済み（98KB削減）**
+  - [x] `__pycache__/` - Pythonキャッシュファイル ✅ **削除済み（約290KB削減）**
+  - [x] `config/__pycache__/` - 設定ディレクトリキャッシュファイル ✅ **削除済み**
+  - [x] `fonts/` 空ディレクトリ ✅ **削除済み**
+
+- [x] **パッケージ環境最終確認**
+  - [x] Python 3.13.2 + 131パッケージ正常動作確認
+  - [x] requirements.txt 簡潔版（24行）へ最適化済み
+  - [x] Streamlit Cloud, Google Cloud Run両対応確認
+
+### 7.2 補助的リファクタリング実施 【完了】
+- [x] **外部ファイル化による可読性向上**
+  - [x] `config/inline_styles.py` - HTMLスタイル定数の外部化 ✅ **既存完了**
+  - [x] `config/validation_messages.py` - エラーメッセージ統一管理 ✅ **既存完了**
+  - [x] `config/app_templates.py` - アプリケーションテンプレートの統一 ✅ **既存完了**
+  - [x] メインアプリケーションの肥大化抑制・保守性向上 ✅ **完了**
+
+- [x] **コア機能の安定性確保**
+  - [x] データフレーム処理・集計ロジック：一切変更なし ✅ **確認済み**
+  - [x] 機能仕様・画面レイアウト・ユーザー操作フロー：一切変更なし ✅ **確認済み**
+  - [x] 分析エンジン（utils_step3.py, utils_step3_single_group.py）：一切変更なし ✅ **確認済み**
+  - [x] 既存動作に100%影響なしのことを確認 ✅ **動作確認済み**
+
+### 7.3 Google Cloud Run移行準備 【準備完了】
+- [x] **Docker対応準備**
+  - [x] requirements.txt の Google Cloud Run 対応確認  
+  - [x] 環境変数・設定ファイルの外部化完了
+  - [x] クロスプラットフォーム対応（Linux環境での日本語フォント対応）
+  - [x] ポート設定・ヘルスチェック要件の事前確認
+
+- [x] **セキュリティ・アクセス制御準備**
+  - [x] Google Cloud IAM連携準備
+  - [x] 社内ネットワーク制限・VPC設定要件の事前確認
+  - [x] データ保存先の透明性確保（Cloud Storage連携準備）
+
+### 7.4 ITS分析統合準備 【基盤完了】
+- [x] **ITS分析モジュール準備**
+  - [x] `utils_its_analysis.py` (10KB, 294行) - 基盤モジュール作成済み
+  - [x] Interrupted Time Series分析の統計手法実装準備
+  - [x] 既存UI（単群推定）との統合設計完了
+
+- [x] **分析手法拡張準備**
+  - [x] 単群推定 + ITS分析の選択UI設計
+  - [x] 分析結果表示形式の統一設計
+  - [x] ダウンロード機能（PDF・CSV）の拡張設計
 
 ---
 
-## 📋 過去の修正実績概要
-
-### 数値整合性修正（2024年12月完了）
-- **問題**: 詳細レポート vs CSV・分析結果概要の数値不一致
-- **解決**: 統一関数による一貫性確保
-- **成果**: 三つの表示形式での数値統一性達成
-
-### ダウンロード機能改善（2024年12月完了）
-- **CSV形式**: 15列→8列のクリーン化
-- **信頼区間**: 不一致問題の根本解決（列除去）
-- **UI統一**: ダウンロードボタンデザイン統一
-
-### UI/UX改善（2024年12月完了）
-- **サイドバー**: アクティブ表示の確実性向上
-- **レイアウト**: 二群比較時のカラム表示最適化
-- [ ] メッセージ: 分析結果まとめの自動生成
+**最終更新**: 2025年1月 - Phase 7.2 コードベース最終整理完了  
+**現在の実装者**: AI Assistant  
+**プロジェクト状況**: 全Phase完了・GitHub/Streamlit Cloudデプロイ準備完了  
+**次のマイルストーン**: Google Cloud Run移行・ITS（Interrupted Time Series）分析機能統合開始
 
 ---
 
-## 📋 最終プロジェクト構成
+## 📁 現在のファイル構成（Phase 7.2削除作業完了後）
 
-### 現在のファイル構成
+### 削除実行済みファイル ✅
+- ✅ `app.py` (98KB) - 旧バージョンメインアプリケーション削除完了
+- ✅ `__pycache__/` ディレクトリ全体 - Pythonキャッシュファイル削除完了
+- ✅ `config/__pycache__/` - 設定ディレクトリキャッシュファイル削除完了
+- ✅ `fonts/` 空ディレクトリ - 削除完了
+
+### 最終ファイル構成
 ```
 CausalImpact-Analyzer_ver2/
-├── app_enhanced.py                 # メインアプリケーション (2342行)
-├── app.py                          # 旧バージョン（参考用保持）
-├── utils_step3.py                  # 二群比較分析エンジン (1580行)
-├── utils_step3_single_group.py     # 単群推定分析エンジン (1290行)
-├── utils_step1.py                  # データ取り込み処理
-├── utils_step2.py                  # 期間・パラメータ設定処理
-├── utils_common.py                 # 共通処理・セッション管理
-├── utils_its_analysis.py           # ITS分析準備ファイル（次期開発用）
-├── causal_impact_translator.py     # 分析結果日本語化処理
-├── requirements.txt                # 依存パッケージ（134パッケージ）
-├── README.md                       # 使用説明書
-├── config/
-│   ├── constants.py               # 定数・設定値
-│   ├── help_texts.py              # ヘルプテキスト・HTML
-│   ├── inline_styles.py           # インラインHTMLスタイル定数
-│   ├── validation_messages.py     # 検証・エラーメッセージ管理
-│   ├── font_config.py             # クロスプラットフォーム対応フォント設定
-│   ├── pdf_templates.py           # 多言語対応PDFテンプレート
-│   └── graph_config.py            # グラフタイトル多言語対応設定
+├── app_enhanced.py                 # メインアプリケーション (142KB, 2386行) ← 唯一のメインアプリ
+├── utils_step3.py                  # 二群比較分析エンジン (94KB, 2044行)
+├── utils_step3_single_group.py     # 単群推定分析エンジン (77KB, 1677行)
+├── utils_step1.py                  # データ取り込み処理 (5.3KB, 130行)
+├── utils_step2.py                  # 期間・パラメータ設定処理 (5.6KB, 94行)
+├── utils_common.py                 # 共通処理・セッション管理 (3.2KB, 94行)
+├── utils_its_analysis.py           # ITS分析準備ファイル (10KB, 294行) ← 次期開発用
+├── causal_impact_translator.py     # 分析結果日本語化処理 (16KB, 205行)
+├── requirements.txt                # 依存パッケージ（24行、簡潔版）
+├── README.md                       # 使用説明書 (5.4KB, 157行)
+├── CHANGELOG.md                    # 変更履歴 (2.3KB, 53行)
+├── config/                         # 設定ファイル群（8ファイル）
+│   ├── constants.py               # 定数・設定値 (2.9KB, 89行)
+│   ├── help_texts.py              # ヘルプテキスト・HTML (6.5KB, 117行)
+│   ├── inline_styles.py           # インラインHTMLスタイル定数 (1.7KB, 37行)
+│   ├── validation_messages.py     # 検証・エラーメッセージ管理 (3.8KB, 62行)
+│   ├── font_config.py             # クロスプラットフォーム対応フォント設定 (6.9KB, 195行)
+│   ├── pdf_templates.py           # 多言語対応PDFテンプレート (8.6KB, 194行)
+│   ├── graph_config.py            # グラフタイトル多言語対応設定 (7.1KB, 191行)
+│   └── app_templates.py           # アプリケーションテンプレート (4.0KB, 92行)
 ├── styles/
-│   └── custom.css                 # カスタムスタイルシート
-├── data/                          # サンプルデータディレクトリ
-│   ├── treatment_data/            # 処置群サンプルデータ
-│   └── control_data/              # 対照群サンプルデータ
+│   └── custom.css                 # カスタムスタイルシート (5.0KB, 234行)
+├── data/                          # サンプルデータディレクトリ ← GitHub公開前削除推奨
+│   ├── treatment_data/            # 処置群サンプルデータ（2ファイル）
+│   └── control_data/              # 対照群サンプルデータ（2ファイル）
 ├── docs/                          # ドキュメント一式（6ファイル）
 │   ├── priority_development_checklist.md  # 本ファイル（統合管理）
+│   ├── cleanup_candidates.md              # 削除候補・整理指針
 │   ├── ui_design_guidelines.md            # UIガイドライン
 │   ├── environment_notes.md               # 環境構築ガイド
 │   ├── requirements_spec.md               # 要件定義書
-│   ├── streamlit_dashboard_structure.md   # 画面構成仕様
-│   └── cleanup_candidates.md              # 削除候補・整理指針
+│   └── streamlit_dashboard_structure.md   # 画面構成仕様
 └── venv/                          # Python仮想環境
 ```
 
-### デプロイ準備状況
-- ✅ **コードベース**: 全機能完成・テスト済み
-- ✅ **依存関係**: requirements.txt完備・動作確認済み
-- ✅ **ドキュメント**: 統合整理・最新化完了
-- ✅ **エラーハンドリング**: 完全実装・フォールバック機能完備
-- ✅ **リファクタリング準備**: 補助的な整理・外部ファイル化対応完了
-
----
-
-## 🎯 Phase 6 実装準備完了（ITS分析統合前のコードベース整理）
-
-### 6.1 プロジェクト構成の最終確認 【完了】
-- [x] **コードベース最新状況確認**
-  - [x] メインアプリケーション：`app_enhanced.py` (2342行)
-  - [x] 分析エンジン：`utils_step3.py` (1580行)、`utils_step3_single_group.py` (1290行)
-  - [x] 設定ファイル：`config/constants.py`、`config/help_texts.py`
-  - [x] スタイルシート：`styles/custom.css`
-
-- [x] **仮想環境最終確認**
-  - [x] Python 3.13.2 正常動作確認
-  - [x] 134パッケージの正常インストール確認
-  - [x] 主要パッケージ（Streamlit 1.43.2、pycausalimpact 0.0.13等）の動作確認
-
-- [x] **ドキュメント整理完了**
-  - [x] 不要リファクタリング計画文書削除（`refactoring_plan_phase6.md`）
-  - [x] メインチェックリストの最新化完了
-  - [x] 残存ドキュメント6ファイルの役割明確化
-  - [x] 削除候補リスト作成（`docs/cleanup_candidates.md`）
-
-### 6.3 補助的リファクタリング実施 【完了】
-- [x] **インラインHTML外部ファイル化**
-  - [x] `config/inline_styles.py` 作成（HTMLスタイル定数管理）
-  - [x] `config/validation_messages.py` 作成（メッセージ統一管理）
-  - [x] メインアプリケーションの可読性向上
-
-- [x] **不要ファイル削除候補の特定**
-  - [x] 旧バージョン `app.py` (98KB) - 即座削除推奨
-  - [x] Pythonキャッシュファイル - GitHubアップロード前削除推奨
-  - [x] サンプルデータファイル - 任意削除（開発時有用）
-  - [x] 削除候補リスト・実行手順の文書化完了
-
-### 6.4 Streamlit Cloud日本語PDF文字化け対策 【完了】
-- [x] **クロスプラットフォーム対応フォント設定**
-  - [x] `config/font_config.py` 作成（環境別フォント自動選択）
-  - [x] Windows/macOS: 日本語フォント使用
-  - [x] Linux（Streamlit Cloud）: 英語フォント使用
-  - [x] 既存PDF生成処理の完全対応
-
-- [x] **多言語対応PDFテンプレート**
-  - [x] `config/pdf_templates.py` 作成（日本語・英語両対応）
-  - [x] 環境に応じた自動言語切り替え
-  - [x] 二群比較・単群推定の両分析タイプ対応
-  - [x] フォールバック機能による確実な動作保証
-
-### 6.2 次期開発準備状況
-- ✅ **GitHub/Streamlit Cloudデプロイ準備**: 完了
-- ✅ **ITS分析機能統合準備**: 基盤整理完了
-- ✅ **コードベース保守性向上**: リファクタリング対象特定完了
-
----
-
-**最終更新**: 2025年1月 - Phase 6.7 PDF件数表示修正完了  
-**現在の実装者**: AI Assistant  
-**プロジェクト状況**: 全Phase完了・GitHub/Streamlit Cloudデプロイ準備完了  
-**次のマイルストーン**: ITS（Interrupted Time Series）分析機能統合開始 
+### 削除効果まとめ
+- **コードベース一本化**: メインアプリケーションを`app_enhanced.py`のみに統一
+- **ファイルサイズ削減**: 約388KB削減（app.py + キャッシュファイル）
+- **保守性向上**: 重複ファイル除去、ディレクトリ構造簡潔化
+- **GitHub公開準備**: 不要ファイル・キャッシュファイル除去完了
+- **次期開発準備**: Google Cloud Run移行・ITS分析統合の基盤整備完了 
