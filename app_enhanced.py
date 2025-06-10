@@ -1906,9 +1906,9 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                     
                     # --- 分析レポートのまとめ（テーブル直下に配置） ---
                     try:
-                        # 分析タイプに応じて適切なサマリーメッセージ生成関数を使用
+                        # 分析タイプに応じて適切なサマリーメッセージ生成関数を使用（アプリ画面では日本語固定）
                         if current_analysis_type == "単群推定（処置群のみを使用）":
-                            # 単群推定用のサマリーメッセージ生成関数を使用
+                            # 単群推定用のサマリーメッセージ生成関数を使用（アプリ画面用）
                             from utils_step3_single_group import get_single_group_analysis_summary_message
                             summary_message = get_single_group_analysis_summary_message(ci, confidence_level)
                         else:

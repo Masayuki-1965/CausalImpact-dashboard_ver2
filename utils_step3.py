@@ -403,10 +403,269 @@ def get_detail_csv_download_link(ci, period, treatment_name):
     href = f'data:text/csv;charset=utf-8-sig;base64,{csv_base64}'
     return href, filename
 
+def build_app_summary_table(ci, confidence_level=95):
+    """
+    アプリ画面表示用の日本語固定サマリーテーブル生成関数
+    PDF出力とは独立してアプリ画面では常に日本語表記
+    
+    Parameters:
+    -----------
+    ci : CausalImpact
+        分析結果オブジェクト
+    confidence_level : int
+        信頼水準（%）、デフォルト95%
+        
+    Returns:
+    --------
+    pandas.DataFrame
+        日本語固定の分析結果テーブル
+    """
+    try:
+        import pandas as pd
+        import numpy as np
+        import re
+        
+        # アプリ画面用日本語固定コンテンツ
+        try:
+            from config.app_templates import get_app_content
+            content = get_app_content()
+        except:
+            # フォールバック（日本語）
+            content = {
+                'table_actual': '実測値',
+                'table_predicted': '予測値',
+                'table_predicted_ci': f'予測値 {confidence_level}% 信頼区間',
+                'table_absolute_effect': '絶対効果',
+                'table_relative_effect': '相対効果',
+                'table_p_value': 'p値',
+                'table_indicator': '指標',
+                'table_avg_analysis_period': '分析期間の平均値',
+                'table_total_analysis_period': '分析期間の累積値'
+            }
+        
+        # CausalImpactのsummary_dataから直接取得（より確実）
+        if hasattr(ci, 'summary_data') and ci.summary_data is not None:
+            summary_data = ci.summary_data
+            results_data = []
+            
+            # p値の取得
+            p_value = None
+            if hasattr(ci, 'p_value'):
+                p_value = ci.p_value
+            else:
+                # summary()テキストからp値を抽出
+                try:
+                    summary_text = str(ci.summary())
+                    p_match = re.search(r'Posterior tail-area probability p:\s+([0-9.]+)', summary_text)
+                    if p_match:
+                        p_value = float(p_match.group(1))
+                except:
+                    pass
+            
+            # 項目を順番に処理（日本語固定）
+            
+            # 1. 実測値
+            for index_name in summary_data.index:
+                if 'actual' in str(index_name).lower():
+                    avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
+                    cum_val = summary_data.loc[index_name, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[index_name].iloc[1]
+                    results_data.append([content['table_actual'], f"{avg_val:.1f}", f"{cum_val:.1f}"])
+                    break
+            
+            # 2. 予測値
+            for index_name in summary_data.index:
+                if ('predicted' in str(index_name).lower() or 'prediction' in str(index_name).lower()) and 'lower' not in str(index_name).lower() and 'upper' not in str(index_name).lower():
+                    avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
+                    cum_val = summary_data.loc[index_name, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[index_name].iloc[1]
+                    results_data.append([content['table_predicted'], f"{avg_val:.1f}", f"{cum_val:.1f}"])
+                    break
+            
+            # 3. 予測値信頼区間（予測値のすぐ下に配置）
+            pred_lower = None
+            pred_upper = None
+            for index_name in summary_data.index:
+                if 'predicted' in str(index_name).lower() and 'lower' in str(index_name).lower():
+                    pred_lower = index_name
+                elif 'predicted' in str(index_name).lower() and 'upper' in str(index_name).lower():
+                    pred_upper = index_name
+            
+            if pred_lower and pred_upper:
+                lower_avg = summary_data.loc[pred_lower, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[pred_lower].iloc[0]
+                upper_avg = summary_data.loc[pred_upper, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[pred_upper].iloc[0]
+                lower_cum = summary_data.loc[pred_lower, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[pred_lower].iloc[1]
+                upper_cum = summary_data.loc[pred_upper, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[pred_upper].iloc[1]
+                ci_label = content['table_predicted_ci'].format(confidence_level)
+                results_data.append([ci_label, f"[{lower_avg:.1f}, {upper_avg:.1f}]", f"[{lower_cum:.1f}, {upper_cum:.1f}]"])
+            
+            # 4. 絶対効果
+            for index_name in summary_data.index:
+                if ('abseffect' in str(index_name).lower() or 'abs_effect' in str(index_name).lower() or 'absolute' in str(index_name).lower()) and 'lower' not in str(index_name).lower() and 'upper' not in str(index_name).lower():
+                    avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
+                    cum_val = summary_data.loc[index_name, 'Cumulative'] if 'Cumulative' in summary_data.columns else summary_data.loc[index_name].iloc[1]
+                    results_data.append([content['table_absolute_effect'], f"{avg_val:.1f}", f"{cum_val:.1f}"])
+                    break
+            
+            # 5. 相対効果
+            for index_name in summary_data.index:
+                if ('releffect' in str(index_name).lower() or 'rel_effect' in str(index_name).lower() or 'relative' in str(index_name).lower()) and 'lower' not in str(index_name).lower() and 'upper' not in str(index_name).lower():
+                    avg_val = summary_data.loc[index_name, 'Average'] if 'Average' in summary_data.columns else summary_data.loc[index_name].iloc[0]
+                    # %変換
+                    rel_pct = avg_val * 100 if abs(avg_val) < 10 else avg_val
+                    results_data.append([content['table_relative_effect'], f"{rel_pct:.1f}%", f"{rel_pct:.1f}%"])
+                    break
+            
+            # 6. p値
+            if p_value is not None:
+                results_data.append([content['table_p_value'], f"{p_value:.4f}", f"{p_value:.4f}"])
+            
+            # DataFrameを作成（日本語固定）
+            columns = [
+                content['table_indicator'],
+                content['table_avg_analysis_period'], 
+                content['table_total_analysis_period']
+            ]
+            df_result = pd.DataFrame(results_data, columns=columns)
+            
+            return df_result
+        
+        else:
+            # フォールバック：テキスト解析（日本語固定）
+            return build_app_text_based_summary_table(ci, confidence_level)
+        
+    except Exception as e:
+        print(f"Error in build_app_summary_table: {e}")
+        # エラーの場合は日本語固定フォールバックを使用
+        return build_app_guaranteed_japanese_table(ci, confidence_level)
+
+def build_app_text_based_summary_table(ci, confidence_level=95):
+    """
+    アプリ画面用：CausalImpactのテキスト出力を解析して日本語固定テーブルを生成
+    """
+    try:
+        import pandas as pd
+        import re
+        
+        # アプリ画面用日本語固定コンテンツ
+        try:
+            from config.app_templates import get_app_content
+            content = get_app_content()
+        except:
+            content = {
+                'table_actual': '実測値',
+                'table_predicted': '予測値',
+                'table_predicted_ci': f'予測値 {confidence_level}% 信頼区間',
+                'table_absolute_effect': '絶対効果',
+                'table_relative_effect': '相対効果',
+                'table_p_value': 'p値',
+                'table_indicator': '指標',
+                'table_avg_analysis_period': '分析期間の平均値',
+                'table_total_analysis_period': '分析期間の累積値'
+            }
+        
+        # CausalImpactのsummary()を取得
+        summary_text = str(ci.summary())
+        lines = [l for l in summary_text.split('\n') if l.strip()]
+        
+        results_data = []
+        
+        # p値を抽出
+        p_value = None
+        for line in lines:
+            if 'Posterior tail-area probability p:' in line:
+                p_match = re.search(r'p:\s+([0-9.]+)', line)
+                if p_match:
+                    p_value = float(p_match.group(1))
+                    break
+        
+        # テキスト解析で日本語固定変換
+        for line in lines[1:]:  # ヘッダー行をスキップ
+            if not line.strip():
+                continue
+                
+            parts = re.split(r'\s{2,}', line.strip())
+            if len(parts) >= 2:
+                item_name = parts[0]
+                avg_value = parts[1] if len(parts) > 1 else ""
+                cum_value = parts[2] if len(parts) > 2 else avg_value
+                
+                # 日本語固定変換辞書
+                translation_dict = {
+                    'Actual': content['table_actual'],
+                    'Predicted': content['table_predicted'],
+                    'AbsEffect': content['table_absolute_effect'],
+                    'RelEffect': content['table_relative_effect']
+                }
+                
+                translated_name = translation_dict.get(item_name, item_name)
+                
+                # 相対効果の%変換
+                if 'rel' in translated_name.lower() or '相対効果' in translated_name or 'relative' in translated_name.lower():
+                    if '[' in avg_value and ']' in avg_value and '%' not in avg_value:
+                        # 信頼区間の%変換
+                        matches = re.findall(r'[-+]?[0-9]*\.?[0-9]+', avg_value)
+                        if len(matches) >= 2:
+                            lower = float(matches[0]) * 100
+                            upper = float(matches[1]) * 100
+                            avg_value = f"[{lower:.1f}%, {upper:.1f}%]"
+                            cum_value = avg_value
+                    elif '%' not in avg_value:
+                        try:
+                            rel_val = float(avg_value) * 100
+                            avg_value = f"{rel_val:.1f}%"
+                            cum_value = avg_value
+                        except:
+                            pass
+                
+                results_data.append([translated_name, avg_value, cum_value])
+        
+        # p値を追加
+        if p_value is not None:
+            results_data.append([content['table_p_value'], f"{p_value:.4f}", f"{p_value:.4f}"])
+        
+        # DataFrameを作成（日本語固定）
+        columns = [
+            content['table_indicator'],
+            content['table_avg_analysis_period'], 
+            content['table_total_analysis_period']
+        ]
+        df_result = pd.DataFrame(results_data, columns=columns)
+        
+        return df_result
+        
+    except Exception as e:
+        print(f"Error in build_app_text_based_summary_table: {e}")
+        return build_app_guaranteed_japanese_table(ci, confidence_level)
+
+def build_app_guaranteed_japanese_table(ci, confidence_level=95):
+    """
+    アプリ画面用：最終フォールバック - 確実な日本語表記テーブル
+    """
+    try:
+        import pandas as pd
+        
+        # 基本的なダミーデータ（日本語固定）
+        results_data = [
+            ['実測値', '---', '---'],
+            ['予測値', '---', '---'],
+            [f'予測値 {confidence_level}% 信頼区間', '---', '---'],
+            ['絶対効果', '---', '---'],
+            ['相対効果', '---', '---'],
+            ['p値', '---', '---']
+        ]
+        
+        df_result = pd.DataFrame(results_data, columns=['指標', '分析期間の平均値', '分析期間の累積値'])
+        
+        return df_result
+        
+    except Exception as e:
+        print(f"Error in build_app_guaranteed_japanese_table: {e}")
+        return None
+
 def build_unified_summary_table(ci, confidence_level=95):
     """
     CausalImpactのsummary()出力を直接使用して統一した分析結果テーブルを生成する関数（多言語対応）
     詳細レポート、分析結果概要、CSV出力で同じ数値を使用して一貫性を保つ
+    ※PDF出力専用（アプリ画面表示は build_app_summary_table を使用）
     
     Parameters:
     -----------
@@ -654,8 +913,8 @@ def build_two_group_text_based_summary_table(ci, confidence_level=95):
 
 def build_enhanced_summary_table(ci, confidence_level=95):
     """
-    CausalImpactの分析結果を見やすい表形式で整理する関数
-    統一関数を優先使用し、確実に日本語表記で表示
+    CausalImpactの分析結果を見やすい表形式で整理する関数（アプリ画面表示用）
+    アプリ画面では常に日本語表記を使用
     
     Parameters:
     -----------
@@ -667,15 +926,15 @@ def build_enhanced_summary_table(ci, confidence_level=95):
     Returns:
     --------
     pandas.DataFrame
-        整形された分析結果テーブル（日本語表記）
+        整形された分析結果テーブル（日本語固定）
     """
     try:
-        # 統一関数を使用（日本語表記保証）
-        unified_result = build_unified_summary_table(ci, confidence_level)
-        if unified_result is not None and not unified_result.empty:
-            return unified_result
+        # アプリ画面用の日本語固定関数を使用
+        app_result = build_app_summary_table(ci, confidence_level)
+        if app_result is not None and not app_result.empty:
+            return app_result
     except Exception as e:
-        print(f"Unified function error: {e}")
+        print(f"App summary function error: {e}")
     
     # 統一関数が失敗した場合でも日本語表記を保証する独自実装
     try:
