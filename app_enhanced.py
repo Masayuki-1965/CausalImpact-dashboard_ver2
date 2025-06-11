@@ -2161,72 +2161,7 @@ if st.session_state.get(SESSION_KEYS['ANALYSIS_COMPLETED'], False) and st.sessio
                 except:
                     st.error("グラフの表示に失敗しました。")
         
-        # --- 分析結果の解釈と品質評価（統合版） ---
-        with st.expander("分析結果の解釈と品質評価", expanded=False):
-            # 分析手法の説明（簡潔版）
-            st.markdown("**📊 分析手法と解釈のポイント**")
-            if current_analysis_type == "単群推定（処置群のみを使用）":
-                st.markdown("""
-- **手法**：介入前のトレンドから「介入がなかった場合」の予測値を推定し実測値と比較
-- **制約**：対照群がないため外部要因の影響も効果として計測される可能性があり、結果の解釈には注意が必要
-- **判断**：信頼区間が0を含まない場合に統計的に有意、実用的な効果サイズも併せて判断
-                """)
-            else:
-                st.markdown("""
-- **手法**：対照群との関係から「介入がなかった場合」の処置群予測値を算出し実測値と比較
-- **利点**：対照群により外部要因の影響を適切に除去し、より信頼性の高い因果効果を推定
-- **判断**：信頼区間が0を含まない場合に統計的に有意、効果の持続性・安定性も確認
-                """)
-            
-            st.markdown("**🔍 分析品質の評価**")
-            # 分析品質のチェック項目
-            quality_items = []
-            
-            # データ量の評価
-            analysis_period = st.session_state.get('analysis_period', {})
-            if analysis_period:
-                try:
-                    dataset = st.session_state.get('dataset')
-                    if dataset is not None:
-                        dataset_dates = pd.to_datetime(dataset['ymd']).dt.date
-                        pre_mask = (dataset_dates >= analysis_period['pre_start']) & (dataset_dates <= analysis_period['pre_end'])
-                        post_mask = (dataset_dates >= analysis_period['post_start']) & (dataset_dates <= analysis_period['post_end'])
-                        pre_count = pre_mask.sum()
-                        post_count = post_mask.sum()
-                        total_count = pre_count + post_count
-                        
-                        # データ量評価
-                        if current_analysis_type == "単群推定（処置群のみを使用）":
-                            if total_count >= 36:
-                                quality_items.append(["✅", "データ量", f"{total_count}件（推奨36件以上）"])
-                            else:
-                                quality_items.append(["⚠️", "データ量", f"{total_count}件（推奨36件以上に不足）"])
-                        else:
-                            if total_count >= 24:
-                                quality_items.append(["✅", "データ量", f"{total_count}件（推奨24件以上）"])
-                            else:
-                                quality_items.append(["⚠️", "データ量", f"{total_count}件（推奨24件以上に不足）"])
-                        
-                        # 介入前期間比率の評価（単群のみ）
-                        if current_analysis_type == "単群推定（処置群のみを使用）" and total_count > 0:
-                            pre_ratio = pre_count / total_count * 100
-                            if pre_ratio >= 60:
-                                quality_items.append(["✅", "介入前期間比率", f"{pre_ratio:.1f}%（推奨60%以上）"])
-                            else:
-                                quality_items.append(["⚠️", "介入前期間比率", f"{pre_ratio:.1f}%（推奨60%以上）"])
-                except Exception as e:
-                    quality_items.append(["❌", "データ評価", "期間データの評価でエラーが発生"])
-            
-            # 分析タイプ別の評価
-            if current_analysis_type == "単群推定（処置群のみを使用）":
-                quality_items.append(["ℹ️", "分析手法", "単群推定（外部要因の影響に注意）"])
-            else:
-                quality_items.append(["✅", "分析手法", "二群比較（外部要因の統制可能）"])
-            
-            # 品質評価テーブルの表示
-            if quality_items:
-                quality_df = pd.DataFrame(quality_items, columns=['評価', '項目', '詳細'])
-                st.dataframe(quality_df, use_container_width=True, hide_index=True)
+
         
         # --- ダウンロード機能（Phase 3.3実装） ---
         st.markdown('<div class="section-title">結果のダウンロード</div>', unsafe_allow_html=True)

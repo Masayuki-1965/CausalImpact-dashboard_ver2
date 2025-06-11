@@ -31,8 +31,8 @@ def get_app_content():
         'table_actual': '実測値',
         'table_predicted': '予測値',
         'table_predicted_ci': '予測値 {}% 信頼区間',
-        'table_absolute_effect': '絶対効果',
-        'table_relative_effect': '相対効果',
+        'table_absolute_effect': '絶対効果（実測値 − 予測値）',
+        'table_relative_effect': '相対効果（絶対効果 ÷ 予測値）',
         'table_p_value': 'p値',
         
         # グラフ説明文
